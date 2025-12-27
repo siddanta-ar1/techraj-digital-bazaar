@@ -1,33 +1,44 @@
 // src/components/dashboard/DashboardNav.tsx
-'use client'
+"use client";
 
-import { useState } from 'react'
-import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { Menu, X, LogOut, Home, User, Settings } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  Menu,
+  X,
+  LogOut,
+  Home,
+  User,
+  Settings,
+  Icon,
+  HdIcon,
+  NfcIcon,
+  GoalIcon,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 interface NavItem {
-  name: string
-  href: string
-  icon: React.ComponentType<{ className?: string }>
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
 }
 
 interface DashboardNavProps {
-  navItems: NavItem[]
+  navItems: NavItem[];
 }
 
 export default function DashboardNav({ navItems }: DashboardNavProps) {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
-  const pathname = usePathname()
-  const router = useRouter()
-  const supabase = createClient()
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
+  const supabase = createClient();
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
-  }
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 bg-white border-b border-slate-200 z-50 shadow-sm">
@@ -38,28 +49,31 @@ export default function DashboardNav({ navItems }: DashboardNavProps) {
             <Link href="/" className="text-xl font-bold text-indigo-600">
               TronlineBazar
             </Link>
-            <span className="ml-2 text-sm text-slate-500 hidden md:inline">Dashboard</span>
+            <span className="ml-2 text-sm text-slate-500 hidden md:inline">
+              Dashboard
+            </span>
           </div>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-2">
             {navItems.map((item) => {
-              const Icon = item.icon
-              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
+              const Icon = item.icon;
+              const isActive =
+                pathname === item.href || pathname.startsWith(`${item.href}/`);
               return (
                 <Link
                   key={item.name}
                   href={item.href}
                   className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-indigo-50 text-indigo-700'
-                      : 'text-slate-700 hover:bg-slate-100'
+                      ? "bg-indigo-50 text-indigo-700"
+                      : "text-slate-700 hover:bg-slate-100"
                   }`}
                 >
-                  <Icon className="h-4 w-4 mr-2" />
+                  <HdIcon className="h-4 w-4 mr-2" />
                   {item.name}
                 </Link>
-              )
+              );
             })}
 
             {/* User Menu */}
@@ -119,8 +133,10 @@ export default function DashboardNav({ navItems }: DashboardNavProps) {
           <div className="md:hidden border-t border-slate-200 py-4">
             <div className="space-y-2">
               {navItems.map((item) => {
-                const Icon = item.icon
-                const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
+                const Icon = item.icon;
+                const isActive =
+                  pathname === item.href ||
+                  pathname.startsWith(`${item.href}/`);
                 return (
                   <Link
                     key={item.name}
@@ -128,14 +144,14 @@ export default function DashboardNav({ navItems }: DashboardNavProps) {
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={`flex items-center px-4 py-3 rounded-lg text-base font-medium ${
                       isActive
-                        ? 'bg-indigo-50 text-indigo-700'
-                        : 'text-slate-700 hover:bg-slate-100'
+                        ? "bg-indigo-50 text-indigo-700"
+                        : "text-slate-700 hover:bg-slate-100"
                     }`}
                   >
-                    <Icon className="h-5 w-5 mr-3" />
+                    <GoalIcon className="h-5 w-5 mr-3" />
                     {item.name}
                   </Link>
-                )
+                );
               })}
               <div className="border-t border-slate-200 pt-4">
                 <Link
@@ -148,8 +164,8 @@ export default function DashboardNav({ navItems }: DashboardNavProps) {
                 </Link>
                 <button
                   onClick={() => {
-                    handleSignOut()
-                    setIsMobileMenuOpen(false)
+                    handleSignOut();
+                    setIsMobileMenuOpen(false);
                   }}
                   className="w-full flex items-center px-4 py-3 rounded-lg text-base font-medium text-red-600 hover:bg-slate-100"
                 >
@@ -162,5 +178,5 @@ export default function DashboardNav({ navItems }: DashboardNavProps) {
         )}
       </div>
     </nav>
-  )
+  );
 }

@@ -1,44 +1,30 @@
-'use client'
-import { X, Zap } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { createClient } from "@/lib/supabase/server";
+import { Megaphone, X } from "lucide-react";
 
-export function InboxBanner() {
-  const [isVisible, setIsVisible] = useState(true)
-  const [mounted, setMounted] = useState(false)
+export async function InboxBanner() {
+  const supabase = await createClient();
 
-  useEffect(() => {
-    setMounted(true)
-    const hidden = sessionStorage.getItem('inbox-banner-hidden')
-    if (hidden) setIsVisible(false)
-  }, [])
+  // Fetch settings
+  const { data } = await supabase
+    .from("site_settings")
+    .select("value")
+    .eq("key", "announcement")
+    .single();
 
-  const handleClose = () => {
-    setIsVisible(false)
-    sessionStorage.setItem('inbox-banner-hidden', 'true')
+  const bannerSettings = data?.value || { active: false, text: "" };
+
+  if (!bannerSettings.active || !bannerSettings.text) {
+    return null;
   }
 
-  // Prevent hydration mismatch by not rendering anything different until mounted
-  if (!mounted) return <div className="h-0" /> 
-  if (!isVisible) return null
-
   return (
-    <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white relative z-[60]">
+    <div className="bg-slate-900 text-white relative z-50">
       <div className="container mx-auto px-4 py-2">
-        <div className="flex items-center justify-between text-xs md:text-sm">
-          <div className="flex items-center gap-2 mx-auto md:mx-0">
-            <span className="bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
-              NEW
-            </span>
-            <span className="font-medium">Get 20% Extra Diamonds on FreeFire Top-ups this week!</span>
-          </div>
-          <button 
-            onClick={handleClose}
-            className="hidden md:block p-1 hover:bg-white/20 rounded-full transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+        <div className="flex items-center justify-center text-xs md:text-sm font-medium gap-2 text-center">
+          <Megaphone className="w-4 h-4 text-amber-400 hidden md:block" />
+          <p>{bannerSettings.text}</p>
         </div>
       </div>
     </div>
-  )
+  );
 }
