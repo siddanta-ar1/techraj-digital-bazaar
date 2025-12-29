@@ -1,74 +1,89 @@
-'use client'
+"use client";
 
-import { useCart } from '@/contexts/CartContext'
-import { useAuth } from '@/lib/providers/AuthProvider'
-import { ShoppingBag, Wallet, AlertCircle } from 'lucide-react'
-import Link from 'next/link'
+import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/lib/providers/AuthProvider";
+import { ShoppingBag, Wallet, AlertCircle, CheckCircle2 } from "lucide-react";
+import Link from "next/link";
 
 export default function CartSummary() {
-  const { totalPrice, totalItems, items } = useCart()
-  const { user } = useAuth()
+  const { totalPrice, totalItems, items } = useCart();
+  const { user } = useAuth();
 
-  const deliveryFee = 0 // Digital products have no delivery fee
-  const taxAmount = 0 // Assuming no tax for digital products
-  const grandTotal = totalPrice + deliveryFee + taxAmount
-
-  const hasWallet = user?.wallet_balance ? user.wallet_balance >= grandTotal : false
+  const deliveryFee = 0;
+  const taxAmount = 0;
+  const grandTotal = totalPrice + deliveryFee + taxAmount;
+  const hasWallet = user?.wallet_balance
+    ? user.wallet_balance >= grandTotal
+    : false;
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
-      <h2 className="text-lg font-semibold text-slate-900 mb-6 pb-4 border-b flex items-center gap-2">
-        <ShoppingBag className="h-5 w-5 text-indigo-600" />
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 sm:p-6 sticky top-24">
+      <h2 className="text-lg font-bold text-slate-900 mb-6 pb-4 border-b border-slate-100 flex items-center gap-2">
         Order Summary
       </h2>
 
       {/* Price Breakdown */}
       <div className="space-y-3 mb-6">
-        <div className="flex justify-between text-slate-600">
+        <div className="flex justify-between text-slate-600 text-sm">
           <span>Subtotal ({totalItems} items)</span>
-          <span className="font-medium">Rs. {totalPrice.toFixed(2)}</span>
+          <span className="font-semibold text-slate-900">
+            Rs. {totalPrice.toFixed(2)}
+          </span>
         </div>
-        <div className="flex justify-between text-slate-600">
+        <div className="flex justify-between text-slate-600 text-sm">
           <span>Delivery Fee</span>
-          <span className="font-medium">Rs. {deliveryFee.toFixed(2)}</span>
+          <span className="text-emerald-600 font-medium">Free</span>
         </div>
-        <div className="flex justify-between text-slate-600">
-          <span>Tax</span>
-          <span className="font-medium">Rs. {taxAmount.toFixed(2)}</span>
-        </div>
-        <div className="pt-3 border-t">
-          <div className="flex justify-between text-lg font-bold text-slate-900">
-            <span>Total</span>
-            <span>Rs. {grandTotal.toFixed(2)}</span>
+        <div className="pt-3 border-t border-slate-100 mt-3">
+          <div className="flex justify-between items-end">
+            <span className="text-slate-900 font-bold">Total</span>
+            <div className="text-right">
+              <span className="block text-xl font-black text-indigo-600">
+                Rs. {grandTotal.toFixed(2)}
+              </span>
+              <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">
+                Includes all taxes
+              </span>
+            </div>
           </div>
-          <p className="text-sm text-slate-500 mt-1">All prices in NPR</p>
         </div>
       </div>
 
       {/* Wallet Balance */}
       {user && (
-        <div className="mb-6 p-4 bg-indigo-50 rounded-lg">
+        <div
+          className={`mb-6 p-4 rounded-lg border ${hasWallet ? "bg-emerald-50 border-emerald-100" : "bg-amber-50 border-amber-100"}`}
+        >
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <Wallet className="h-4 w-4 text-indigo-600" />
-              <span className="text-sm font-medium text-slate-700">Wallet Balance</span>
+              <Wallet
+                className={`h-4 w-4 ${hasWallet ? "text-emerald-600" : "text-amber-600"}`}
+              />
+              <span
+                className={`text-sm font-bold ${hasWallet ? "text-emerald-800" : "text-amber-800"}`}
+              >
+                Wallet Balance
+              </span>
             </div>
-            <span className="font-bold text-indigo-700">
-              Rs. {user.wallet_balance?.toFixed(2) || '0.00'}
+            <span
+              className={`font-bold ${hasWallet ? "text-emerald-700" : "text-amber-700"}`}
+            >
+              Rs. {user.wallet_balance?.toFixed(2) || "0.00"}
             </span>
           </div>
-          
-          {hasWallet && (
-            <div className="flex items-center gap-2 text-sm text-green-600 mt-2">
-              <AlertCircle className="h-4 w-4" />
-              <span>Sufficient balance for this purchase</span>
+
+          {hasWallet ? (
+            <div className="flex items-center gap-1.5 text-xs text-emerald-700 mt-1 font-medium">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              <span>Balance sufficient</span>
             </div>
-          )}
-          
-          {!hasWallet && totalPrice > 0 && (
-            <div className="flex items-center gap-2 text-sm text-amber-600 mt-2">
-              <AlertCircle className="h-4 w-4" />
-              <span>Insufficient wallet balance</span>
+          ) : (
+            <div className="flex items-center gap-1.5 text-xs text-amber-700 mt-1 font-medium">
+              <AlertCircle className="h-3.5 w-3.5" />
+              <span>
+                Top-up needed (Rs.{" "}
+                {(grandTotal - (user.wallet_balance || 0)).toFixed(2)} more)
+              </span>
             </div>
           )}
         </div>
@@ -77,46 +92,32 @@ export default function CartSummary() {
       {/* Checkout Button */}
       <Link
         href="/checkout"
-        className={`w-full block text-center py-3 px-4 rounded-lg font-semibold transition-colors
-          ${items.length === 0
-            ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
-            : 'bg-indigo-600 text-white hover:bg-indigo-700'
+        className={`w-full flex items-center justify-center py-3.5 px-4 rounded-xl font-bold transition-all shadow-lg shadow-indigo-200
+          ${
+            items.length === 0
+              ? "bg-slate-100 text-slate-400 cursor-not-allowed shadow-none"
+              : "bg-indigo-600 text-white hover:bg-indigo-700 hover:scale-[1.02] active:scale-[0.98]"
           }`}
       >
-        {items.length === 0 ? 'Cart is Empty' : 'Proceed to Checkout'}
+        {items.length === 0 ? "Cart is Empty" : "Proceed to Checkout"}
       </Link>
 
       {/* Payment Methods */}
-      <div className="mt-6 pt-6 border-t">
-        <p className="text-sm text-slate-600 mb-3">Accepted Payment Methods</p>
+      <div className="mt-6 pt-6 border-t border-slate-100">
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+          We Accept
+        </p>
         <div className="flex gap-2">
-          <div className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded">
-            Esewa
-          </div>
-          <div className="px-3 py-1 bg-green-50 text-green-700 text-xs font-medium rounded">
-            Wallet
-          </div>
-          <div className="px-3 py-1 bg-purple-50 text-purple-700 text-xs font-medium rounded">
-            Bank Transfer
-          </div>
+          {["Esewa", "Khalti", "Bank Transfer"].map((method) => (
+            <div
+              key={method}
+              className="px-3 py-1.5 bg-slate-50 text-slate-600 text-[10px] font-bold uppercase rounded border border-slate-200"
+            >
+              {method}
+            </div>
+          ))}
         </div>
       </div>
-
-      {/* Security Info */}
-      <div className="mt-6 text-xs text-slate-500 space-y-2">
-        <p className="flex items-start gap-2">
-          <span className="text-green-600">✓</span>
-          <span>Secure SSL encryption for all transactions</span>
-        </p>
-        <p className="flex items-start gap-2">
-          <span className="text-green-600">✓</span>
-          <span>Instant delivery for auto-delivery products</span>
-        </p>
-        <p className="flex items-start gap-2">
-          <span className="text-green-600">✓</span>
-          <span>24/7 customer support via WhatsApp</span>
-        </p>
-      </div>
     </div>
-  )
+  );
 }

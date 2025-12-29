@@ -1,151 +1,219 @@
-import { Metadata } from 'next'
-import { CheckCircle2, Package, MessageSquare, Download, Home, ShoppingBag } from 'lucide-react'
-import Link from 'next/link'
+import { Metadata } from "next";
+import {
+  CheckCircle2,
+  Package,
+  MessageSquare,
+  Download,
+  Home,
+  ShoppingBag,
+  ArrowRight,
+  Clock,
+  ShieldCheck,
+} from "lucide-react";
+import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: 'Order Confirmed - Tronline Bazar',
-  description: 'Your order has been successfully placed',
-}
+  title: "Order Confirmed - Tronline Bazar",
+  description: "Your order has been successfully placed",
+};
 
 export default function CheckoutSuccessPage({
   searchParams,
 }: {
-  searchParams: { orderId?: string }
+  searchParams: { orderId?: string };
 }) {
-  const orderId = searchParams.orderId || 'TR-' + Date.now()
+  const orderId = searchParams.orderId || "TR-" + Date.now();
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white py-12">
-      <div className="container mx-auto px-4 max-w-3xl">
+    <div className="min-h-screen bg-slate-50 py-12">
+      <div className="container mx-auto px-4 max-w-4xl">
         {/* Success Header */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-6">
-            <CheckCircle2 className="h-12 w-12 text-green-600" />
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-emerald-100 rounded-full mb-6 shadow-sm ring-4 ring-emerald-50">
+            <CheckCircle2 className="h-10 w-10 text-emerald-600" />
           </div>
-          <h1 className="text-4xl font-bold text-slate-900 mb-3">Order Confirmed!</h1>
-          <p className="text-lg text-slate-600">
-            Thank you for your purchase. Your order #{orderId} has been received.
+          <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-3 tracking-tight">
+            Order Confirmed!
+          </h1>
+          <p className="text-lg text-slate-600 max-w-lg mx-auto">
+            Thank you for your purchase. Your order{" "}
+            <span className="font-mono font-bold text-slate-800">
+              #{orderId}
+            </span>{" "}
+            has been received.
           </p>
         </div>
 
         {/* Order Details Card */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
-          <div className="grid md:grid-cols-2 gap-8">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                <Package className="h-5 w-5 text-indigo-600" />
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8">
+          <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+            {/* What's Next Section */}
+            <div className="p-8">
+              <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+                <div className="p-2 bg-indigo-50 rounded-lg">
+                  <Package className="h-5 w-5 text-indigo-600" />
+                </div>
                 What's Next?
               </h3>
-              <ul className="space-y-3 text-slate-700">
-                <li className="flex items-start gap-3">
-                  <div className="w-2 h-2 bg-indigo-600 rounded-full mt-2 flex-shrink-0"></div>
-                  <span>You'll receive an email confirmation shortly</span>
+              <ul className="space-y-6">
+                <li className="flex gap-4">
+                  <div className="flex flex-col items-center">
+                    <div className="w-2 h-2 bg-indigo-600 rounded-full mt-2 ring-4 ring-indigo-50"></div>
+                    <div className="w-0.5 h-full bg-slate-100 mt-2"></div>
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-900">
+                      Order Confirmation
+                    </p>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                      We've sent a confirmation email with invoice.
+                    </p>
+                  </div>
                 </li>
-                <li className="flex items-start gap-3">
-                  <div className="w-2 h-2 bg-indigo-600 rounded-full mt-2 flex-shrink-0"></div>
-                  <span>For auto-delivery products, check your email inbox</span>
+                <li className="flex gap-4">
+                  <div className="flex flex-col items-center">
+                    <div className="w-2 h-2 bg-slate-300 rounded-full mt-2"></div>
+                    <div className="w-0.5 h-full bg-slate-100 mt-2"></div>
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-900">Processing</p>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                      Auto-delivery items are sent instantly. Manual items take
+                      1-2 hours.
+                    </p>
+                  </div>
                 </li>
-                <li className="flex items-start gap-3">
-                  <div className="w-2 h-2 bg-indigo-600 rounded-full mt-2 flex-shrink-0"></div>
-                  <span>Manual delivery products will be processed within 1-2 hours</span>
+                <li className="flex gap-4">
+                  <div className="flex flex-col items-center">
+                    <div className="w-2 h-2 bg-slate-300 rounded-full mt-2"></div>
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-900">Completion</p>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                      You'll be notified once delivery is complete.
+                    </p>
+                  </div>
                 </li>
               </ul>
             </div>
 
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                <MessageSquare className="h-5 w-5 text-indigo-600" />
+            {/* Support Section */}
+            <div className="p-8 bg-slate-50/50">
+              <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+                <div className="p-2 bg-emerald-50 rounded-lg">
+                  <MessageSquare className="h-5 w-5 text-emerald-600" />
+                </div>
                 Need Help?
               </h3>
-              <ul className="space-y-3 text-slate-700">
-                <li className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <MessageSquare className="h-4 w-4 text-green-600" />
+              <div className="space-y-4">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-emerald-200 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <MessageSquare className="h-5 w-5 text-emerald-600" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-slate-900">
+                        WhatsApp Support
+                      </div>
+                      <div className="text-sm text-slate-500">
+                        +977 9846908072
+                      </div>
+                    </div>
+                    <a
+                      href="https://wa.me/9779846908072"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-auto text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full hover:bg-emerald-100 transition-colors"
+                    >
+                      Chat Now
+                    </a>
                   </div>
-                  <div>
-                    <div className="font-medium">WhatsApp Support</div>
-                    <div className="text-sm text-slate-500">+977 9846908072</div>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-blue-200 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <Package className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-slate-900">
+                        Track Order
+                      </div>
+                      <div className="text-sm text-slate-500">
+                        Check status in dashboard
+                      </div>
+                    </div>
+                    <Link
+                      href="/dashboard/orders"
+                      className="ml-auto text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors"
+                    >
+                      Track
+                    </Link>
                   </div>
-                </li>
-                <li className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Package className="h-4 w-4 text-blue-600" />
-                  </div>
-                  <div>
-                    <div className="font-medium">Order Status</div>
-                    <div className="text-sm text-slate-500">Track in your dashboard</div>
-                  </div>
-                </li>
-              </ul>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Order Actions */}
-          <div className="mt-8 pt-8 border-t grid sm:grid-cols-2 gap-4">
+          {/* Action Buttons */}
+          <div className="p-6 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/dashboard/orders"
-              className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+              className="inline-flex items-center justify-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20 active:scale-[0.98]"
             >
-              <ShoppingBag className="h-5 w-5" />
-              View My Orders
+              <ShoppingBag className="h-4 w-4" />
+              View My Order
             </Link>
-            
+
             <Link
               href="/"
-              className="flex items-center justify-center gap-2 bg-white text-slate-700 px-6 py-3 rounded-lg font-semibold border border-slate-300 hover:bg-slate-50 transition-colors"
+              className="inline-flex items-center justify-center gap-2 bg-white text-slate-700 px-6 py-3 rounded-xl font-bold border border-slate-300 hover:bg-slate-50 hover:border-slate-400 transition-all active:scale-[0.98]"
             >
-              <Home className="h-5 w-5" />
-              Continue Shopping
+              <Home className="h-4 w-4" />
+              Return to Home
             </Link>
           </div>
         </div>
 
-        {/* Additional Information */}
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Important Information</h3>
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                title: 'Delivery Time',
-                desc: 'Auto-delivery: Instant\nManual delivery: 1-2 hours',
-                icon: Package,
-                color: 'text-blue-600',
-                bg: 'bg-blue-50'
-              },
-              {
-                title: 'Payment Status',
-                desc: 'Wallet: Instant\nEsewa/Bank: Verify screenshot',
-                icon: CheckCircle2,
-                color: 'text-green-600',
-                bg: 'bg-green-50'
-              },
-              {
-                title: 'Support',
-                desc: '24/7 WhatsApp support\nEmail: support@tronlinebazar.com',
-                icon: MessageSquare,
-                color: 'text-purple-600',
-                bg: 'bg-purple-50'
-              }
-            ].map((item, index) => (
-              <div key={index} className="text-center p-6 rounded-xl border">
-                <div className={`inline-flex items-center justify-center w-12 h-12 ${item.bg} ${item.color} rounded-full mb-4`}>
-                  <item.icon className="h-6 w-6" />
-                </div>
-                <h4 className="font-semibold text-slate-900 mb-2">{item.title}</h4>
-                <p className="text-sm text-slate-600 whitespace-pre-line">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Download Invoice Button */}
-        <div className="mt-8 text-center">
-          <button className="inline-flex items-center gap-2 text-indigo-600 hover:text-indigo-700 font-medium">
-            <Download className="h-5 w-5" />
-            Download Invoice (Available in 5 minutes)
-          </button>
+        {/* Info Grid */}
+        <div className="grid md:grid-cols-3 gap-6">
+          <InfoCard
+            icon={Clock}
+            color="text-amber-600"
+            bg="bg-amber-50"
+            title="Delivery Time"
+            desc="Auto-delivery is instant. Manual verification takes 1-2 hours max."
+          />
+          <InfoCard
+            icon={ShieldCheck}
+            color="text-emerald-600"
+            bg="bg-emerald-50"
+            title="Secure Transaction"
+            desc="Your payment is secured. Screenshots are verified manually by staff."
+          />
+          <InfoCard
+            icon={Download}
+            color="text-indigo-600"
+            bg="bg-indigo-50"
+            title="Invoice"
+            desc="A digital invoice has been sent to your registered email address."
+          />
         </div>
       </div>
     </div>
-  )
+  );
+}
+
+function InfoCard({ icon: Icon, color, bg, title, desc }: any) {
+  return (
+    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm text-center hover:shadow-md transition-shadow">
+      <div
+        className={`inline-flex items-center justify-center w-12 h-12 ${bg} ${color} rounded-xl mb-4`}
+      >
+        <Icon className="h-6 w-6" />
+      </div>
+      <h4 className="font-bold text-slate-900 mb-2">{title}</h4>
+      <p className="text-sm text-slate-600 leading-relaxed">{desc}</p>
+    </div>
+  );
 }

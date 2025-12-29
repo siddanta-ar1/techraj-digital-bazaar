@@ -6,7 +6,6 @@ import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/lib/providers/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
 import {
-  CreditCard,
   Wallet,
   Building,
   Upload,
@@ -14,9 +13,11 @@ import {
   Shield,
   CheckCircle2,
   QrCode,
+  Smartphone,
+  ChevronRight,
+  Loader2,
 } from "lucide-react";
 import OrderSummary from "@/components/checkout/OrderSummary";
-import Image from "next/image";
 
 type PaymentMethod = "wallet" | "esewa" | "bank_transfer";
 
@@ -41,37 +42,29 @@ export default function CheckoutClient() {
     additionalNotes: "",
   });
 
-  // New Manual Payment States
   const [manualAmountPaid, setManualAmountPaid] = useState("");
   const [transactionId, setTransactionId] = useState("");
   const [paymentScreenshot, setPaymentScreenshot] = useState<File | null>(null);
-
   const [isProcessing, setIsProcessing] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (items.length === 0) {
-      router.push("/cart");
-    }
+    if (items.length === 0) router.push("/cart");
   }, [items, router]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-
     if (!deliveryDetails.contactEmail) newErrors.email = "Email is required";
     if (!deliveryDetails.contactPhone) newErrors.phone = "Phone is required";
 
-    // Manual Payment Validation
     if (paymentMethod !== "wallet") {
       if (!paymentScreenshot)
         newErrors.screenshot = "Payment screenshot is required";
       if (!manualAmountPaid)
         newErrors.amount = "Please enter the amount you paid";
-      // Simple check if user paid enough (allow small margin of error if needed, but here strict)
       if (Number(manualAmountPaid) < totalPrice)
         newErrors.amount = `Amount must be at least Rs. ${totalPrice}`;
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -81,25 +74,18 @@ export default function CheckoutClient() {
     if (!validateForm()) return;
 
     setIsProcessing(true);
-
     try {
       let screenshotUrl = "";
-
-      // Upload logic for manual payments
       if (paymentMethod !== "wallet" && paymentScreenshot) {
         const fileExt = paymentScreenshot.name.split(".").pop();
         const fileName = `${user?.id}_${Date.now()}.${fileExt}`;
-
         const { error: uploadError } = await supabase.storage
           .from("payment-screenshots")
           .upload(fileName, paymentScreenshot);
-
         if (uploadError) throw uploadError;
-
         const {
           data: { publicUrl },
         } = supabase.storage.from("payment-screenshots").getPublicUrl(fileName);
-
         screenshotUrl = publicUrl;
       }
 
@@ -147,241 +133,270 @@ export default function CheckoutClient() {
 
   return (
     <form onSubmit={handleSubmit} className="max-w-6xl mx-auto pb-12">
-      <div className="grid lg:grid-cols-3 gap-8">
+      <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
         {/* LEFT COLUMN */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-6 lg:space-y-8">
           {/* 1. Contact Info */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 text-xs">
-                1
-              </span>
-              Contact Information
-            </h3>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Email Address
+          <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-3">
+                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-600 text-white text-sm font-bold shadow-sm shadow-indigo-200">
+                  1
+                </span>
+                Contact Information
+              </h3>
+            </div>
+            <div className="p-6 grid md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">
+                  Email Address <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="email"
                   value={deliveryDetails.contactEmail}
                   onChange={(e) =>
-                    setDeliveryDetails((prev) => ({
-                      ...prev,
+                    setDeliveryDetails((p) => ({
+                      ...p,
                       contactEmail: e.target.value,
                     }))
                   }
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
                   placeholder="name@example.com"
                 />
                 {errors.email && (
-                  <p className="text-xs text-red-500 mt-1">{errors.email}</p>
+                  <p className="text-xs text-red-500 font-medium">
+                    {errors.email}
+                  </p>
                 )}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  WhatsApp / Phone
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">
+                  Phone / WhatsApp <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="tel"
                   value={deliveryDetails.contactPhone}
                   onChange={(e) =>
-                    setDeliveryDetails((prev) => ({
-                      ...prev,
+                    setDeliveryDetails((p) => ({
+                      ...p,
                       contactPhone: e.target.value,
                     }))
                   }
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
                   placeholder="+977 98..."
                 />
                 {errors.phone && (
-                  <p className="text-xs text-red-500 mt-1">{errors.phone}</p>
+                  <p className="text-xs text-red-500 font-medium">
+                    {errors.phone}
+                  </p>
                 )}
               </div>
             </div>
-          </div>
+          </section>
 
           {/* 2. Payment Method */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 text-xs">
-                2
-              </span>
-              Payment Method
-            </h3>
-
-            <div className="grid gap-3 mb-6">
-              {/* Wallet Option */}
-              <div
-                onClick={() => setPaymentMethod("wallet")}
-                className={`cursor-pointer p-4 rounded-xl border-2 transition-all ${
-                  paymentMethod === "wallet"
-                    ? "border-indigo-600 bg-indigo-50"
-                    : "border-slate-100 hover:border-indigo-200"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white rounded-lg shadow-sm">
-                      <Wallet className="h-6 w-6 text-indigo-600" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-slate-900">My Wallet</p>
-                      <p className="text-sm text-slate-500">
-                        Balance: Rs.{" "}
-                        {user?.wallet_balance?.toFixed(2) || "0.00"}
-                      </p>
-                    </div>
-                  </div>
-                  {paymentMethod === "wallet" && (
-                    <CheckCircle2 className="h-6 w-6 text-indigo-600" />
-                  )}
-                </div>
-              </div>
-
-              {/* Esewa Option */}
-              <div
-                onClick={() => setPaymentMethod("esewa")}
-                className={`cursor-pointer p-4 rounded-xl border-2 transition-all ${
-                  paymentMethod === "esewa"
-                    ? "border-green-500 bg-green-50"
-                    : "border-slate-100 hover:border-green-200"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white rounded-lg shadow-sm">
-                      <QrCode className="h-6 w-6 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-slate-900">
-                        Esewa / Manual Transfer
-                      </p>
-                      <p className="text-sm text-slate-500">
-                        Scan QR & Upload Screenshot
-                      </p>
-                    </div>
-                  </div>
-                  {paymentMethod === "esewa" && (
-                    <CheckCircle2 className="h-6 w-6 text-green-600" />
-                  )}
-                </div>
-              </div>
-
-              {/* Bank Transfer */}
-              <div
-                onClick={() => setPaymentMethod("bank_transfer")}
-                className={`cursor-pointer p-4 rounded-xl border-2 transition-all ${
-                  paymentMethod === "bank_transfer"
-                    ? "border-purple-500 bg-purple-50"
-                    : "border-slate-100 hover:border-purple-200"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white rounded-lg shadow-sm">
-                      <Building className="h-6 w-6 text-purple-600" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-slate-900">
-                        Bank Transfer
-                      </p>
-                      <p className="text-sm text-slate-500">
-                        Direct Deposit & Upload Proof
-                      </p>
-                    </div>
-                  </div>
-                  {paymentMethod === "bank_transfer" && (
-                    <CheckCircle2 className="h-6 w-6 text-purple-600" />
-                  )}
-                </div>
-              </div>
+          <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-3">
+                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-600 text-white text-sm font-bold shadow-sm shadow-indigo-200">
+                  2
+                </span>
+                Select Payment Method
+              </h3>
             </div>
 
-            {/* Manual Payment Details Section */}
+            <div className="p-6 space-y-4">
+              {/* Wallet Option */}
+              <label
+                className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  paymentMethod === "wallet"
+                    ? "border-indigo-600 bg-indigo-50/30"
+                    : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="payment"
+                  className="hidden"
+                  checked={paymentMethod === "wallet"}
+                  onChange={() => setPaymentMethod("wallet")}
+                />
+                <div className="flex items-center gap-4 flex-1">
+                  <div
+                    className={`p-3 rounded-full ${paymentMethod === "wallet" ? "bg-indigo-100 text-indigo-600" : "bg-slate-100 text-slate-500"}`}
+                  >
+                    <Wallet className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-slate-900">
+                      My Wallet Balance
+                    </div>
+                    <div className="text-sm text-slate-500 font-medium">
+                      Available: Rs.{" "}
+                      {user?.wallet_balance?.toFixed(2) || "0.00"}
+                    </div>
+                  </div>
+                </div>
+                {paymentMethod === "wallet" && (
+                  <CheckCircle2 className="h-6 w-6 text-indigo-600 animate-in zoom-in" />
+                )}
+              </label>
+
+              {/* Esewa Option */}
+              <label
+                className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  paymentMethod === "esewa"
+                    ? "border-green-500 bg-green-50/30"
+                    : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="payment"
+                  className="hidden"
+                  checked={paymentMethod === "esewa"}
+                  onChange={() => setPaymentMethod("esewa")}
+                />
+                <div className="flex items-center gap-4 flex-1">
+                  <div
+                    className={`p-3 rounded-full ${paymentMethod === "esewa" ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-500"}`}
+                  >
+                    <Smartphone className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-slate-900">
+                      Esewa / Khalti
+                    </div>
+                    <div className="text-sm text-slate-500">
+                      Scan QR code & upload screenshot
+                    </div>
+                  </div>
+                </div>
+                {paymentMethod === "esewa" && (
+                  <CheckCircle2 className="h-6 w-6 text-green-600 animate-in zoom-in" />
+                )}
+              </label>
+
+              {/* Bank Option */}
+              <label
+                className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  paymentMethod === "bank_transfer"
+                    ? "border-purple-500 bg-purple-50/30"
+                    : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="payment"
+                  className="hidden"
+                  checked={paymentMethod === "bank_transfer"}
+                  onChange={() => setPaymentMethod("bank_transfer")}
+                />
+                <div className="flex items-center gap-4 flex-1">
+                  <div
+                    className={`p-3 rounded-full ${paymentMethod === "bank_transfer" ? "bg-purple-100 text-purple-600" : "bg-slate-100 text-slate-500"}`}
+                  >
+                    <Building className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-slate-900">
+                      Bank Transfer
+                    </div>
+                    <div className="text-sm text-slate-500">
+                      Direct deposit & upload receipt
+                    </div>
+                  </div>
+                </div>
+                {paymentMethod === "bank_transfer" && (
+                  <CheckCircle2 className="h-6 w-6 text-purple-600 animate-in zoom-in" />
+                )}
+              </label>
+            </div>
+
+            {/* Manual Payment Section */}
             {(paymentMethod === "esewa" ||
               paymentMethod === "bank_transfer") && (
-              <div className="border-t border-slate-200 pt-6 animate-in fade-in slide-in-from-top-4">
-                <div className="bg-slate-50 rounded-lg p-6 mb-6 text-center">
-                  <p className="text-sm font-medium text-slate-500 mb-2">
-                    Scan to Pay
-                  </p>
-                  {/* QR Code Placeholder - Replace with your actual QR image */}
-                  <div className="mx-auto w-48 h-48 bg-white p-2 rounded-lg shadow-sm mb-4 border border-slate-200 flex items-center justify-center">
-                    {/* Replace src with your QR code image path */}
-                    <QrCode className="h-24 w-24 text-slate-300" />
+              <div className="p-6 border-t border-slate-100 bg-slate-50/50 animate-in slide-in-from-top-2">
+                <div className="bg-white border border-slate-200 rounded-xl p-6 mb-6 text-center shadow-sm">
+                  <div className="mx-auto w-40 h-40 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center mb-4 text-slate-400">
+                    <QrCode className="h-12 w-12 mb-2" />
+                    <span className="text-xs font-medium">QR CODE</span>
                   </div>
-                  <p className="font-bold text-lg text-slate-900">
-                    Rs. {totalPrice.toFixed(2)}
-                  </p>
-                  <div className="mt-4 text-sm text-slate-600 bg-white p-3 rounded border border-slate-200 inline-block">
-                    <p>
-                      <strong>Esewa ID:</strong> 98XXXXXXXX
-                    </p>
-                    <p>
-                      <strong>Bank:</strong> Nabil Bank - 1234567890
-                    </p>
-                    <p>
-                      <strong>Name:</strong> TechRaj Digital
-                    </p>
+                  <div className="text-sm font-medium text-slate-600 mb-2">
+                    Send Payment To:
+                  </div>
+                  <div className="font-mono text-lg font-bold text-slate-900 bg-slate-100 py-2 px-4 rounded-lg inline-block mb-1">
+                    98XXXXXXXX
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    Esewa ID / PhonePay
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Amount Paid *
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700">
+                      Amount Paid <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="number"
-                      value={manualAmountPaid}
-                      onChange={(e) => setManualAmountPaid(e.target.value)}
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                      placeholder={totalPrice.toString()}
-                    />
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium">
+                        Rs.
+                      </span>
+                      <input
+                        type="number"
+                        value={manualAmountPaid}
+                        onChange={(e) => setManualAmountPaid(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                        placeholder={totalPrice.toString()}
+                      />
+                    </div>
                     {errors.amount && (
-                      <p className="text-xs text-red-500 mt-1">
+                      <p className="text-xs text-red-500 font-medium">
                         {errors.amount}
                       </p>
                     )}
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Transaction ID (Optional)
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700">
+                      Transaction ID
                     </label>
                     <input
                       type="text"
                       value={transactionId}
                       onChange={(e) => setTransactionId(e.target.value)}
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                      placeholder="e.g. 1234ABCD"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                      placeholder="Optional (e.g. 12X89)"
                     />
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Upload Payment Screenshot *
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-sm font-semibold text-slate-700">
+                      Upload Screenshot <span className="text-red-500">*</span>
                     </label>
-                    <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:bg-slate-50 transition-colors relative">
+                    <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-50 transition-colors relative cursor-pointer group">
                       <input
                         type="file"
                         accept="image/*"
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                         onChange={(e) =>
                           setPaymentScreenshot(e.target.files?.[0] || null)
                         }
                       />
-                      <Upload className="h-8 w-8 text-slate-400 mx-auto mb-2" />
-                      <p className="text-sm text-slate-600">
-                        {paymentScreenshot
-                          ? paymentScreenshot.name
-                          : "Click to upload screenshot"}
-                      </p>
+                      <div className="flex flex-col items-center gap-2 group-hover:scale-105 transition-transform">
+                        <div className="p-3 bg-indigo-50 text-indigo-600 rounded-full">
+                          <Upload className="h-6 w-6" />
+                        </div>
+                        <p className="text-sm font-medium text-slate-600">
+                          {paymentScreenshot
+                            ? paymentScreenshot.name
+                            : "Click to upload screenshot"}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          JPG, PNG up to 5MB
+                        </p>
+                      </div>
                     </div>
                     {errors.screenshot && (
-                      <p className="text-xs text-red-500 mt-1">
+                      <p className="text-xs text-red-500 font-medium">
                         {errors.screenshot}
                       </p>
                     )}
@@ -394,41 +409,61 @@ export default function CheckoutClient() {
             {paymentMethod === "wallet" &&
               user &&
               user.wallet_balance < totalPrice && (
-                <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-amber-900">
-                      Insufficient Balance
-                    </p>
-                    <p className="text-sm text-amber-700">
-                      Please top up your wallet or choose another method.
-                    </p>
+                <div className="p-6 border-t border-slate-100 bg-amber-50/50">
+                  <div className="flex gap-3 items-start p-4 bg-white border border-amber-200 rounded-xl shadow-sm">
+                    <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-bold text-amber-900 text-sm">
+                        Insufficient Wallet Balance
+                      </h4>
+                      <p className="text-sm text-amber-700 mt-1">
+                        Please top-up your wallet or select a different payment
+                        method.
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
-          </div>
+          </section>
         </div>
 
-        {/* RIGHT COLUMN - Summary */}
+        {/* RIGHT COLUMN */}
         <div className="lg:col-span-1">
-          <OrderSummary />
-          <button
-            type="submit"
-            disabled={
-              isProcessing ||
-              (paymentMethod === "wallet" &&
-                (user?.wallet_balance ?? 0) < totalPrice)
-            }
-            className="w-full mt-6 bg-indigo-600 text-white py-3.5 rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-indigo-600/20"
-          >
-            {isProcessing
-              ? "Processing..."
-              : `Pay Rs. ${totalPrice.toFixed(2)}`}
-          </button>
+          <div className="sticky top-8 space-y-6">
+            <OrderSummary />
 
-          <div className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-400">
-            <Shield className="h-4 w-4" />
-            Secure Encrypted Transaction
+            <button
+              type="submit"
+              disabled={
+                isProcessing ||
+                (paymentMethod === "wallet" &&
+                  (user?.wallet_balance ?? 0) < totalPrice)
+              }
+              className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-lg hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-xl shadow-slate-900/20 active:scale-[0.98] flex items-center justify-center gap-2"
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  Pay Rs. {totalPrice.toFixed(2)}
+                  <ChevronRight className="h-5 w-5" />
+                </>
+              )}
+            </button>
+
+            <div className="flex items-center justify-center gap-2 text-xs font-medium text-slate-500 bg-slate-100 py-2 rounded-lg">
+              <Shield className="h-4 w-4 text-emerald-600" />
+              100% Secure Encrypted Payment
+            </div>
+
+            {errors.submit && (
+              <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600 text-center font-medium animate-in shake">
+                {errors.submit}
+              </div>
+            )}
           </div>
         </div>
       </div>
