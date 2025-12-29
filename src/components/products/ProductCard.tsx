@@ -20,7 +20,6 @@ export function ProductCard({ product }: ProductCardProps) {
     mainVariant?.original_price &&
     mainVariant.original_price > mainVariant.price;
 
-  // FIX: Added '!' to assert original_price is not null/undefined here
   const discountPercentage =
     hasDiscount && mainVariant
       ? Math.round(
@@ -30,7 +29,8 @@ export function ProductCard({ product }: ProductCardProps) {
         )
       : 0;
 
-  const handleAddToCart = async () => {
+  const handleAddToCart = async (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent navigation when clicking button
     if (!mainVariant) return;
 
     setAddingToCart(true);
@@ -43,104 +43,77 @@ export function ProductCard({ product }: ProductCardProps) {
         price: mainVariant.price,
         imageUrl: product.featured_image,
       });
-
-      // Optional: Show toast notification
     } finally {
       setAddingToCart(false);
     }
   };
 
   return (
-    <div className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-200 hover:border-indigo-300">
-      {/* Badges */}
-      <div className="relative">
+    <Link
+      href={`/products/${product.slug}`}
+      className="group block bg-white rounded-xl md:rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-200 hover:border-indigo-300 flex flex-col h-full"
+    >
+      {/* Badges & Image Container */}
+      <div className="relative aspect-square bg-slate-50 overflow-hidden">
+        {/* Badges - Adjusted for mobile */}
         {product.is_featured && (
-          <div className="absolute top-3 left-3 z-10 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 shadow-md">
+          <div className="absolute top-2 left-2 z-10 bg-amber-500 text-white text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
             <Zap className="w-3 h-3" />
-            FEATURED
+            <span className="hidden md:inline">FEATURED</span>
           </div>
         )}
         {hasDiscount && (
-          <div className="absolute top-3 right-3 z-10 bg-rose-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
-            {discountPercentage}% OFF
+          <div className="absolute top-2 right-2 z-10 bg-rose-500 text-white text-[10px] md:text-xs font-bold px-1.5 md:px-2 py-0.5 rounded-full shadow-sm">
+            -{discountPercentage}%
           </div>
         )}
 
-        {/* Product Image */}
-        <Link href={`/products/${product.slug}`} className="block">
-          <div className="aspect-square bg-gradient-to-br from-slate-50 to-slate-100 overflow-hidden">
-            {product.featured_image ? (
-              <div className="w-full h-full relative">
-                <Image
-                  src={product.featured_image}
-                  alt={product.name}
-                  fill
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  className="object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-              </div>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-slate-400">
-                <div className="text-center">
-                  <div className="text-4xl mb-2">🎮</div>
-                  <p className="text-sm font-medium">No Image</p>
-                </div>
-              </div>
-            )}
+        {product.featured_image ? (
+          <Image
+            src={product.featured_image}
+            alt={product.name}
+            fill
+            sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-slate-400">
+            <div className="text-center">
+              <span className="text-2xl">🎮</span>
+            </div>
           </div>
-        </Link>
+        )}
       </div>
 
-      {/* Product Info */}
-      <div className="p-5">
+      {/* Product Info - Condensed for mobile */}
+      <div className="p-3 md:p-5 flex flex-col flex-1">
         {/* Category */}
-        {product.category && (
-          <span className="inline-block text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-1 rounded mb-2">
-            {product.category.name}
-          </span>
-        )}
-
-        {/* Product Name */}
-        <Link href={`/products/${product.slug}`}>
-          <h3 className="font-bold text-slate-900 group-hover:text-indigo-700 transition-colors line-clamp-1 mb-2">
-            {product.name}
-          </h3>
-        </Link>
-
-        {/* Description */}
-        <p className="text-sm text-slate-600 line-clamp-2 mb-4 min-h-[40px]">
-          {product.description || "Digital product with instant delivery"}
-        </p>
-
-        {/* Rating */}
-        <div className="flex items-center mb-4">
-          <div className="flex text-amber-400">
-            {[...Array(5)].map((_, i) => (
-              <Star key={i} className="w-4 h-4 fill-current" />
-            ))}
-          </div>
-          <span className="text-xs text-slate-400 ml-2">(4.5)</span>
+        <div className="mb-1 md:mb-2">
+          {product.category && (
+            <span className="inline-block text-[10px] md:text-xs font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+              {product.category.name}
+            </span>
+          )}
         </div>
 
-        {/* Price & Actions */}
-        <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+        {/* Product Name */}
+        <h3 className="font-bold text-sm md:text-base text-slate-900 group-hover:text-indigo-700 transition-colors line-clamp-2 mb-1 md:mb-2 flex-grow">
+          {product.name}
+        </h3>
+
+        {/* Price Section */}
+        <div className="mt-auto pt-2 md:pt-4 border-t border-slate-50 flex items-end justify-between gap-2">
           <div>
             {mainVariant && (
-              <div className="flex items-baseline gap-2">
-                <span className="text-xl font-bold text-indigo-700">
-                  रु {mainVariant.price.toFixed(2)}
+              <div className="flex flex-col">
+                <span className="text-sm md:text-xl font-bold text-indigo-700">
+                  Rs. {mainVariant.price.toFixed(0)}
                 </span>
                 {hasDiscount && (
-                  <span className="text-sm text-slate-500 line-through">
-                    रु {mainVariant.original_price!.toFixed(2)}
+                  <span className="text-[10px] md:text-sm text-slate-400 line-through">
+                    Rs. {mainVariant.original_price!.toFixed(0)}
                   </span>
                 )}
-              </div>
-            )}
-            {product.requires_manual_delivery && (
-              <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
-                <Shield className="w-3 h-3" />
-                Manual Delivery
               </div>
             )}
           </div>
@@ -150,18 +123,16 @@ export function ProductCard({ product }: ProductCardProps) {
             disabled={
               addingToCart || !mainVariant || mainVariant.stock_quantity === 0
             }
-            className="bg-indigo-600 text-white p-2.5 rounded-xl hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors hover:-translate-y-0.5 active:translate-y-0 shadow-md shadow-indigo-100"
+            className="bg-indigo-600 text-white p-2 md:p-2.5 rounded-lg md:rounded-xl hover:bg-indigo-700 disabled:bg-slate-300 transition-colors shadow-sm shadow-indigo-100 flex-shrink-0"
           >
             {addingToCart ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : mainVariant?.stock_quantity === 0 ? (
-              <span className="text-xs font-medium">OUT OF STOCK</span>
+              <div className="w-4 h-4 md:w-5 md:h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
-              <ShoppingCart className="w-5 h-5" />
+              <ShoppingCart className="w-4 h-4 md:w-5 md:h-5" />
             )}
           </button>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }

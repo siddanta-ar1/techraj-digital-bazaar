@@ -31,21 +31,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const supabase = createClient();
 
-  // Simple function to get or create user
   const getOrCreateUser = async (authUser: any) => {
     try {
-      // Try to get user from public.users
       const { data: existingUser } = await supabase
         .from("users")
         .select("*")
         .eq("id", authUser.id)
         .maybeSingle();
 
-      if (existingUser) {
-        return existingUser as User;
-      }
+      if (existingUser) return existingUser as User;
 
-      // Create new user if doesn't exist
       const newUser = {
         id: authUser.id,
         email: authUser.email || "",
@@ -62,8 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return (createdUser as User) || newUser;
     } catch (error) {
-      console.log("Error in getOrCreateUser (non-critical):", error);
-      // Return basic user info even if database fails
+      console.error("User fetch error:", error);
+      // Fallback to basic auth info to prevent "logged out" state on DB error
       return {
         id: authUser.id,
         email: authUser.email || "",
@@ -75,50 +70,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    const checkAuth = async () => {
+    let mounted = true;
+
+    const initAuth = async () => {
       try {
+        // 1. Get Session
         const {
           data: { session },
         } = await supabase.auth.getSession();
 
-        if (session?.user) {
-          const userData = await getOrCreateUser(session.user);
-          setUser(userData);
-        } else {
-          setUser(null);
+        if (mounted) {
+          if (session?.user) {
+            const userData = await getOrCreateUser(session.user);
+            if (mounted) setUser(userData);
+          } else {
+            setUser(null);
+          }
         }
       } catch (error) {
-        console.log("Auth check error:", error);
-        setUser(null);
+        console.error("Auth init error:", error);
       } finally {
-        setIsLoading(false);
+        if (mounted) setIsLoading(false);
       }
     };
 
-    checkAuth();
+    initAuth();
 
-    // Listen for auth changes
+    // 2. Listen for changes (Login, Logout, Auto-Refresh)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth event:", event);
-
-      if (session?.user) {
-        const userData = await getOrCreateUser(session.user);
-        setUser(userData);
-      } else {
-        setUser(null);
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        if (session?.user) {
+          const userData = await getOrCreateUser(session.user);
+          if (mounted) setUser(userData);
+          if (mounted) setIsLoading(false);
+        }
+      } else if (event === "SIGNED_OUT") {
+        if (mounted) setUser(null);
+        if (mounted) setIsLoading(false);
+        router.refresh(); // Clear server cache
       }
-      router.refresh();
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, [router, supabase]);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    router.push("/");
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      router.push("/login");
+    } catch (error) {
+      console.error("Signout error:", error);
+    }
   };
 
   return (

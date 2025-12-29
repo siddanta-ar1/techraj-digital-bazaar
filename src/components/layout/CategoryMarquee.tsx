@@ -1,4 +1,10 @@
-import { createClient } from "@/lib/supabase/server";
+"use client"; // Needs to be client to use pathname
+
+import { usePathname } from "next/navigation";
+import { CategoryMarqueeClient } from "./CategoryMarqueeClient";
+import { createClient } from "@/lib/supabase/client"; // Use client for client component
+import { useEffect, useState } from "react";
+// ... icons import ...
 import {
   Gamepad2,
   Gift,
@@ -10,11 +16,10 @@ import {
   Monitor,
   Layers,
 } from "lucide-react";
-import { CategoryMarqueeClient } from "./CategoryMarqueeClient";
 
+// Move getCategoryStyle function inside or keep here
 const getCategoryStyle = (name: string) => {
   const normalized = name.toLowerCase();
-
   if (normalized.includes("software") || normalized.includes("tool"))
     return {
       icon: <Monitor className="w-5 h-5" />,
@@ -55,32 +60,42 @@ const getCategoryStyle = (name: string) => {
       icon: <Play className="w-5 h-5" />,
       color: "text-amber-600 bg-amber-50",
     };
-
   return {
     icon: <Layers className="w-5 h-5" />,
     color: "text-slate-600 bg-slate-50",
   };
 };
 
-export async function CategoryMarquee() {
-  const supabase = await createClient();
+export function CategoryMarquee() {
+  const pathname = usePathname();
+  const [categories, setCategories] = useState<any[]>([]);
+  const supabase = createClient();
 
-  // FIX: Added 'slug' to the select query
-  const { data: categories } = await supabase
-    .from("categories")
-    .select("id, name, slug")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true });
+  useEffect(() => {
+    async function fetchCategories() {
+      const { data } = await supabase
+        .from("categories")
+        .select("id, name, slug")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
 
-  const processedCategories = (categories || []).map((cat) => {
-    const style = getCategoryStyle(cat.name);
-    return {
-      id: cat.id,
-      name: cat.name,
-      slug: cat.slug, // FIX: Pass slug to client
-      ...style,
-    };
-  });
+      if (data) {
+        const processed = data.map((cat) => ({
+          id: cat.id,
+          name: cat.name,
+          slug: cat.slug,
+          ...getCategoryStyle(cat.name),
+        }));
+        setCategories(processed);
+      }
+    }
+    fetchCategories();
+  }, []);
 
-  return <CategoryMarqueeClient categories={processedCategories} />;
+  // FIX: Hide on Dashboard/Admin
+  if (pathname.startsWith("/dashboard") || pathname.startsWith("/admin")) {
+    return null;
+  }
+
+  return <CategoryMarqueeClient categories={categories} />;
 }
