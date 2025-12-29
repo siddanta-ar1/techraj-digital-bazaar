@@ -28,8 +28,10 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // FIX: Create a stable supabase instance that doesn't change on re-renders
+  const [supabase] = useState(() => createClient());
   const router = useRouter();
-  const supabase = createClient();
 
   const getOrCreateUser = async (authUser: any) => {
     try {
@@ -49,16 +51,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role: "user" as const,
       };
 
-      const { data: createdUser } = await supabase
-        .from("users")
-        .upsert(newUser)
-        .select()
-        .single();
-
-      return (createdUser as User) || newUser;
+      // Try to upsert, but fallback to basic object if DB fails
+      try {
+        const { data: createdUser } = await supabase
+          .from("users")
+          .upsert(newUser)
+          .select()
+          .single();
+        return (createdUser as User) || newUser;
+      } catch (dbError) {
+        console.error("DB Upsert error:", dbError);
+        return newUser;
+      }
     } catch (error) {
       console.error("User fetch error:", error);
-      // Fallback to basic auth info to prevent "logged out" state on DB error
       return {
         id: authUser.id,
         email: authUser.email || "",
@@ -74,7 +80,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initAuth = async () => {
       try {
-        // 1. Get Session
         const {
           data: { session },
         } = await supabase.auth.getSession();
@@ -84,32 +89,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const userData = await getOrCreateUser(session.user);
             if (mounted) setUser(userData);
           } else {
-            setUser(null);
+            // No session found
+            if (mounted) setUser(null);
           }
         }
       } catch (error) {
         console.error("Auth init error:", error);
       } finally {
+        // ALWAYS turn off loading, even if errors occur
         if (mounted) setIsLoading(false);
       }
     };
 
     initAuth();
 
-    // 2. Listen for changes (Login, Logout, Auto-Refresh)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Only react to specific events to avoid redundant updates
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         if (session?.user) {
           const userData = await getOrCreateUser(session.user);
-          if (mounted) setUser(userData);
-          if (mounted) setIsLoading(false);
+          if (mounted) {
+            setUser(userData);
+            setIsLoading(false);
+          }
         }
       } else if (event === "SIGNED_OUT") {
-        if (mounted) setUser(null);
-        if (mounted) setIsLoading(false);
-        router.refresh(); // Clear server cache
+        if (mounted) {
+          setUser(null);
+          setIsLoading(false);
+        }
+        router.refresh();
       }
     });
 
@@ -117,7 +128,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [router, supabase]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // FIX: Empty dependency array to run only once on mount
 
   const signOut = async () => {
     try {

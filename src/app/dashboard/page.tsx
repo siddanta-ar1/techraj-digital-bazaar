@@ -8,23 +8,38 @@ import {
   Settings,
   Wallet,
   LogOut,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function DashboardPage() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, isLoading } = useAuth();
+  const router = useRouter();
 
-  if (!user) {
+  // Redirect if not logged in after loading finishes
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push("/login");
+    }
+  }, [isLoading, user, router]);
+
+  // 1. Show Loading State while checking session
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Please sign in</h1>
-          <Link href="/login" className="text-indigo-600 hover:underline">
-            Go to Login
-          </Link>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+          <p className="text-slate-500 font-medium">Loading dashboard...</p>
         </div>
       </div>
     );
+  }
+
+  // 2. Show "Sign In" only if explicitly not logged in (fallback)
+  if (!user) {
+    return null; // The useEffect above handles the redirect, so we return null to avoid flash
   }
 
   return (
@@ -51,7 +66,6 @@ export default function DashboardPage() {
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        {/* Stats Grid - Loops removed to fix serialization error */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {/* Wallet Balance */}
           <div className="bg-emerald-50 p-6 rounded-2xl border border-slate-200">
@@ -60,7 +74,7 @@ export default function DashboardPage() {
               <span className="text-sm text-slate-600">Wallet Balance</span>
             </div>
             <div className="text-2xl font-bold text-slate-900">
-              रु {user.wallet_balance.toFixed(2)}
+              रु {user.wallet_balance?.toFixed(2) || "0.00"}
             </div>
           </div>
 
@@ -92,7 +106,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Quick Actions - Loops removed to fix serialization error */}
+        {/* Quick Actions */}
         <div className="mb-12">
           <h2 className="text-2xl font-bold text-slate-900 mb-6">
             Quick Actions
