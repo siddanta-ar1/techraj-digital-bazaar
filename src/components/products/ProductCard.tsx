@@ -1,30 +1,39 @@
-'use client'
+"use client";
 
-import { ShoppingCart, Star, Shield, Zap } from 'lucide-react'
-import Image from 'next/image'
-import Link from 'next/link'
-import { Product } from '@/types/product'
-import { useCart } from '@/contexts/CartContext'
-import { useState } from 'react'
+import { ShoppingCart, Star, Shield, Zap } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { Product } from "@/types/product";
+import { useCart } from "@/contexts/CartContext";
+import { useState } from "react";
 
 interface ProductCardProps {
-  product: Product
+  product: Product;
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  const { addItem } = useCart()
-  const [addingToCart, setAddingToCart] = useState(false)
-  
-  const mainVariant = product.variants?.[0]
-  const hasDiscount = mainVariant?.original_price && mainVariant.original_price > mainVariant.price
-  const discountPercentage = hasDiscount && mainVariant 
-    ? Math.round(((mainVariant.original_price - mainVariant.price) / mainVariant.original_price) * 100)
-    : 0
+  const { addItem } = useCart();
+  const [addingToCart, setAddingToCart] = useState(false);
+
+  const mainVariant = product.variants?.[0];
+  const hasDiscount =
+    mainVariant?.original_price &&
+    mainVariant.original_price > mainVariant.price;
+
+  // FIX: Added '!' to assert original_price is not null/undefined here
+  const discountPercentage =
+    hasDiscount && mainVariant
+      ? Math.round(
+          ((mainVariant.original_price! - mainVariant.price) /
+            mainVariant.original_price!) *
+            100,
+        )
+      : 0;
 
   const handleAddToCart = async () => {
-    if (!mainVariant) return
-    
-    setAddingToCart(true)
+    if (!mainVariant) return;
+
+    setAddingToCart(true);
     try {
       addItem({
         productId: product.id,
@@ -32,14 +41,14 @@ export function ProductCard({ product }: ProductCardProps) {
         variantId: mainVariant.id,
         variantName: mainVariant.variant_name,
         price: mainVariant.price,
-        imageUrl: product.featured_image
-      })
-      
+        imageUrl: product.featured_image,
+      });
+
       // Optional: Show toast notification
     } finally {
-      setAddingToCart(false)
+      setAddingToCart(false);
     }
-  }
+  };
 
   return (
     <div className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-200 hover:border-indigo-300">
@@ -100,7 +109,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
         {/* Description */}
         <p className="text-sm text-slate-600 line-clamp-2 mb-4 min-h-[40px]">
-          {product.description || 'Digital product with instant delivery'}
+          {product.description || "Digital product with instant delivery"}
         </p>
 
         {/* Rating */}
@@ -135,10 +144,12 @@ export function ProductCard({ product }: ProductCardProps) {
               </div>
             )}
           </div>
-          
+
           <button
             onClick={handleAddToCart}
-            disabled={addingToCart || !mainVariant || mainVariant.stock_quantity === 0}
+            disabled={
+              addingToCart || !mainVariant || mainVariant.stock_quantity === 0
+            }
             className="bg-indigo-600 text-white p-2.5 rounded-xl hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors hover:-translate-y-0.5 active:translate-y-0 shadow-md shadow-indigo-100"
           >
             {addingToCart ? (
@@ -152,5 +163,5 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }

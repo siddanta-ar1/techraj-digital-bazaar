@@ -27,58 +27,6 @@ export default function DashboardPage() {
     );
   }
 
-  const stats = [
-    {
-      label: "Wallet Balance",
-      value: `रु ${user.wallet_balance.toFixed(2)}`,
-      icon: Wallet,
-      color: "text-emerald-600",
-      bg: "bg-emerald-50",
-    },
-    {
-      label: "Total Orders",
-      value: "0",
-      icon: Package,
-      color: "text-blue-600",
-      bg: "bg-blue-50",
-    },
-    {
-      label: "Pending Orders",
-      value: "0",
-      icon: History,
-      color: "text-amber-600",
-      bg: "bg-amber-50",
-    },
-    {
-      label: "Completed Orders",
-      value: "0",
-      icon: CreditCard,
-      color: "text-green-600",
-      bg: "bg-green-50",
-    },
-  ];
-
-  const quickActions = [
-    {
-      title: "My Orders",
-      description: "View and track your orders",
-      icon: Package,
-      link: "/dashboard/orders",
-    },
-    {
-      title: "Wallet Top-up",
-      description: "Add funds to your wallet",
-      icon: Wallet,
-      link: "/dashboard/wallet",
-    },
-    {
-      title: "Account Settings",
-      description: "Update your profile",
-      icon: Settings,
-      link: "/dashboard/settings",
-    },
-  ];
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       {/* Dashboard Header */}
@@ -88,7 +36,7 @@ export default function DashboardPage() {
             <div>
               <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
               <p className="text-indigo-100">
-                Welcome back, {user.full_name || user.email.split("@")[0]}!
+                Welcome back, {user.full_name || user.email?.split("@")[0]}!
               </p>
             </div>
             <button
@@ -103,51 +51,110 @@ export default function DashboardPage() {
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        {/* Stats Grid */}
+        {/* Stats Grid - Loops removed to fix serialization error */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat, index) => (
-            <div
-              key={index}
-              className={`${stat.bg} p-6 rounded-2xl border border-slate-200`}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <stat.icon className={`w-8 h-8 ${stat.color}`} />
-                <span className="text-sm text-slate-600">{stat.label}</span>
-              </div>
-              <div className="text-2xl font-bold text-slate-900">
-                {stat.value}
-              </div>
+          {/* Wallet Balance */}
+          <div className="bg-emerald-50 p-6 rounded-2xl border border-slate-200">
+            <div className="flex items-center justify-between mb-4">
+              <Wallet className="w-8 h-8 text-emerald-600" />
+              <span className="text-sm text-slate-600">Wallet Balance</span>
             </div>
-          ))}
+            <div className="text-2xl font-bold text-slate-900">
+              रु {user.wallet_balance.toFixed(2)}
+            </div>
+          </div>
+
+          {/* Total Orders */}
+          <div className="bg-blue-50 p-6 rounded-2xl border border-slate-200">
+            <div className="flex items-center justify-between mb-4">
+              <Package className="w-8 h-8 text-blue-600" />
+              <span className="text-sm text-slate-600">Total Orders</span>
+            </div>
+            <div className="text-2xl font-bold text-slate-900">0</div>
+          </div>
+
+          {/* Pending Orders */}
+          <div className="bg-amber-50 p-6 rounded-2xl border border-slate-200">
+            <div className="flex items-center justify-between mb-4">
+              <History className="w-8 h-8 text-amber-600" />
+              <span className="text-sm text-slate-600">Pending Orders</span>
+            </div>
+            <div className="text-2xl font-bold text-slate-900">0</div>
+          </div>
+
+          {/* Completed Orders */}
+          <div className="bg-green-50 p-6 rounded-2xl border border-slate-200">
+            <div className="flex items-center justify-between mb-4">
+              <CreditCard className="w-8 h-8 text-green-600" />
+              <span className="text-sm text-slate-600">Completed Orders</span>
+            </div>
+            <div className="text-2xl font-bold text-slate-900">0</div>
+          </div>
         </div>
 
-        {/* Quick Actions */}
+        {/* Quick Actions - Loops removed to fix serialization error */}
         <div className="mb-12">
           <h2 className="text-2xl font-bold text-slate-900 mb-6">
             Quick Actions
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {quickActions.map((action, index) => (
-              <Link
-                key={index}
-                href={action.link}
-                className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-lg hover:border-indigo-300 transition-all group"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
-                    <action.icon className="w-6 h-6 text-indigo-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-slate-900 group-hover:text-indigo-700 transition-colors">
-                      {action.title}
-                    </h3>
-                    <p className="text-sm text-slate-600">
-                      {action.description}
-                    </p>
-                  </div>
+            {/* My Orders */}
+            <Link
+              href="/dashboard/orders"
+              className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-lg hover:border-indigo-300 transition-all group"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                  <Package className="w-6 h-6 text-indigo-600" />
                 </div>
-              </Link>
-            ))}
+                <div>
+                  <h3 className="font-bold text-slate-900 group-hover:text-indigo-700 transition-colors">
+                    My Orders
+                  </h3>
+                  <p className="text-sm text-slate-600">
+                    View and track your orders
+                  </p>
+                </div>
+              </div>
+            </Link>
+
+            {/* Wallet Top-up */}
+            <Link
+              href="/dashboard/wallet"
+              className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-lg hover:border-indigo-300 transition-all group"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                  <Wallet className="w-6 h-6 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 group-hover:text-indigo-700 transition-colors">
+                    Wallet Top-up
+                  </h3>
+                  <p className="text-sm text-slate-600">
+                    Add funds to your wallet
+                  </p>
+                </div>
+              </div>
+            </Link>
+
+            {/* Account Settings */}
+            <Link
+              href="/dashboard/settings"
+              className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-lg hover:border-indigo-300 transition-all group"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                  <Settings className="w-6 h-6 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 group-hover:text-indigo-700 transition-colors">
+                    Account Settings
+                  </h3>
+                  <p className="text-sm text-slate-600">Update your profile</p>
+                </div>
+              </div>
+            </Link>
           </div>
         </div>
 

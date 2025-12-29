@@ -1,39 +1,45 @@
-import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
+import { createClient } from "@/lib/supabase/server";
+import { NextResponse } from "next/server";
 
 export async function GET(
   request: Request,
-  { params }: { params: { slug: string } }
+  // 1. Change the type to Promise
+  { params }: { params: Promise<{ slug: string }> },
 ) {
+  // 2. Await the params to get the actual slug
+  const { slug } = await params;
+
   try {
-    const supabase = await createClient()
-    
+    const supabase = await createClient();
+
     const { data: product, error } = await supabase
-      .from('products')
-      .select(`
+      .from("products")
+      .select(
+        `
         *,
         category:categories(*),
         variants:product_variants(*)
-      `)
-      .eq('slug', params.slug)
-      .eq('is_active', true)
-      .single()
+      `,
+      )
+      .eq("slug", slug) // 3. Use the awaited slug variable
+      .eq("is_active", true)
+      .single();
 
     if (error) {
-      if (error.code === 'PGRST116') {
+      if (error.code === "PGRST116") {
         return NextResponse.json(
-          { error: 'Product not found' },
-          { status: 404 }
-        )
+          { error: "Product not found" },
+          { status: 404 },
+        );
       }
-      throw error
+      throw error;
     }
 
-    return NextResponse.json({ product })
+    return NextResponse.json({ product });
   } catch (error: any) {
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch product' },
-      { status: 500 }
-    )
+      { error: error.message || "Failed to fetch product" },
+      { status: 500 },
+    );
   }
 }

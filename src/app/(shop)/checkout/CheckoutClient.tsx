@@ -416,7 +416,8 @@ export default function CheckoutClient() {
             type="submit"
             disabled={
               isProcessing ||
-              (paymentMethod === "wallet" && user?.wallet_balance < totalPrice)
+              (paymentMethod === "wallet" &&
+                (user?.wallet_balance ?? 0) < totalPrice)
             }
             className="w-full mt-6 bg-indigo-600 text-white py-3.5 rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-indigo-600/20"
           >

@@ -38,7 +38,20 @@ export default function SearchWithDropdown() {
           .ilike("name", `%${query}%`)
           .limit(5);
 
-        setResults(data || []);
+        // FIX: Map the data to match the SearchResult interface
+        // Supabase returns category as an array, so we take the first item
+        const formattedData: SearchResult[] = (data || []).map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          slug: item.slug,
+          featured_image: item.featured_image,
+          price: item.price,
+          category: Array.isArray(item.category)
+            ? item.category[0]
+            : item.category,
+        }));
+
+        setResults(formattedData);
         setLoading(false);
         setShowDropdown(true);
       } else {
@@ -48,7 +61,7 @@ export default function SearchWithDropdown() {
     }, 400); // 400ms debounce
 
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, supabase]);
 
   // Close dropdown when clicking outside
   useEffect(() => {

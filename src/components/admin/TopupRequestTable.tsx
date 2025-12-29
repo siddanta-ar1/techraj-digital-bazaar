@@ -43,9 +43,14 @@ export function TopupRequestTable({
 
       if (!res.ok) throw new Error("Failed to process");
 
+      // FIX: Determine the correct status string (past tense) based on the action
+      const newStatus = action === "approve" ? "approved" : "rejected";
+
       // Update UI optimistically
       setRequests((prev) =>
-        prev.map((req) => (req.id === id ? { ...req, status: action } : req)),
+        prev.map((req) =>
+          req.id === id ? { ...req, status: newStatus } : req,
+        ),
       );
       router.refresh();
     } catch (error) {
