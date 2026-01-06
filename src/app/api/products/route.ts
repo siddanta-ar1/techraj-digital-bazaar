@@ -6,38 +6,36 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const supabase = await createClient();
 
-    // Parse query parameters
     const category = searchParams.get("category");
     const search = searchParams.get("search");
     const featured = searchParams.get("featured");
     const sortBy = searchParams.get("sortBy") || "newest";
+    const minPrice = parseFloat(searchParams.get("minPrice") || "0");
+    const maxPrice = parseFloat(searchParams.get("maxPrice") || "1000000");
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "12");
     const offset = (page - 1) * limit;
 
-    // Start building the query
+    // We join variants with !inner to filter the parent product by variant price
     let query = supabase
       .from("products")
       .select(
         `
         *,
         category:categories(*),
-        variants:product_variants(*)
+        variants:product_variants!inner(*)
       `,
         { count: "exact" },
       )
       .eq("is_active", true)
-      .range(offset, offset + limit - 1);
+      .gte("variants.price", minPrice)
+      .lte("variants.price", maxPrice);
 
-    // FIX: Ensure category is a valid UUID and not 'undefined' string
     if (category && category !== "undefined" && category !== "null") {
-      // If passing slug instead of ID, we might need to join, but usually ID is passed.
-      // Assuming ID is passed here. If slug is passed, you need to look up ID first or change query.
       query = query.eq("category_id", category);
     }
 
     if (search) {
-      // Use 'ilike' for case-insensitive search
       query = query.ilike("name", `%${search}%`);
     }
 
@@ -45,40 +43,31 @@ export async function GET(request: Request) {
       query = query.eq("is_featured", true);
     }
 
-    // Apply sorting
-    switch (sortBy) {
-      case "price_asc":
-        // Note: Sorting by related table column (variants.price) is hard in Supabase simple query.
-        // Usually requires custom RPC function or client-side sort for small datasets.
-        // Fallback to created_at for simple implementation or use RPC.
-        query = query.order("created_at", { ascending: false });
-        break;
-      case "price_desc":
-        query = query.order("created_at", { ascending: false });
-        break;
-      default: // newest
-        query = query.order("created_at", { ascending: false });
+    // Apply Sorting (Using created_at as primary sort for now)
+    // Note: Sorting by related price requires a schema change (min_price column)
+    // for high-performance production use.
+    if (sortBy === "price_asc") {
+      query = query.order("created_at", { ascending: true });
+    } else {
+      query = query.order("created_at", { ascending: false });
     }
 
-    const { data: products, error, count } = await query;
+    const {
+      data: products,
+      error,
+      count,
+    } = await query.range(offset, offset + limit - 1);
 
-    if (error) {
-      console.error("Supabase error:", error);
-      throw error;
-    }
+    if (error) throw error;
 
     return NextResponse.json({
       products: products,
-      total: count || products?.length || 0,
+      total: count || 0,
       page,
       limit,
       totalPages: Math.ceil((count || 0) / limit),
     });
   } catch (error: any) {
-    console.error("API error:", error);
-    return NextResponse.json(
-      { error: error.message || "Failed to fetch products" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
