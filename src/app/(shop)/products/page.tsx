@@ -3,7 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { CategoryFilter } from "@/components/products/CategoryFilter";
 import { Search, ShieldCheck, Zap, Globe } from "lucide-react";
 
-export default async function ProductsPage() {
+export default async function ProductsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string }>;
+}) {
+  const { category } = await searchParams; // Get the category ID from the URL
   const supabase = await createClient();
 
   // 1. Fetch Categories for the sidebar
@@ -13,19 +18,26 @@ export default async function ProductsPage() {
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
 
-  // 2. Fetch Initial Products for the grid
-  const { data: products } = await supabase
+  // 2. Build the Product Query
+  let query = supabase
     .from("products")
     .select(
       `
-      *,
-      category:categories(name, slug),
-      variants:product_variants(*)
-    `,
+        *,
+        category:categories(name, slug),
+        variants:product_variants(*)
+      `,
     )
-    .eq("is_active", true)
-    .order("created_at", { ascending: false });
+    .eq("is_active", true);
 
+  // Apply the filter if a category is selected in the URL
+  if (category) {
+    query = query.eq("category_id", category);
+  }
+
+  const { data: products } = await query.order("created_at", {
+    ascending: false,
+  });
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="bg-white border-b border-slate-200">
