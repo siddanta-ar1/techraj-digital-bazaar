@@ -1,44 +1,48 @@
-import { createClient } from '@/lib/supabase/server' // <--- FIXED IMPORT
-import { ProductGrid } from '@/components/products/ProductGrid'
-import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
+import { createClient } from "@/lib/supabase/server"; // <--- FIXED IMPORT
+import { ProductGrid } from "@/components/products/ProductGrid";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 export default async function HomePage() {
   // 1. Initialize the Supabase client for this request
-  const supabase = await createClient()
+  const supabase = await createClient();
 
   // Fetch featured products
   const { data: featuredProducts } = await supabase
-    .from('products')
-    .select(`
+    .from("products")
+    .select(
+      `
       *,
       category:categories(name, slug),
       variants:product_variants(*)
-    `)
-    .eq('is_featured', true)
-    .eq('is_active', true)
-    .order('created_at', { ascending: false })
-    .limit(12)
+    `,
+    )
+    .eq("is_featured", true)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(12);
 
   // Fetch new arrivals
   const { data: newArrivals } = await supabase
-    .from('products')
-    .select(`
+    .from("products")
+    .select(
+      `
       *,
       category:categories(name, slug),
       variants:product_variants(*)
-    `)
-    .eq('is_active', true)
-    .order('created_at', { ascending: false })
-    .limit(8)
+    `,
+    )
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(8);
 
   // Fetch categories for quick navigation
   const { data: categories } = await supabase
-    .from('categories')
-    .select('*')
-    .eq('is_active', true)
-    .order('sort_order', { ascending: true })
-    .limit(8)
+    .from("categories")
+    .select("*")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .limit(8);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -56,14 +60,14 @@ export default async function HomePage() {
               Get instant delivery on PUBG UC, Freefire Diamonds, Netflix, Gift Cards, and 100+ digital products
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link 
-                href="/products" 
+              <Link
+                href="/products"
                 className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
               >
                 Browse All Products <ArrowRight className="w-5 h-5" />
               </Link>
-              <Link 
-                href="#featured" 
+              <Link
+                href="#featured"
                 className="px-8 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg font-semibold transition-colors border border-white/20"
               >
                 View Featured
@@ -79,8 +83,8 @@ export default async function HomePage() {
           <div className="container mx-auto px-4">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-slate-800">Shop by Category</h2>
-              <Link 
-                href="/categories" 
+              <Link
+                href="/categories"
                 className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
               >
                 View All
@@ -106,19 +110,27 @@ export default async function HomePage() {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h2 className="text-3xl font-bold text-slate-900">🔥 Featured Products</h2>
-              <p className="text-slate-600 mt-2">Most popular and best selling items</p>
+              <h2 className="text-3xl font-bold text-slate-900">
+                🔥 Featured Products
+              </h2>
+              <p className="text-slate-600 mt-2">
+                Most popular and best selling items
+              </p>
             </div>
-            <Link 
-              href="/products?sort=featured" 
+            <Link
+              href="/products?sort=featured"
               className="text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1"
             >
               View All <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
-          
+
           {featuredProducts && featuredProducts.length > 0 ? (
-            <ProductGrid initialProducts={featuredProducts} featured={true} showFilters={false} />
+            <ProductGrid
+              initialProducts={featuredProducts}
+              featured={true}
+              showFilters={false}
+            />
           ) : (
             <div className="text-center py-12">
               <p className="text-slate-500">No featured products available</p>
@@ -132,17 +144,19 @@ export default async function HomePage() {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h2 className="text-3xl font-bold text-slate-900">🆕 New Arrivals</h2>
+              <h2 className="text-3xl font-bold text-slate-900">
+                🆕 New Arrivals
+              </h2>
               <p className="text-slate-600 mt-2">Recently added to our store</p>
             </div>
-            <Link 
-              href="/products?sort=newest" 
+            <Link
+              href="/products?sort=newest"
               className="text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1"
             >
               View All <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
-          
+
           {newArrivals && newArrivals.length > 0 ? (
             <ProductGrid initialProducts={newArrivals} showFilters={false} />
           ) : (
@@ -189,8 +203,8 @@ export default async function HomePage() {
           <p className="text-indigo-100 mb-8 max-w-xl mx-auto">
             Join thousands of satisfied customers. Create your account today!
           </p>
-          <Link 
-            href="/register" 
+          <Link
+            href="/register"
             className="inline-block bg-white text-indigo-600 hover:bg-indigo-50 px-8 py-3 rounded-lg font-semibold transition-colors"
           >
             Create Account
@@ -198,5 +212,5 @@ export default async function HomePage() {
         </div>
       </section> */}
     </div>
-  )
+  );
 }

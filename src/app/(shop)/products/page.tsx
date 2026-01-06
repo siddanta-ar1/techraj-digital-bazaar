@@ -5,11 +5,26 @@ import { Search, ShieldCheck, Zap, Globe } from "lucide-react";
 
 export default async function ProductsPage() {
   const supabase = await createClient();
+
+  // 1. Fetch Categories for the sidebar
   const { data: categories } = await supabase
     .from("categories")
     .select("*")
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
+
+  // 2. Fetch Initial Products for the grid
+  const { data: products } = await supabase
+    .from("products")
+    .select(
+      `
+      *,
+      category:categories(name, slug),
+      variants:product_variants(*)
+    `,
+    )
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -25,24 +40,26 @@ export default async function ProductsPage() {
       </div>
 
       <div className="container mx-auto px-4 py-6">
-        {/* Layout: Sidebar moves to top on mobile, but is more compact */}
         <div className="flex flex-col lg:flex-row gap-6 md:gap-8">
           <aside className="w-full lg:w-1/4">
             <div className="lg:sticky lg:top-24">
-              {/* Mobile: Categories might be better as a scrollable list or compact grid */}
               <CategoryFilter categories={categories || []} />
 
               <div className="hidden lg:block mt-6 bg-slate-900 rounded-2xl p-6 text-white">
-                <h3 className="font-bold mb-2">Safe & Secure</h3>
+                <div className="flex items-center gap-2 mb-2">
+                  <ShieldCheck className="w-5 h-5 text-indigo-400" />
+                  <h3 className="font-bold">Safe & Secure</h3>
+                </div>
                 <p className="text-xs text-slate-400">
-                  100% official digital codes.
+                  100% official digital codes with instant automated delivery.
                 </p>
               </div>
             </div>
           </aside>
 
           <main className="w-full lg:w-3/4">
-            <ProductGrid />
+            {/* FIXED: Passing the fetched products to the grid */}
+            <ProductGrid initialProducts={products || []} showFilters={true} />
           </main>
         </div>
       </div>

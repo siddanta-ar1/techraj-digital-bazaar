@@ -18,29 +18,8 @@ export default function DashboardPage() {
   const { user, signOut, isLoading } = useAuth();
   const router = useRouter();
 
-<<<<<<< HEAD
-  // Redirect if not logged in after loading finishes
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push("/login");
-    }
-  }, [isLoading, user, router]);
-
-  // 1. Show Loading State while checking session
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
-          <p className="text-slate-500 font-medium">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-=======
   // Layout handles loading and auth checks, so we can safely assume user exists here
   if (!user) return null;
->>>>>>> 962b31a (Dashboard inconsistency fixed, products page and marquee bug fixed)
 
   // 2. Show "Sign In" only if explicitly not logged in (fallback)
   if (!user) {
@@ -70,25 +49,12 @@ export default function DashboardPage() {
         </div>
       </div>
 
-<<<<<<< HEAD
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* Wallet Balance */}
-          <div className="bg-emerald-50 p-6 rounded-2xl border border-slate-200">
-            <div className="flex items-center justify-between mb-4">
-              <Wallet className="w-8 h-8 text-emerald-600" />
-              <span className="text-sm text-slate-600">Wallet Balance</span>
-            </div>
-            <div className="text-2xl font-bold text-slate-900">
-              रु {user.wallet_balance?.toFixed(2) || "0.00"}
-=======
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-2xl border border-emerald-100 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-4">
             <div className="p-3 bg-emerald-50 rounded-xl">
               <Wallet className="w-6 h-6 text-emerald-600" />
->>>>>>> 962b31a (Dashboard inconsistency fixed, products page and marquee bug fixed)
             </div>
             <span className="text-sm font-medium text-slate-500">
               Wallet Balance
@@ -99,71 +65,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-<<<<<<< HEAD
-        {/* Quick Actions */}
-        <div className="mb-12">
-          <h2 className="text-2xl font-bold text-slate-900 mb-6">
-            Quick Actions
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* My Orders */}
-            <Link
-              href="/dashboard/orders"
-              className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-lg hover:border-indigo-300 transition-all group"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
-                  <Package className="w-6 h-6 text-indigo-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 group-hover:text-indigo-700 transition-colors">
-                    My Orders
-                  </h3>
-                  <p className="text-sm text-slate-600">
-                    View and track your orders
-                  </p>
-                </div>
-              </div>
-            </Link>
-
-            {/* Wallet Top-up */}
-            <Link
-              href="/dashboard/wallet"
-              className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-lg hover:border-indigo-300 transition-all group"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
-                  <Wallet className="w-6 h-6 text-indigo-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 group-hover:text-indigo-700 transition-colors">
-                    Wallet Top-up
-                  </h3>
-                  <p className="text-sm text-slate-600">
-                    Add funds to your wallet
-                  </p>
-                </div>
-              </div>
-            </Link>
-
-            {/* Account Settings */}
-            <Link
-              href="/dashboard/settings"
-              className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-lg hover:border-indigo-300 transition-all group"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
-                  <Settings className="w-6 h-6 text-indigo-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 group-hover:text-indigo-700 transition-colors">
-                    Account Settings
-                  </h3>
-                  <p className="text-sm text-slate-600">Update your profile</p>
-                </div>
-              </div>
-            </Link>
-=======
         <div className="bg-white p-6 rounded-2xl border border-blue-100 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-4">
             <div className="p-3 bg-blue-50 rounded-xl">
@@ -172,7 +73,6 @@ export default function DashboardPage() {
             <span className="text-sm font-medium text-slate-500">
               Total Orders
             </span>
->>>>>>> 962b31a (Dashboard inconsistency fixed, products page and marquee bug fixed)
           </div>
           <div className="text-2xl font-bold text-slate-900">0</div>
         </div>
