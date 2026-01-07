@@ -9,6 +9,7 @@ import {
   Users,
   Settings,
   LogOut,
+  Home,
   Wallet,
   Layers, // Icon for Categories
 } from "lucide-react";
@@ -16,6 +17,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 const navigation = [
+  { name: "Home", href: "/", icon: Home },
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { name: "Orders", href: "/admin/orders", icon: ShoppingBag },
   { name: "Products", href: "/admin/products", icon: Package },
