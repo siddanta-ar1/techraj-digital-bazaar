@@ -1,87 +1,110 @@
 // src/app/dashboard/wallet/WalletClient.tsx
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { Wallet, TrendingUp, History, PlusCircle, Shield, AlertCircle } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import {
+  Wallet,
+  TrendingUp,
+  History,
+  PlusCircle,
+  Shield,
+  AlertCircle,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 interface WalletTransaction {
-  id: string
-  amount: number
-  type: 'credit' | 'debit'
-  transaction_type: string
-  description: string
-  balance_after: number
-  status: string
-  created_at: string
+  id: string;
+  amount: number;
+  type: "credit" | "debit";
+  transaction_type: string;
+  description: string;
+  balance_after: number;
+  status: string;
+  created_at: string;
 }
 
 interface WalletClientProps {
-  initialBalance: number
-  initialTransactions: WalletTransaction[]
+  initialBalance: number;
+  initialTransactions: WalletTransaction[];
 }
 
-export default function WalletClient({ initialBalance, initialTransactions }: WalletClientProps) {
-  const [balance, setBalance] = useState(initialBalance)
-  const [transactions, setTransactions] = useState<WalletTransaction[]>(initialTransactions)
-  const [loading, setLoading] = useState(false)
-  const supabase = createClient()
+export default function WalletClient({
+  initialBalance,
+  initialTransactions,
+}: WalletClientProps) {
+  const [balance, setBalance] = useState(initialBalance);
+  const [transactions, setTransactions] =
+    useState<WalletTransaction[]>(initialTransactions);
+  const supabase = createClient();
 
   useEffect(() => {
-    // Real-time subscription for wallet balance updates
-    const channel = supabase
-      .channel('wallet-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'wallet_transactions',
-          filter: `user_id=eq.${(supabase.auth.getSession() as any).then((s: any) => s.data.session?.user.id)}`
-        },
-        (payload) => {
-          console.log('Wallet update:', payload)
-          // Refresh transactions
-          fetchTransactions()
-        }
-      )
-      .subscribe()
+    let channel: any;
+
+    const setupSubscription = async () => {
+      // FIX: Fetch the session properly before setting up the filter
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+
+      channel = supabase
+        .channel("wallet-updates")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "wallet_transactions",
+            filter: `user_id=eq.${session.user.id}`, // Use the resolved session ID
+          },
+          () => {
+            fetchTransactions();
+          },
+        )
+        .subscribe();
+    };
+
+    setupSubscription();
 
     return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [])
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, []);
 
   const fetchTransactions = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
 
       const { data: txns } = await supabase
-        .from('wallet_transactions')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false })
-        .limit(10)
+        .from("wallet_transactions")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .order("created_at", { ascending: false })
+        .limit(10);
 
       if (txns) {
-        setTransactions(txns)
+        setTransactions(txns);
       }
     } catch (error) {
-      console.error('Error fetching transactions:', error)
+      console.error("Error fetching transactions:", error);
     }
-  }
+  };
 
   const totalCredit = transactions
-    .filter(t => t.type === 'credit' && t.status === 'completed')
-    .reduce((sum, t) => sum + t.amount, 0)
+    .filter((t) => t.type === "credit" && t.status === "completed")
+    .reduce((sum, t) => sum + t.amount, 0);
 
   const totalDebit = transactions
-    .filter(t => t.type === 'debit' && t.status === 'completed')
-    .reduce((sum, t) => sum + t.amount, 0)
+    .filter((t) => t.type === "debit" && t.status === "completed")
+    .reduce((sum, t) => sum + t.amount, 0);
 
-  const pendingTransactions = transactions.filter(t => t.status === 'pending')
+  const pendingTransactions = transactions.filter(
+    (t) => t.status === "pending",
+  );
 
   return (
     <>
@@ -144,7 +167,8 @@ export default function WalletClient({ initialBalance, initialTransactions }: Wa
                 <AlertCircle className="h-5 w-5 text-amber-600" />
                 <div>
                   <p className="font-medium text-amber-800">
-                    You have {pendingTransactions.length} pending transaction{pendingTransactions.length !== 1 ? 's' : ''}
+                    You have {pendingTransactions.length} pending transaction
+                    {pendingTransactions.length !== 1 ? "s" : ""}
                   </p>
                   <p className="text-sm text-amber-700 mt-1">
                     These will be processed within 1-2 hours
@@ -178,12 +202,14 @@ export default function WalletClient({ initialBalance, initialTransactions }: Wa
                   >
                     <div>
                       <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-full ${
-                          transaction.type === 'credit' 
-                            ? 'bg-green-100' 
-                            : 'bg-red-100'
-                        }`}>
-                          {transaction.type === 'credit' ? (
+                        <div
+                          className={`p-2 rounded-full ${
+                            transaction.type === "credit"
+                              ? "bg-green-100"
+                              : "bg-red-100"
+                          }`}
+                        >
+                          {transaction.type === "credit" ? (
                             <PlusCircle className="h-4 w-4 text-green-600" />
                           ) : (
                             <History className="h-4 w-4 text-red-600" />
@@ -194,29 +220,41 @@ export default function WalletClient({ initialBalance, initialTransactions }: Wa
                             {transaction.description}
                           </h4>
                           <p className="text-sm text-slate-500">
-                            {new Date(transaction.created_at).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
+                            {new Date(
+                              transaction.created_at,
+                            ).toLocaleDateString("en-US", {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
                             })}
                           </p>
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className={`font-semibold ${
-                        transaction.type === 'credit' ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {transaction.type === 'credit' ? '+' : '-'}Rs. {transaction.amount.toFixed(2)}
+                      <p
+                        className={`font-semibold ${
+                          transaction.type === "credit"
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {transaction.type === "credit" ? "+" : "-"}Rs.{" "}
+                        {transaction.amount.toFixed(2)}
                       </p>
                       <p className="text-sm text-slate-500">
-                        Status: <span className={`font-medium ${
-                          transaction.status === 'completed' ? 'text-green-600' :
-                          transaction.status === 'pending' ? 'text-amber-600' :
-                          'text-red-600'
-                        }`}>
+                        Status:{" "}
+                        <span
+                          className={`font-medium ${
+                            transaction.status === "completed"
+                              ? "text-green-600"
+                              : transaction.status === "pending"
+                                ? "text-amber-600"
+                                : "text-red-600"
+                          }`}
+                        >
                           {transaction.status}
                         </span>
                       </p>
@@ -227,8 +265,12 @@ export default function WalletClient({ initialBalance, initialTransactions }: Wa
             ) : (
               <div className="text-center py-12">
                 <History className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-slate-900 mb-2">No transactions yet</h3>
-                <p className="text-slate-600">Your transaction history will appear here</p>
+                <h3 className="text-lg font-medium text-slate-900 mb-2">
+                  No transactions yet
+                </h3>
+                <p className="text-slate-600">
+                  Your transaction history will appear here
+                </p>
                 <Link
                   href="/dashboard/wallet/topup"
                   className="mt-4 inline-block bg-indigo-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-indigo-700"
@@ -296,5 +338,5 @@ export default function WalletClient({ initialBalance, initialTransactions }: Wa
         </div>
       </div>
     </>
-  )
+  );
 }

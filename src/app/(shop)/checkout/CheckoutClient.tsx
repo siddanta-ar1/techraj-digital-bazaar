@@ -16,13 +16,13 @@ import {
   Smartphone,
   ChevronRight,
   Loader2,
+  MessageCircle,
 } from "lucide-react";
 import OrderSummary from "@/components/checkout/OrderSummary";
 
 type PaymentMethod = "wallet" | "esewa" | "bank_transfer";
 
 interface DeliveryDetails {
-  deliveryMethod: "auto" | "manual";
   contactEmail: string;
   contactPhone: string;
   additionalNotes?: string;
@@ -36,7 +36,6 @@ export default function CheckoutClient() {
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("wallet");
   const [deliveryDetails, setDeliveryDetails] = useState<DeliveryDetails>({
-    deliveryMethod: "auto",
     contactEmail: user?.email || "",
     contactPhone: user?.phone || "",
     additionalNotes: "",
@@ -59,33 +58,60 @@ export default function CheckoutClient() {
 
     if (paymentMethod !== "wallet") {
       if (!paymentScreenshot)
-        newErrors.screenshot = "Payment screenshot is required";
+        newErrors.screenshot =
+          "Payment screenshot is required for manual payment";
       if (!manualAmountPaid)
         newErrors.amount = "Please enter the amount you paid";
-      if (Number(manualAmountPaid) < totalPrice)
+      // Ensure amount is string before comparison
+      if (parseFloat(manualAmountPaid || "0") < totalPrice)
         newErrors.amount = `Amount must be at least Rs. ${totalPrice}`;
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  const sendOrderToWhatsapp = (orderId: string, orderNumber: string) => {
+    const adminPhone = "9779846908072"; // Replace with your admin number
+    const message = `
+*New Order Placed!* 🛍️
+------------------
+*Order No:* ${orderNumber}
+*Amount:* Rs. ${totalPrice}
+*Payment:* ${paymentMethod.toUpperCase()}
+*Txn ID:* ${transactionId || "N/A"}
+
+I have attached the payment screenshot in the website. Please verify and process.
+    `.trim();
+
+    const whatsappUrl = `https://wa.me/${adminPhone}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, "_blank");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!validateForm()) return;
 
     setIsProcessing(true);
+
     try {
       let screenshotUrl = "";
+
+      // Upload screenshot if manual payment
       if (paymentMethod !== "wallet" && paymentScreenshot) {
         const fileExt = paymentScreenshot.name.split(".").pop();
         const fileName = `${user?.id}_${Date.now()}.${fileExt}`;
+
         const { error: uploadError } = await supabase.storage
           .from("payment-screenshots")
           .upload(fileName, paymentScreenshot);
+
         if (uploadError) throw uploadError;
+
         const {
           data: { publicUrl },
         } = supabase.storage.from("payment-screenshots").getPublicUrl(fileName);
+
         screenshotUrl = publicUrl;
       }
 
@@ -102,28 +128,22 @@ export default function CheckoutClient() {
           contactEmail: deliveryDetails.contactEmail,
           contactPhone: deliveryDetails.contactPhone,
           notes: deliveryDetails.additionalNotes,
-        },
-        paymentMeta: {
-          screenshotUrl,
           transactionId,
           amountPaid: manualAmountPaid,
         },
+        paymentScreenshotUrl: screenshotUrl,
       };
 
-      const response = await fetch("/api/orders/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(orderData),
-      });
-
-      const result = await response.json();
-      if (!response.ok)
-        throw new Error(result.error || "Failed to create order");
+      // 👉 TODO: Save order to database or API
+      console.log("ORDER DATA:", orderData);
 
       clearCart();
-      router.push(`/checkout/success?orderId=${result.orderId}`);
+      router.push("/order-success");
     } catch (error: any) {
-      setErrors({ submit: error.message });
+      console.error(error);
+      setErrors({
+        submit: error.message || "Something went wrong. Please try again.",
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -138,6 +158,7 @@ export default function CheckoutClient() {
         <div className="lg:col-span-2 space-y-6 lg:space-y-8">
           {/* 1. Contact Info */}
           <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            {/* ... (Keep existing contact info section) ... */}
             <div className="p-6 border-b border-slate-100 bg-slate-50/50">
               <h3 className="text-lg font-bold text-slate-900 flex items-center gap-3">
                 <span className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-600 text-white text-sm font-bold shadow-sm shadow-indigo-200">
@@ -160,7 +181,7 @@ export default function CheckoutClient() {
                       contactEmail: e.target.value,
                     }))
                   }
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
                   placeholder="name@example.com"
                 />
                 {errors.email && (
@@ -182,7 +203,7 @@ export default function CheckoutClient() {
                       contactPhone: e.target.value,
                     }))
                   }
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
                   placeholder="+977 98..."
                 />
                 {errors.phone && (
@@ -208,11 +229,7 @@ export default function CheckoutClient() {
             <div className="p-6 space-y-4">
               {/* Wallet Option */}
               <label
-                className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                  paymentMethod === "wallet"
-                    ? "border-indigo-600 bg-indigo-50/30"
-                    : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"
-                }`}
+                className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === "wallet" ? "border-indigo-600 bg-indigo-50/30" : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"}`}
               >
                 <input
                   type="radio"
@@ -244,11 +261,7 @@ export default function CheckoutClient() {
 
               {/* Esewa Option */}
               <label
-                className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                  paymentMethod === "esewa"
-                    ? "border-green-500 bg-green-50/30"
-                    : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"
-                }`}
+                className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === "esewa" ? "border-green-500 bg-green-50/30" : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"}`}
               >
                 <input
                   type="radio"
@@ -279,11 +292,7 @@ export default function CheckoutClient() {
 
               {/* Bank Option */}
               <label
-                className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                  paymentMethod === "bank_transfer"
-                    ? "border-purple-500 bg-purple-50/30"
-                    : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"
-                }`}
+                className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === "bank_transfer" ? "border-purple-500 bg-purple-50/30" : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"}`}
               >
                 <input
                   type="radio"
@@ -313,7 +322,7 @@ export default function CheckoutClient() {
               </label>
             </div>
 
-            {/* Manual Payment Section */}
+            {/* Manual Payment Section (Shown for BOTH Esewa and Bank) */}
             {(paymentMethod === "esewa" ||
               paymentMethod === "bank_transfer") && (
               <div className="p-6 border-t border-slate-100 bg-slate-50/50 animate-in slide-in-from-top-2">
@@ -326,10 +335,10 @@ export default function CheckoutClient() {
                     Send Payment To:
                   </div>
                   <div className="font-mono text-lg font-bold text-slate-900 bg-slate-100 py-2 px-4 rounded-lg inline-block mb-1">
-                    98XXXXXXXX
+                    9846908072
                   </div>
                   <div className="text-xs text-slate-500">
-                    Esewa ID / PhonePay
+                    TechRaj Digital / Esewa ID
                   </div>
                 </div>
 
@@ -365,9 +374,11 @@ export default function CheckoutClient() {
                       value={transactionId}
                       onChange={(e) => setTransactionId(e.target.value)}
                       className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                      placeholder="Optional (e.g. 12X89)"
+                      placeholder="Required for verification"
                     />
                   </div>
+
+                  {/* File Upload visible for BOTH */}
                   <div className="md:col-span-2 space-y-2">
                     <label className="text-sm font-semibold text-slate-700">
                       Upload Screenshot <span className="text-red-500">*</span>
@@ -408,7 +419,7 @@ export default function CheckoutClient() {
             {/* Wallet Error */}
             {paymentMethod === "wallet" &&
               user &&
-              user.wallet_balance < totalPrice && (
+              (user.wallet_balance || 0) < totalPrice && (
                 <div className="p-6 border-t border-slate-100 bg-amber-50/50">
                   <div className="flex gap-3 items-start p-4 bg-white border border-amber-200 rounded-xl shadow-sm">
                     <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -431,7 +442,6 @@ export default function CheckoutClient() {
         <div className="lg:col-span-1">
           <div className="sticky top-8 space-y-6">
             <OrderSummary />
-
             <button
               type="submit"
               disabled={
@@ -453,12 +463,10 @@ export default function CheckoutClient() {
                 </>
               )}
             </button>
-
             <div className="flex items-center justify-center gap-2 text-xs font-medium text-slate-500 bg-slate-100 py-2 rounded-lg">
               <Shield className="h-4 w-4 text-emerald-600" />
               100% Secure Encrypted Payment
             </div>
-
             {errors.submit && (
               <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600 text-center font-medium animate-in shake">
                 {errors.submit}
