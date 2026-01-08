@@ -1,85 +1,98 @@
 // src/app/admin/orders/AdminOrdersClient.tsx
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { Search, Filter, Download, Eye, CheckCircle, XCircle, Clock, Package, MoreVertical } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Search,
+  Filter,
+  Download,
+  Eye,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Package,
+  MoreVertical,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 interface OrderItem {
-  id: string
+  id: string;
   variant: {
-    variant_name: string
+    variant_name: string;
     product: {
-      name: string
-    }
-  }
-  quantity: number
+      name: string;
+    };
+  };
+  quantity: number;
 }
 
 interface Order {
-  id: string
-  order_number: string
+  id: string;
+  order_number: string;
   user: {
-    full_name: string
-    email: string
-    phone: string
-  }
-  total_amount: number
-  final_amount: number
-  status: 'pending' | 'processing' | 'completed' | 'cancelled' | 'refunded'
-  payment_method: 'wallet' | 'esewa' | 'bank_transfer'
-  payment_status: 'pending' | 'paid' | 'failed'
-  delivery_type: 'auto' | 'manual'
-  created_at: string
-  order_items: OrderItem[]
+    full_name: string;
+    email: string;
+    phone: string;
+  };
+  total_amount: number;
+  final_amount: number;
+  status: "pending" | "processing" | "completed" | "cancelled" | "refunded";
+  payment_method: "wallet" | "esewa" | "bank_transfer";
+  payment_status: "pending" | "paid" | "failed";
+  delivery_type: "auto" | "manual";
+  created_at: string;
+  order_items: OrderItem[];
 }
 
 interface AdminOrdersClientProps {
-  initialOrders: Order[]
+  initialOrders: Order[];
 }
 
-export default function AdminOrdersClient({ initialOrders }: AdminOrdersClientProps) {
-  const router = useRouter()
-  const [orders, setOrders] = useState<Order[]>(initialOrders)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [paymentFilter, setPaymentFilter] = useState<string>('all')
-  const [selectedOrders, setSelectedOrders] = useState<string[]>([])
-  const [loading, setLoading] = useState(false)
-  const supabase = createClient()
+export default function AdminOrdersClient({
+  initialOrders,
+}: AdminOrdersClientProps) {
+  const router = useRouter();
+  const [orders, setOrders] = useState<Order[]>(initialOrders);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [paymentFilter, setPaymentFilter] = useState<string>("all");
+  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const supabase = createClient();
 
   // Real-time subscription for new orders
   useEffect(() => {
     const channel = supabase
-      .channel('admin-orders')
+      .channel("admin-orders")
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'orders'
+          event: "INSERT",
+          schema: "public",
+          table: "orders",
         },
         (payload) => {
-          console.log('New order:', payload)
+          console.log("New order:", payload);
           // In production, you would fetch the complete order with user details
           // For now, we'll just refresh
-          fetchOrders()
-        }
+          fetchOrders();
+        },
       )
-      .subscribe()
+      .subscribe();
 
     return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [])
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const fetchOrders = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
       const { data: ordersData } = await supabase
-        .from('orders')
-        .select(`
+        .from("orders")
+        .select(
+          `
           *,
           user:users(full_name, email, phone),
           order_items(
@@ -89,103 +102,134 @@ export default function AdminOrdersClient({ initialOrders }: AdminOrdersClientPr
               product:products(name)
             )
           )
-        `)
-        .order('created_at', { ascending: false })
+        `,
+        )
+        .order("created_at", { ascending: false });
 
       if (ordersData) {
-        setOrders(ordersData as Order[])
+        setOrders(ordersData as Order[]);
       }
     } catch (error) {
-      console.error('Error fetching orders:', error)
+      console.error("Error fetching orders:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const filteredOrders = orders.filter(order => {
+  const filteredOrders = orders.filter((order) => {
     // Search filter
-    const matchesSearch = 
+    const matchesSearch =
       order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.user?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.user?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.user?.phone?.includes(searchTerm)
-    
-    // Status filter
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter
-    
-    // Payment filter
-    const matchesPayment = paymentFilter === 'all' || order.payment_method === paymentFilter
+      order.user?.phone?.includes(searchTerm);
 
-    return matchesSearch && matchesStatus && matchesPayment
-  })
+    // Status filter
+    const matchesStatus =
+      statusFilter === "all" || order.status === statusFilter;
+
+    // Payment filter
+    const matchesPayment =
+      paymentFilter === "all" || order.payment_method === paymentFilter;
+
+    return matchesSearch && matchesStatus && matchesPayment;
+  });
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed': return <CheckCircle className="h-4 w-4 text-green-600" />
-      case 'processing': return <Package className="h-4 w-4 text-blue-600" />
-      case 'pending': return <Clock className="h-4 w-4 text-amber-600" />
-      case 'cancelled': return <XCircle className="h-4 w-4 text-red-600" />
-      default: return <Clock className="h-4 w-4 text-slate-600" />
+      case "completed":
+        return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case "processing":
+        return <Package className="h-4 w-4 text-blue-600" />;
+      case "pending":
+        return <Clock className="h-4 w-4 text-amber-600" />;
+      case "cancelled":
+        return <XCircle className="h-4 w-4 text-red-600" />;
+      default:
+        return <Clock className="h-4 w-4 text-slate-600" />;
     }
-  }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'bg-green-100 text-green-800'
-      case 'processing': return 'bg-blue-100 text-blue-800'
-      case 'pending': return 'bg-amber-100 text-amber-800'
-      case 'cancelled': return 'bg-red-100 text-red-800'
-      default: return 'bg-slate-100 text-slate-800'
+      case "completed":
+        return "bg-green-100 text-green-800";
+      case "processing":
+        return "bg-blue-100 text-blue-800";
+      case "pending":
+        return "bg-amber-100 text-amber-800";
+      case "cancelled":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-slate-100 text-slate-800";
     }
-  }
+  };
 
   const handleStatusUpdate = async (orderId: string, newStatus: string) => {
     try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: newStatus })
-        .eq('id', orderId)
+      const res = await fetch("/api/admin/orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, updates: { status: newStatus } }),
+      });
 
-      if (error) throw error
+      if (!res.ok) throw new Error("Update failed");
 
-      // Update local state
-      setOrders(orders.map(order => 
-        order.id === orderId ? { ...order, status: newStatus as any } : order
-      ))
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId ? { ...o, status: newStatus as any } : o,
+        ),
+      );
+      router.refresh();
     } catch (error) {
-      console.error('Error updating order status:', error)
+      alert("Error updating order status");
     }
-  }
+  };
+
+  // Update useEffect to listen for all changes
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-orders-all")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders" },
+        () => fetchOrders(),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const handleSelectAll = () => {
     if (selectedOrders.length === filteredOrders.length) {
-      setSelectedOrders([])
+      setSelectedOrders([]);
     } else {
-      setSelectedOrders(filteredOrders.map(order => order.id))
+      setSelectedOrders(filteredOrders.map((order) => order.id));
     }
-  }
+  };
 
   const handleSelectOrder = (orderId: string) => {
-    setSelectedOrders(prev => 
-      prev.includes(orderId) 
-        ? prev.filter(id => id !== orderId)
-        : [...prev, orderId]
-    )
-  }
+    setSelectedOrders((prev) =>
+      prev.includes(orderId)
+        ? prev.filter((id) => id !== orderId)
+        : [...prev, orderId],
+    );
+  };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
+    return new Date(dateString).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
-  const pendingOrders = orders.filter(o => o.status === 'pending').length
+  const pendingOrders = orders.filter((o) => o.status === "pending").length;
   const totalRevenue = orders
-    .filter(o => o.status === 'completed' || o.status === 'processing')
-    .reduce((sum, o) => sum + o.final_amount, 0)
+    .filter((o) => o.status === "completed" || o.status === "processing")
+    .reduce((sum, o) => sum + o.final_amount, 0);
 
   return (
     <div className="bg-white rounded-xl shadow-lg">
@@ -258,7 +302,10 @@ export default function AdminOrdersClient({ initialOrders }: AdminOrdersClientPr
               <th className="px-6 py-3 text-left">
                 <input
                   type="checkbox"
-                  checked={selectedOrders.length === filteredOrders.length && filteredOrders.length > 0}
+                  checked={
+                    selectedOrders.length === filteredOrders.length &&
+                    filteredOrders.length > 0
+                  }
                   onChange={handleSelectAll}
                   className="h-4 w-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
                 />
@@ -303,14 +350,15 @@ export default function AdminOrdersClient({ initialOrders }: AdminOrdersClientPr
                       #{order.order_number}
                     </div>
                     <div className="text-sm text-slate-500">
-                      {order.order_items.length} item{order.order_items.length !== 1 ? 's' : ''}
+                      {order.order_items.length} item
+                      {order.order_items.length !== 1 ? "s" : ""}
                     </div>
                   </div>
                 </td>
                 <td className="px-6 py-4">
                   <div>
                     <div className="font-medium text-slate-900">
-                      {order.user?.full_name || 'N/A'}
+                      {order.user?.full_name || "N/A"}
                     </div>
                     <div className="text-sm text-slate-500">
                       {order.user?.email}
@@ -331,21 +379,26 @@ export default function AdminOrdersClient({ initialOrders }: AdminOrdersClientPr
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
                     {getStatusIcon(order.status)}
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(order.status)}`}>
+                    <span
+                      className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(order.status)}`}
+                    >
                       {order.status}
                     </span>
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <div className={`px-2 py-1 text-xs font-medium rounded-full ${
-                    order.payment_status === 'paid' 
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-amber-100 text-amber-800'
-                  }`}>
+                  <div
+                    className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      order.payment_status === "paid"
+                        ? "bg-green-100 text-green-800"
+                        : "bg-amber-100 text-amber-800"
+                    }`}
+                  >
                     {order.payment_status}
                   </div>
                   <div className="text-xs text-slate-500 mt-1">
-                    {order.delivery_type === 'auto' ? 'Auto' : 'Manual'} delivery
+                    {order.delivery_type === "auto" ? "Auto" : "Manual"}{" "}
+                    delivery
                   </div>
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-500">
@@ -365,32 +418,40 @@ export default function AdminOrdersClient({ initialOrders }: AdminOrdersClientPr
                         <MoreVertical className="h-4 w-4" />
                       </button>
                       <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-10 hidden">
-                        {order.status === 'pending' && (
+                        {order.status === "pending" && (
                           <>
                             <button
-                              onClick={() => handleStatusUpdate(order.id, 'processing')}
+                              onClick={() =>
+                                handleStatusUpdate(order.id, "processing")
+                              }
                               className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
                             >
                               Mark as Processing
                             </button>
                             <button
-                              onClick={() => handleStatusUpdate(order.id, 'completed')}
+                              onClick={() =>
+                                handleStatusUpdate(order.id, "completed")
+                              }
                               className="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50"
                             >
                               Mark as Completed
                             </button>
                           </>
                         )}
-                        {order.status === 'processing' && (
+                        {order.status === "processing" && (
                           <button
-                            onClick={() => handleStatusUpdate(order.id, 'completed')}
+                            onClick={() =>
+                              handleStatusUpdate(order.id, "completed")
+                            }
                             className="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50"
                           >
                             Mark as Completed
                           </button>
                         )}
                         <button
-                          onClick={() => handleStatusUpdate(order.id, 'cancelled')}
+                          onClick={() =>
+                            handleStatusUpdate(order.id, "cancelled")
+                          }
                           className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                         >
                           Cancel Order
@@ -407,8 +468,12 @@ export default function AdminOrdersClient({ initialOrders }: AdminOrdersClientPr
         {filteredOrders.length === 0 && (
           <div className="text-center py-12">
             <Package className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-slate-900 mb-2">No orders found</h3>
-            <p className="text-slate-600">Try adjusting your search or filter criteria</p>
+            <h3 className="text-lg font-medium text-slate-900 mb-2">
+              No orders found
+            </h3>
+            <p className="text-slate-600">
+              Try adjusting your search or filter criteria
+            </p>
           </div>
         )}
       </div>
@@ -418,7 +483,8 @@ export default function AdminOrdersClient({ initialOrders }: AdminOrdersClientPr
         <div className="p-4 border-t border-slate-200 bg-indigo-50">
           <div className="flex items-center justify-between">
             <p className="text-sm text-indigo-700">
-              {selectedOrders.length} order{selectedOrders.length !== 1 ? 's' : ''} selected
+              {selectedOrders.length} order
+              {selectedOrders.length !== 1 ? "s" : ""} selected
             </p>
             <div className="flex gap-2">
               <button className="px-3 py-1 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700">
@@ -458,5 +524,5 @@ export default function AdminOrdersClient({ initialOrders }: AdminOrdersClientPr
         </div>
       )}
     </div>
-  )
+  );
 }

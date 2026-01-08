@@ -1,7 +1,8 @@
 // src/app/dashboard/orders/OrdersClient.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Search,
@@ -13,6 +14,7 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import OrderCard from "@/components/orders/OrderCard";
+import { createClient } from "@/lib/supabase/client";
 
 // Define interfaces
 interface OrderItem {
@@ -52,11 +54,30 @@ interface OrdersClientProps {
 }
 
 export default function OrdersClient({ initialOrders }: OrdersClientProps) {
-  // FIX: Cast the initialOrders to our strict Order[] type
+  const router = useRouter();
   const [orders] = useState<Order[]>(initialOrders as Order[]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all");
+
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel("my-orders")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "orders" },
+        () => {
+          // This refreshes the Server Component data without a full page reload
+          router.refresh();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [router]);
 
   const filteredOrders = orders.filter((order) => {
     // Search filter
