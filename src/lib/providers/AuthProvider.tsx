@@ -1,13 +1,15 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   createContext,
   useContext,
   useEffect,
   useState,
   useCallback,
+  useMemo,
+  useRef,
 } from "react";
 
 type User = {
@@ -34,73 +36,73 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  // FIXED: Removed the duplicate declaration below. Only one instance needed.
   const [supabase] = useState(() => createClient());
   const router = useRouter();
-  const pathname = usePathname();
+  const initRef = useRef(false);
 
-  const getOrCreateUser = useCallback(
+  // Synchronizes the user profile with a 5-second safety timeout
+  const syncProfile = useCallback(
     async (authUser: any) => {
+      if (!authUser) {
+        setUser(null);
+        return;
+      }
+
+      // Default fallback user object derived from Auth metadata
+      const fallbackUser: User = {
+        id: authUser.id,
+        email: authUser.email || "",
+        full_name:
+          authUser.user_metadata?.full_name || authUser.email?.split("@")[0],
+        wallet_balance: 0.0,
+        role: "user",
+      };
+
       try {
-        const { data: existingUser } = await supabase
-          .from("users")
-          .select("*")
-          .eq("id", authUser.id)
-          .maybeSingle();
+        // Race the DB query against a timeout promise
+        const { data, error } = await Promise.race([
+          supabase
+            .from("users")
+            .select("*")
+            .eq("id", authUser.id)
+            .maybeSingle(),
+          new Promise<any>((_, reject) =>
+            setTimeout(() => reject(new Error("DB_TIMEOUT")), 5000),
+          ),
+        ]);
 
-        if (existingUser) return existingUser as User;
-
-        const newUser = {
-          id: authUser.id,
-          email: authUser.email || "",
-          full_name: authUser.user_metadata?.full_name || "",
-          wallet_balance: 0.0,
-          role: "user" as const,
-        };
-
-        const { data: createdUser, error } = await supabase
-          .from("users")
-          .upsert(newUser)
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        return (createdUser as User) || newUser;
-      } catch (error) {
-        console.error("User fetch error:", error);
-        return {
-          id: authUser.id,
-          email: authUser.email || "",
-          full_name: authUser.user_metadata?.full_name || "",
-          wallet_balance: 0.0,
-          role: "user" as const,
-        };
+        if (error || !data) {
+          setUser(fallbackUser);
+        } else {
+          setUser(data as User);
+        }
+      } catch (err) {
+        // Silently handle timeout/errors and use fallback to prevent UI hang
+        console.warn(
+          "AuthProvider: Using fallback profile due to latency or error.",
+        );
+        setUser(fallbackUser);
       }
     },
     [supabase],
   );
 
   useEffect(() => {
+    if (initRef.current) return;
+    initRef.current = true;
+
     let mounted = true;
 
-    async function syncUser(sessionUser: any) {
-      if (!sessionUser) {
-        if (mounted) setUser(null);
-        return;
-      }
-
-      const userData = await getOrCreateUser(sessionUser);
-      if (mounted) setUser(userData);
-    }
-
-    const init = async () => {
+    const initialize = async () => {
       try {
+        // Use getSession for fast client-side hydration
         const {
           data: { session },
         } = await supabase.auth.getSession();
-        await syncUser(session?.user);
+
+        if (session?.user && mounted) {
+          await syncProfile(session.user);
+        }
       } catch (error) {
         console.error("Auth init error:", error);
       } finally {
@@ -108,13 +110,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    init();
+    initialize();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-        await syncUser(session?.user);
+        await syncProfile(session?.user);
       } else if (event === "SIGNED_OUT") {
         if (mounted) setUser(null);
         router.refresh();
@@ -126,7 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [supabase, router, getOrCreateUser]);
+  }, [supabase, router, syncProfile]);
 
   const signOut = async () => {
     try {
@@ -141,11 +143,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  return (
-    <AuthContext.Provider value={{ user, isLoading, signOut }}>
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({ user, isLoading, signOut }),
+    [user, isLoading],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export const useAuth = () => {
