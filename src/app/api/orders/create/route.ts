@@ -31,7 +31,6 @@ export async function POST(request: Request) {
       .from("orders")
       .insert([
         {
-          id: orderId,
           order_number: orderNumber,
           user_id: session.user.id,
           total_amount: totalAmount,
@@ -40,17 +39,13 @@ export async function POST(request: Request) {
           payment_method: paymentMethod,
           payment_status: paymentMethod === "wallet" ? "paid" : "pending",
           payment_screenshot_url: paymentScreenshotUrl,
-          // Store transaction ID in delivery_details or a dedicated JSON column if available
           delivery_details: {
             ...deliveryDetails,
             transaction_id: paymentMeta?.transactionId,
             amount_paid: paymentMeta?.amountPaid,
           },
         },
-      ])
-      .select()
-      .single();
-
+      ]);
     if (orderError) {
       console.error("Supabase Order Error:", orderError);
       throw new Error(orderError.message);

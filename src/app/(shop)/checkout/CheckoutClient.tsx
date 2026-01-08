@@ -70,21 +70,23 @@ export default function CheckoutClient() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const sendOrderToWhatsapp = (orderId: string, orderNumber: string) => {
-    const adminPhone = "9779846908072"; // Replace with your admin number
+  // Improved WhatsApp function to handle the final URL redirect
+  const triggerWhatsappNotification = (orderNumber: string) => {
+    const adminPhone = "9779846908072"; // Admin Number
     const message = `
-*New Order Placed!* 🛍️
-------------------
-*Order No:* ${orderNumber}
-*Amount:* Rs. ${totalPrice}
-*Payment:* ${paymentMethod.toUpperCase()}
-*Txn ID:* ${transactionId || "N/A"}
+  *New Order Placed!* 🛍️
+  ------------------
+  *Order No:* ${orderNumber}
+  *Amount:* Rs. ${totalPrice.toFixed(2)}
+  *Payment:* ${paymentMethod.toUpperCase()}
+  *Txn ID:* ${transactionId || "N/A"}
 
-I have attached the payment screenshot in the website. Please verify and process.
-    `.trim();
+  I have placed an order and uploaded the screenshot on the website. Please verify.
+      `.trim();
 
     const whatsappUrl = `https://wa.me/${adminPhone}?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, "_blank");
+    // Use location.href to avoid browser popup blockers after async calls
+    window.location.href = whatsappUrl;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -97,7 +99,7 @@ I have attached the payment screenshot in the website. Please verify and process
     try {
       let screenshotUrl = "";
 
-      // Upload screenshot if manual payment
+      // 1. Upload screenshot if manual payment
       if (paymentMethod !== "wallet" && paymentScreenshot) {
         const fileExt = paymentScreenshot.name.split(".").pop();
         const fileName = `${user?.id}_${Date.now()}.${fileExt}`;
@@ -115,7 +117,8 @@ I have attached the payment screenshot in the website. Please verify and process
         screenshotUrl = publicUrl;
       }
 
-      const orderData = {
+      // 2. Save order to database via API
+      const orderPayload = {
         items: items.map((item) => ({
           productId: item.productId,
           variantId: item.variantId,
@@ -128,19 +131,34 @@ I have attached the payment screenshot in the website. Please verify and process
           contactEmail: deliveryDetails.contactEmail,
           contactPhone: deliveryDetails.contactPhone,
           notes: deliveryDetails.additionalNotes,
-          transactionId,
-          amountPaid: manualAmountPaid,
         },
         paymentScreenshotUrl: screenshotUrl,
+        paymentMeta: {
+          transactionId: transactionId,
+          amountPaid: manualAmountPaid,
+        },
       };
 
-      // 👉 TODO: Save order to database or API
-      console.log("ORDER DATA:", orderData);
+      const response = await fetch("/api/orders/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orderPayload),
+      });
 
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to create order");
+      }
+
+      // 3. Clear cart and trigger WhatsApp
       clearCart();
-      router.push("/order-success");
+
+      // We trigger WhatsApp and the browser will navigate away.
+      // The user can return to the dashboard later.
+      triggerWhatsappNotification(result.orderNumber);
     } catch (error: any) {
-      console.error(error);
+      console.error("Checkout Error:", error);
       setErrors({
         submit: error.message || "Something went wrong. Please try again.",
       });
