@@ -51,7 +51,7 @@ export function CategoryMarqueeClient({
                 {marqueeList.map((category, index) => (
                   <Link
                     key={`${category.id}-${index}`}
-                    href={`/products?category=${category.slug}`}
+                    href={`/products?category=${category.id}`}
                     className="flex items-center gap-3 px-5 py-2 rounded-full border border-slate-100 hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer group bg-white whitespace-nowrap shadow-sm"
                   >
                     <div
