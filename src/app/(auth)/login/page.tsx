@@ -153,9 +153,36 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={handleGoogleSignIn}
-            className="w-full flex items-center justify-center gap-3 bg-white border border-slate-200 py-3 rounded-xl font-semibold hover:bg-slate-50"
+            className="w-full flex items-center justify-center gap-3 bg-white border border-[#dadce0] py-3 rounded-xl font-medium text-[15px] text-[#3c4043]
+                       hover:bg-[#f7f8f8] active:bg-[#f1f3f4]
+                       transition-all shadow-sm"
           >
-            Google
+            {/* Google Logo */}
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 48 48"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                fill="#EA4335"
+                d="M24 9.5c3.14 0 5.94 1.08 8.15 2.85l6.1-6.1C34.55 2.48 29.6 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.1 5.51C11.57 13.03 17.33 9.5 24 9.5z"
+              />
+              <path
+                fill="#4285F4"
+                d="M46.5 24c0-1.64-.15-3.21-.42-4.73H24v9.05h12.7c-.55 2.96-2.23 5.47-4.75 7.15l7.26 5.64C43.79 36.85 46.5 30.97 46.5 24z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M9.66 28.73c-.5-1.48-.79-3.06-.79-4.73s.29-3.25.79-4.73l-7.1-5.51C.92 16.95 0 20.37 0 24s.92 7.05 2.56 10.24l7.1-5.51z"
+              />
+              <path
+                fill="#34A853"
+                d="M24 48c5.6 0 10.55-1.84 14.06-4.99l-7.26-5.64c-2.01 1.35-4.6 2.15-6.8 2.15-6.67 0-12.43-3.53-14.34-9.23l-7.1 5.51C6.51 42.62 14.62 48 24 48z"
+              />
+            </svg>
+
+            <span>Continue with Google</span>
           </button>
 
           <div className="text-center text-sm text-slate-600">
