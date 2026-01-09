@@ -1,126 +1,144 @@
 // src/app/api/admin/orders/route.ts
-import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
+import { createClient } from "@/lib/supabase/server";
+import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient()
-    
-    // Check if user is admin
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const supabase = await createClient();
+    const { searchParams } = new URL(request.url);
+
+    // Auth Check
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { data: user } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', session.user.id)
-      .single()
+      .from("users")
+      .select("role")
+      .eq("id", session.user.id)
+      .single();
+    if (user?.role !== "admin")
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    if (user?.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
-    const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
-    const status = searchParams.get('status')
-    const search = searchParams.get('search')
-    const offset = (page - 1) * limit
+    // Parameters
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "10");
+    const status = searchParams.get("status");
+    const payment = searchParams.get("payment");
+    const search = searchParams.get("search");
+    const offset = (page - 1) * limit;
 
     let query = supabase
-      .from('orders')
-      .select(`
+      .from("orders")
+      .select(
+        `
         *,
-        user:users(full_name, email, phone),
-        order_items(count)
-      `, { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1)
+        user:users(full_name, email, phone)
+      `,
+        { count: "exact" },
+      )
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
 
-    if (status && status !== 'all') {
-      query = query.eq('status', status)
-    }
+    if (status && status !== "all") query = query.eq("status", status);
+    if (payment && payment !== "all")
+      query = query.eq("payment_method", payment);
 
+    // Note: Complex OR searches across joined tables require a specific syntax in Supabase
     if (search) {
-      query = query.or(`order_number.ilike.%${search}%,users.full_name.ilike.%${search}%,users.email.ilike.%${search}%`)
+      query = query.or(`order_number.ilike.%${search}%`);
     }
 
-    const { data: orders, error, count } = await query
-
-    if (error) throw error
+    const { data: orders, error, count } = await query;
+    if (error) throw error;
 
     return NextResponse.json({
       orders,
       total: count || 0,
       page,
       limit,
-      totalPages: Math.ceil((count || 0) / limit)
-    })
-
+      totalPages: Math.ceil((count || 0) / limit),
+    });
   } catch (error: any) {
-    console.error('Admin orders fetch error:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch orders' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
 export async function PATCH(request: Request) {
   try {
-    const supabase = await createClient()
-    
-    // Check if user is admin
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const supabase = await createClient();
+
+    // FIX 1: Use getUser() instead of getSession() for security
+    const {
+      data: { user: authUser },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !authUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: user } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', session.user.id)
-      .single()
+    // Check admin role
+    const { data: userData } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", authUser.id)
+      .single();
 
-    if (user?.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (userData?.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { orderId, updates } = await request.json()
+    const { orderId, updates } = await request.json();
 
-    const { data: order, error } = await supabase
-      .from('orders')
-      .update(updates)
-      .eq('id', orderId)
+    if (!orderId) {
+      return NextResponse.json(
+        { error: "Order ID is required" },
+        { status: 400 },
+      );
+    }
+
+    // FIX 2: Handle potential PGRST116 by checking if order exists before .single()
+    const { data: order, error: updateError } = await supabase
+      .from("orders")
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", orderId)
       .select()
-      .single()
+      .maybeSingle(); // Use maybeSingle() to avoid crash if 0 rows are returned
 
-    if (error) throw error
+    if (updateError) throw updateError;
 
-    // If status changed to completed and delivery is manual, mark items as delivered
-    if (updates.status === 'completed') {
-      await supabase
-        .from('order_items')
-        .update({ status: 'delivered' })
-        .eq('order_id', orderId)
-        .eq('status', 'pending')
+    if (!order) {
+      return NextResponse.json(
+        { error: "Order not found or no changes made" },
+        { status: 404 },
+      );
     }
 
-    // TODO: Send notification to user about status change
+    // Logic for completing manual delivery items
+    if (updates.status === "completed") {
+      await supabase
+        .from("order_items")
+        .update({ status: "delivered" })
+        .eq("order_id", orderId)
+        .eq("status", "pending");
+    }
 
     return NextResponse.json({
       success: true,
       order,
-      message: 'Order updated successfully'
-    })
-
+      message: "Order updated successfully",
+    });
   } catch (error: any) {
-    console.error('Order update error:', error)
+    console.error("Order update error:", error);
     return NextResponse.json(
-      { error: error.message || 'Failed to update order' },
-      { status: 500 }
-    )
+      { error: error.message || "Failed to update order" },
+      { status: 500 },
+    );
   }
 }
