@@ -48,18 +48,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Default fallback user object derived from Auth metadata
       const fallbackUser: User = {
         id: authUser.id,
         email: authUser.email || "",
         full_name:
           authUser.user_metadata?.full_name || authUser.email?.split("@")[0],
-        wallet_balance: 0.0,
+        wallet_balance: 0, // Default value
         role: "user",
       };
 
       try {
-        // Race the DB query against a timeout promise
         const { data, error } = await Promise.race([
           supabase
             .from("users")
@@ -74,13 +72,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (error || !data) {
           setUser(fallbackUser);
         } else {
-          setUser(data as User);
+          // FIX: Safely merge data and ensure wallet_balance is a number
+          setUser({
+            ...fallbackUser, // Keeps defaults if fields are missing
+            ...data, // Overwrites with DB data
+            wallet_balance: data.wallet_balance ?? 0, // Fallback to 0 if DB is null
+          });
         }
       } catch (err) {
-        // Silently handle timeout/errors and use fallback to prevent UI hang
-        console.warn(
-          "AuthProvider: Using fallback profile due to latency or error.",
-        );
+        console.warn("AuthProvider: Using fallback profile due to error.");
         setUser(fallbackUser);
       }
     },

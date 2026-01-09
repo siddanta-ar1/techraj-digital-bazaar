@@ -61,7 +61,8 @@ export default function DashboardPage() {
             </span>
           </div>
           <div className="text-2xl font-bold text-slate-900">
-            रु {user.wallet_balance.toFixed(2)}
+            {/* FIX: Handle null/undefined safely */}
+            रु {(user.wallet_balance ?? 0).toFixed(2)}
           </div>
         </div>
 

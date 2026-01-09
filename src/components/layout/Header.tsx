@@ -156,7 +156,7 @@ export function Header() {
                       <Wallet className="w-4 h-4" />
                       Wallet{" "}
                       <span className="ml-auto text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                        रु {user.wallet_balance.toFixed(0)}
+                        रु {(user.wallet_balance ?? 0).toFixed(0)}
                       </span>
                     </Link>
 
@@ -242,7 +242,7 @@ export function Header() {
                       <p className="text-xs text-slate-500">{user.email}</p>
                     </div>
                     <div className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-sm font-bold">
-                      रु {user.wallet_balance}
+                      रु {(user.wallet_balance ?? 0).toFixed(2)}
                     </div>
                   </div>
                   <button
