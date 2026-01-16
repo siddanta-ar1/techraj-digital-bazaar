@@ -12,15 +12,15 @@ import {
   useRef,
 } from "react";
 
-// 1. ADD avatar_url to the Type Definition
+// 1. FIX: Add 'is_synced' to the User type definition
 export type User = {
   id: string;
   email: string;
   full_name?: string;
-  avatar_url?: string; // Added this
   wallet_balance: number;
   role: "user" | "admin";
   phone?: string;
+  is_synced?: boolean; // Added this property
 };
 
 type AuthContextType = {
@@ -49,20 +49,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // 2. Extract avatar from Google metadata (it's usually in 'avatar_url' or 'picture')
-      const googleAvatar =
-        authUser.user_metadata?.avatar_url ||
-        authUser.user_metadata?.picture ||
-        null;
-
+      // 2. FIX: Set default is_synced to false (loading/stale state)
       const fallbackUser: User = {
         id: authUser.id,
         email: authUser.email || "",
         full_name:
           authUser.user_metadata?.full_name || authUser.email?.split("@")[0],
-        avatar_url: googleAvatar, // Set the default from Google
         wallet_balance: 0,
         role: "user",
+        is_synced: false,
       };
 
       try {
@@ -78,14 +73,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ]);
 
         if (error || !data) {
+          // If error, keep is_synced=false so UI knows to show skeleton or 0
           setUser(fallbackUser);
         } else {
+          // 3. FIX: Set is_synced to true when we have real data
           setUser({
             ...fallbackUser,
             ...data,
-            // If the user hasn't set a custom avatar in DB, fall back to Google's
-            avatar_url: data.avatar_url || googleAvatar,
             wallet_balance: data.wallet_balance ?? 0,
+            is_synced: true,
           });
         }
       } catch (err) {
@@ -107,6 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const {
           data: { session },
         } = await supabase.auth.getSession();
+
         if (session?.user && mounted) {
           await syncProfile(session.user);
         }
