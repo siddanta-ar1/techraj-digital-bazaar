@@ -42,7 +42,6 @@ export default function WalletClient({
     let channel: any;
 
     const setupSubscription = async () => {
-      // FIX: Fetch the session properly before setting up the filter
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -56,10 +55,11 @@ export default function WalletClient({
             event: "*",
             schema: "public",
             table: "wallet_transactions",
-            filter: `user_id=eq.${session.user.id}`, // Use the resolved session ID
+            filter: `user_id=eq.${session.user.id}`,
           },
           () => {
             fetchTransactions();
+            fetchBalance(session.user.id); // FIX: Also fetch new balance on change
           },
         )
         .subscribe();
@@ -71,6 +71,19 @@ export default function WalletClient({
       if (channel) supabase.removeChannel(channel);
     };
   }, []);
+
+  // New function to fetch the latest balance
+  const fetchBalance = async (userId: string) => {
+    const { data } = await supabase
+      .from("users")
+      .select("wallet_balance")
+      .eq("id", userId)
+      .single();
+
+    if (data) {
+      setBalance(data.wallet_balance || 0);
+    }
+  };
 
   const fetchTransactions = async () => {
     try {
