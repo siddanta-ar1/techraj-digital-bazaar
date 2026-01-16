@@ -37,6 +37,11 @@ export default function CheckoutClient() {
   const { user } = useAuth();
   const supabase = createClient();
 
+  // FIX: Load admin phone from Env Variables
+  // Fallback provided just in case env var is missing during dev
+  const ADMIN_PHONE = process.env.NEXT_PUBLIC_CONTACT_PHONE || "+9779846908072";
+  const ADMIN_PHONE_CLEAN = ADMIN_PHONE.replace("+", "");
+
   // State
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("wallet");
   const [deliveryDetails, setDeliveryDetails] = useState<DeliveryDetails>({
@@ -195,7 +200,7 @@ export default function CheckoutClient() {
 
   // WhatsApp Notification
   const triggerWhatsappNotification = (orderNumber: string) => {
-    const adminPhone = "9779846908072";
+    // FIX: Use Env Variable
     const message = `
   *New Order Placed!* 🛍️
   ------------------
@@ -207,7 +212,7 @@ export default function CheckoutClient() {
   I have placed an order. Please verify.
       `.trim();
 
-    const whatsappUrl = `https://wa.me/${adminPhone}?text=${encodeURIComponent(
+    const whatsappUrl = `https://wa.me/${ADMIN_PHONE_CLEAN}?text=${encodeURIComponent(
       message,
     )}`;
     window.location.href = whatsappUrl;
@@ -511,8 +516,9 @@ export default function CheckoutClient() {
                     <div className="text-sm font-medium text-slate-600 mb-2">
                       Send Payment To:
                     </div>
+                    {/* FIX: Use Env Variable Display */}
                     <div className="font-mono text-lg font-bold text-slate-900 bg-slate-100 py-2 px-4 rounded-lg inline-block mb-1">
-                      9846908072
+                      {ADMIN_PHONE}
                     </div>
                     <div className="text-xs text-slate-500">
                       TechRaj Digital / Esewa ID

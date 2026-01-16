@@ -6,15 +6,17 @@ export async function POST(request: Request) {
   try {
     const supabase = await createClient();
 
-    // 1. Authenticate
+    // 1. AUTHENTICATE USER
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser();
+
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // 2. PARSE REQUEST
     const orderData = await request.json();
     const {
       items,
@@ -26,9 +28,10 @@ export async function POST(request: Request) {
       promoCode,
     } = orderData;
 
-    // 2. Validate Promo Code
+    // 3. PROMO CODE VALIDATION
     let discountAmount = 0;
     let finalAmount = Number(totalAmount);
+    let promoId = null;
 
     if (promoCode) {
       const { data: promo } = await supabase
@@ -50,16 +53,24 @@ export async function POST(request: Request) {
             discountAmount = promo.discount_value;
           }
           finalAmount = Math.max(0, totalAmount - discountAmount);
-          await supabase.rpc("increment_promo_usage", { promo_id: promo.id });
+          promoId = promo.id;
         }
       }
     }
 
-    const orderNumber = `TR-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+    // Handle "Full Discount" (Zero Payment)
+    const isFullDiscount = finalAmount === 0;
+    const effectivePaymentMethod = isFullDiscount ? "wallet" : paymentMethod;
+
+    // 4. GENERATE ORDER ID
+    const orderNumber = `TR-${Date.now()}-${Math.random()
+      .toString(36)
+      .substr(2, 4)
+      .toUpperCase()}`;
     const orderId = crypto.randomUUID();
 
-    // 3. Wallet Deduction
-    if (paymentMethod === "wallet") {
+    // 5. WALLET PAYMENT DEDUCTION (If applicable)
+    if (effectivePaymentMethod === "wallet" && !isFullDiscount) {
       const { error: deductionError } = await supabase.rpc(
         "deduct_wallet_balance",
         {
@@ -70,91 +81,102 @@ export async function POST(request: Request) {
 
       if (deductionError) {
         return NextResponse.json(
-          { error: deductionError.message || "Insufficient balance" },
+          {
+            error:
+              deductionError.message ||
+              "Insufficient balance or payment failed",
+          },
           { status: 400 },
         );
       }
 
+      // Log wallet transaction
       await supabase.from("wallet_transactions").insert({
         user_id: user.id,
         amount: Number(finalAmount),
         type: "debit",
         transaction_type: "purchase",
         reference_id: orderId,
-        description: `Purchase Order #${orderNumber}`,
+        description: `Order #${orderNumber}`,
         status: "completed",
       });
     }
 
-    // 4. CHECK FOR AUTO-DELIVERY (Digital Codes)
-    let isAutoDelivery = true;
+    // ---------------------------------------------------------
+    // ⚡ 6. AUTOMATED DIGITAL DELIVERY SYSTEM
+    // ---------------------------------------------------------
+    // Only attempt auto-delivery if payment is confirmed (Wallet/Full Discount)
+    const isInstantPayment = effectivePaymentMethod === "wallet";
+
+    // We will build a list of processed items to insert into DB
     const processedItems = [];
+    // We will build a list of items WITH codes to send via Email
+    const emailItems = [];
 
-    // Loop through all items to find codes
     for (const item of items) {
-      let deliveredCode = null;
-      let status = "pending";
+      let assignedCode = null;
+      let itemStatus = "pending";
 
-      // Get variant details to check 'stock_type'
-      const { data: variant } = await supabase
-        .from("product_variants")
-        .select("stock_type")
-        .eq("id", item.variantId)
-        .single();
-
-      if (variant?.stock_type === "codes") {
-        // Try to fetch ONE unused code for this variant
-        // Note: Ideally, if quantity > 1, we need to loop or fetch multiple rows.
-        // For simplicity here, we assume quantity=1 per line item or fetch 1 code.
-        const { data: codeData } = await supabase
+      // Try to find unused codes for this variant
+      if (isInstantPayment) {
+        // Fetch strictly the amount needed
+        const { data: availableCodes } = await supabase
           .from("product_codes")
           .select("id, code")
           .eq("variant_id", item.variantId)
           .eq("is_used", false)
-          .limit(1)
-          .maybeSingle();
+          .limit(item.quantity);
 
-        if (codeData) {
-          deliveredCode = codeData.code;
-          status = "delivered";
+        // Check if we found enough codes
+        if (availableCodes && availableCodes.length === item.quantity) {
+          const codeIds = availableCodes.map((c) => c.id);
+          const codeValues = availableCodes.map((c) => c.code).join(", ");
 
-          // Mark code as used IMMEDIATELY
-          await supabase
+          // CLAIM THE CODES (Mark as used)
+          const { error: claimError } = await supabase
             .from("product_codes")
             .update({
               is_used: true,
               order_id: orderId,
             })
-            .eq("id", codeData.id);
-        } else {
-          // If no code found, fallback to manual processing
-          isAutoDelivery = false;
-        }
-      } else if (variant?.stock_type !== "codes") {
-        // If any item is NOT a code (e.g. manual top-up), order is NOT auto-complete
-        if (variant?.stock_type !== "unlimited") {
-          // assuming 'unlimited' is auto? usually only 'codes' is auto.
-          isAutoDelivery = false;
+            .in("id", codeIds);
+
+          if (!claimError) {
+            assignedCode = codeValues; // "ABCD-1234, WXYZ-5678"
+            itemStatus = "completed"; // Mark this specific item as done
+          }
         }
       }
 
+      // Prepare item for DB
       processedItems.push({
         order_id: orderId,
         variant_id: item.variantId,
         quantity: item.quantity,
         unit_price: item.price,
         total_price: item.price * item.quantity,
-        status: status,
-        delivered_code: deliveredCode, // Saves the code into the order_items table
+        status: itemStatus,
+        delivered_code: assignedCode, // Save code in history
+      });
+
+      // Prepare item for Email
+      emailItems.push({
+        productName: item.productName || "Product",
+        variantName: item.variantName,
+        quantity: item.quantity,
+        delivered_code: assignedCode, // Email template checks this
       });
     }
 
-    // Determine Status
-    const orderStatus =
-      paymentMethod === "wallet" && isAutoDelivery ? "completed" : "pending";
-    const paymentStatus = paymentMethod === "wallet" ? "paid" : "pending";
+    // Check if ALL items were delivered instantly
+    const allDelivered = processedItems.every((i) => i.status === "completed");
 
-    // 5. Create Order
+    // If Wallet payment AND all items delivered -> Order is Completed
+    // If Bank Transfer OR some items missing codes -> Order is Pending
+    const orderStatus =
+      isInstantPayment && allDelivered ? "completed" : "pending";
+
+    // 7. CREATE ORDER
     const { error: orderError } = await supabase.from("orders").insert([
       {
         id: orderId,
@@ -165,10 +187,9 @@ export async function POST(request: Request) {
         final_amount: finalAmount,
         promo_code: promoCode || null,
         status: orderStatus,
-        payment_method: paymentMethod,
-        payment_status: paymentStatus,
+        payment_method: effectivePaymentMethod,
+        payment_status: isInstantPayment ? "paid" : "pending",
         payment_screenshot_url: paymentScreenshotUrl,
-        delivery_type: isAutoDelivery ? "auto" : "manual",
         delivery_details: {
           ...deliveryDetails,
           transaction_id: paymentMeta?.transactionId,
@@ -177,9 +198,9 @@ export async function POST(request: Request) {
       },
     ]);
 
+    // Refund wallet if order creation crashes
     if (orderError) {
-      // Refund if error
-      if (paymentMethod === "wallet") {
+      if (effectivePaymentMethod === "wallet" && !isFullDiscount) {
         await supabase.rpc("increment_wallet", {
           p_user_id: user.id,
           p_amount: finalAmount,
@@ -188,16 +209,24 @@ export async function POST(request: Request) {
       throw new Error(orderError.message);
     }
 
-    // 6. Insert Items
+    // 8. INSERT ORDER ITEMS
     const { error: itemsError } = await supabase
       .from("order_items")
       .insert(processedItems);
 
-    if (itemsError) throw new Error("Failed to create order items");
+    if (itemsError) {
+      throw new Error("Failed to create order items");
+    }
 
-    // 7. Send Email (Pass the processed items which contain the codes)
+    // 9. UPDATE PROMO USAGE (If used)
+    if (promoId) {
+      await supabase.rpc("increment_promo_usage", { promo_id: promoId });
+    }
+
+    // 10. SEND EMAIL (Now with codes!)
     if (user.email) {
-      sendOrderEmail(user.email, orderNumber, finalAmount, processedItems);
+      // We pass 'emailItems' which contains 'delivered_code'
+      await sendOrderEmail(user.email, orderNumber, finalAmount, emailItems);
     }
 
     return NextResponse.json({
@@ -206,8 +235,8 @@ export async function POST(request: Request) {
       orderNumber,
       finalAmount,
       discountAmount,
-      paymentStatus,
-      status: orderStatus,
+      paymentStatus: isInstantPayment ? "paid" : "pending",
+      orderStatus: orderStatus,
     });
   } catch (error: any) {
     console.error("Order creation error:", error);

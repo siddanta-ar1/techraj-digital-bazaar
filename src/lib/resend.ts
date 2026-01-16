@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 
 // In production, strictly use process.env.RESEND_API_KEY
-export const resend = new Resend("re_WFLXDRqa_73DFEKT5zxQjjr9GJ6HCcbRz");
+export const resend = new Resend(process.env.RESEND_API_KEY);
 
 const EMAIL_FROM = "TechRaj Digital <onboarding@resend.dev>";
 

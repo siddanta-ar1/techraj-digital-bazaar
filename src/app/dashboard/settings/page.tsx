@@ -26,6 +26,11 @@ export default function SettingsPage() {
     text: string;
   } | null>(null);
 
+  // New State for Password Reset
+  const [resetStatus, setResetStatus] = useState<
+    "idle" | "sending" | "sent" | "error"
+  >("idle");
+
   // Load initial user data
   useEffect(() => {
     if (user) {
@@ -62,6 +67,25 @@ export default function SettingsPage() {
       });
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  // --- NEW: Password Reset Handler ---
+  const handlePasswordReset = async () => {
+    if (!user?.email) return;
+    setResetStatus("sending");
+
+    // This sends a password reset link to the user's email
+    const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+      redirectTo: `${window.location.origin}/auth/update-password`,
+    });
+
+    if (error) {
+      setResetStatus("error");
+      alert("Error sending reset email: " + error.message);
+    } else {
+      setResetStatus("sent");
+      alert("Password reset link has been sent to your email.");
     }
   };
 
@@ -185,8 +209,16 @@ export default function SettingsPage() {
             <p className="text-sm text-slate-500 mb-4">
               Your data is stored securely using industry-standard encryption.
             </p>
-            <button className="w-full text-left px-4 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
-              Reset Password
+            {/* UPDATED RESET BUTTON */}
+            <button
+              onClick={handlePasswordReset}
+              disabled={resetStatus === "sending" || resetStatus === "sent"}
+              className="w-full text-left px-4 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex items-center gap-2"
+            >
+              {resetStatus === "sending" && (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              )}
+              {resetStatus === "sent" ? "Reset Link Sent!" : "Reset Password"}
             </button>
           </div>
 
@@ -197,7 +229,7 @@ export default function SettingsPage() {
               issues, contact our support team.
             </p>
             <a
-              href="https://wa.me/9779846908072"
+              href={`https://wa.me/${process.env.NEXT_PUBLIC_CONTACT_PHONE?.replace("+", "") || "9779846908072"}`}
               target="_blank"
               className="block text-center bg-white text-indigo-600 py-2 rounded-xl font-bold hover:bg-indigo-50 transition-colors"
             >
