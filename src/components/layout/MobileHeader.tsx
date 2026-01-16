@@ -186,14 +186,14 @@ export function MobileHeader() {
               </p>
 
               <Link
-                href="/category/games"
+                href="/products?category=55555555-5555-5555-5555-555555555555"
                 onClick={() => setIsMenuOpen(false)}
                 className="flex items-center justify-between px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl transition-colors font-medium"
               >
                 Game Top-ups <ChevronRight className="w-4 h-4 text-slate-400" />
               </Link>
               <Link
-                href="/category/gift-cards"
+                href="/products?category=22222222-2222-2222-2222-222222222222"
                 onClick={() => setIsMenuOpen(false)}
                 className="flex items-center justify-between px-4 py-3 text-slate-700 hover:bg-slate-50 rounded-xl transition-colors font-medium"
               >

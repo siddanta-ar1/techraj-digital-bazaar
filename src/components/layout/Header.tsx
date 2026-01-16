@@ -86,13 +86,13 @@ export function Header() {
               Products
             </Link>
             <Link
-              href="/category/games"
+              href="/products?category=55555555-5555-5555-5555-555555555555"
               className="text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors"
             >
               Game Codes
             </Link>
             <Link
-              href="/category/gift-cards"
+              href="/products?category=22222222-2222-2222-2222-222222222222"
               className="text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors"
             >
               Gift Cards
@@ -219,7 +219,7 @@ export function Header() {
                 Products
               </Link>
               <Link
-                href="/category/games"
+                href="/products?category=55555555-5555-5555-5555-555555555555"
                 className="py-3 px-4 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg font-medium"
               >
                 Game Codes

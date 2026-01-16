@@ -12,7 +12,6 @@ import {
   useRef,
 } from "react";
 
-// 1. FIX: Add 'is_synced' to the User type definition
 export type User = {
   id: string;
   email: string;
@@ -20,8 +19,7 @@ export type User = {
   wallet_balance: number;
   role: "user" | "admin";
   phone?: string;
-  is_synced?: boolean; // Added this property
-  avatar_url?: string;
+  is_synced?: boolean;
 };
 
 type AuthContextType = {
@@ -43,6 +41,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const initRef = useRef(false);
 
+  const fetchUserProfile = async (
+    userId: string,
+    retryCount = 0,
+  ): Promise<any> => {
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
+
+    // If no data found and we haven't retried yet, wait and retry once
+    // This fixes the race condition where Auth is ready but DB Trigger isn't
+    if ((error || !data) && retryCount < 2) {
+      await new Promise((resolve) => setTimeout(resolve, 500)); // 500ms delay
+      return fetchUserProfile(userId, retryCount + 1);
+    }
+
+    return { data, error };
+  };
+
   const syncProfile = useCallback(
     async (authUser: any) => {
       if (!authUser) {
@@ -50,43 +68,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // 2. FIX: Set default is_synced to false (loading/stale state)
+      // Default fallback state
       const fallbackUser: User = {
         id: authUser.id,
         email: authUser.email || "",
         full_name:
           authUser.user_metadata?.full_name || authUser.email?.split("@")[0],
         wallet_balance: 0,
-        role: "user",
+        role: "user", // Default role
         is_synced: false,
       };
 
       try {
-        const { data, error } = await Promise.race([
-          supabase
-            .from("users")
-            .select("*")
-            .eq("id", authUser.id)
-            .maybeSingle(),
-          new Promise<any>((_, reject) =>
-            setTimeout(() => reject(new Error("DB_TIMEOUT")), 5000),
-          ),
-        ]);
+        // Attempt to fetch with retry logic
+        const { data, error } = await fetchUserProfile(authUser.id);
 
         if (error || !data) {
-          // If error, keep is_synced=false so UI knows to show skeleton or 0
-          setUser(fallbackUser);
+          console.warn(
+            "AuthProvider: Profile sync failed or still creating.",
+            error,
+          );
+          // Only set fallback if we don't have a user already, to prevent overwriting valid data with empty data
+          setUser((prev) => (prev ? prev : fallbackUser));
         } else {
-          // 3. FIX: Set is_synced to true when we have real data
           setUser({
             ...fallbackUser,
-            ...data,
+            ...data, // This overwrites the default role/balance with DB values
             wallet_balance: data.wallet_balance ?? 0,
             is_synced: true,
           });
         }
       } catch (err) {
-        console.warn("AuthProvider: Using fallback profile due to error.");
+        console.error("AuthProvider: Critical sync error.", err);
         setUser(fallbackUser);
       }
     },
@@ -120,12 +133,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+      // Re-sync on sign in, token refresh, or user update
+      if (
+        event === "SIGNED_IN" ||
+        event === "TOKEN_REFRESHED" ||
+        event === "USER_UPDATED"
+      ) {
         await syncProfile(session?.user);
       } else if (event === "SIGNED_OUT") {
         if (mounted) setUser(null);
         router.refresh();
       }
+
+      // Ensure loading is set to false after auth check completes
       if (mounted) setIsLoading(false);
     });
 

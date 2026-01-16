@@ -1,3 +1,4 @@
+// File: src/app/layout.tsx
 import type { Metadata } from "next";
 import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
@@ -6,8 +7,7 @@ import { MainNav } from "@/components/layout/MainNav";
 import { ContactBar } from "@/components/layout/ContactBar";
 import { CategoryMarquee } from "@/components/layout/CategoryMarquee";
 import { Footer } from "@/components/layout/Footer";
-import { AuthProvider } from "@/lib/providers/AuthProvider";
-import { CartProvider } from "@/contexts/CartContext";
+import { Providers } from "@/lib/providers/Providers"; // Import the new wrapper
 import { MobileHeader } from "@/components/layout/MobileHeader";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -33,34 +33,33 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${poppins.variable} font-sans min-h-screen bg-slate-50 text-slate-900`}
       >
-        <AuthProvider>
-          <CartProvider>
-            <div className="flex min-h-screen flex-col">
-              {/* Inbox Banner - Global */}
-              <InboxBanner />
+        {/* Wrap the entire app content in the Providers component */}
+        <Providers>
+          <div className="flex min-h-screen flex-col">
+            {/* Inbox Banner - Global */}
+            <InboxBanner />
 
-              {/* Desktop Header Components */}
-              <div className="hidden md:block">
-                <MainNav />
-                <ContactBar />
-              </div>
-
-              {/* Mobile Header (Hidden on Desktop) */}
-              <div className="md:hidden sticky top-0 z-50 bg-white shadow-sm">
-                <MobileHeader />
-              </div>
-
-              {/* Marquee - Now visible on BOTH Mobile and Desktop */}
-              <div className="border-b border-slate-200 bg-white">
-                <CategoryMarquee />
-              </div>
-
-              <main className="flex-1 w-full relative">{children}</main>
-
-              <Footer />
+            {/* Desktop Header Components */}
+            <div className="hidden md:block">
+              <MainNav />
+              <ContactBar />
             </div>
-          </CartProvider>
-        </AuthProvider>
+
+            {/* Mobile Header (Hidden on Desktop) */}
+            <div className="md:hidden sticky top-0 z-50 bg-white shadow-sm">
+              <MobileHeader />
+            </div>
+
+            {/* Marquee - Now visible on BOTH Mobile and Desktop */}
+            <div className="border-b border-slate-200 bg-white">
+              <CategoryMarquee />
+            </div>
+
+            <main className="flex-1 w-full relative">{children}</main>
+
+            <Footer />
+          </div>
+        </Providers>
       </body>
     </html>
   );

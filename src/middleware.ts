@@ -22,7 +22,6 @@ export async function middleware(request: NextRequest) {
           );
 
           // Update response cookies (for browser)
-          // FIX: Do NOT recreate NextResponse here. Just set the cookies on the existing object.
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options),
           );
@@ -45,22 +44,32 @@ export async function middleware(request: NextRequest) {
     url.pathname.startsWith("/register")
   ) {
     if (user) {
-      // If logged in, go to dashboard
+      // FIX: Check if there is a 'redirect' param (e.g. /login?redirect=/refund)
+      const redirectTarget = url.searchParams.get("redirect");
+      if (redirectTarget) {
+        return NextResponse.redirect(new URL(redirectTarget, request.url));
+      }
+
+      // Default behavior: go to dashboard
       url.pathname = "/dashboard";
       return NextResponse.redirect(url);
     }
     return supabaseResponse;
   }
 
-  // Protected pages (Dashboard/Admin)
+  // Protected pages (Dashboard/Admin/Refund)
+  // FIX: Added "/refund" to protected list so unauthenticated users are stopped here
   if (
     url.pathname.startsWith("/dashboard") ||
-    url.pathname.startsWith("/admin")
+    url.pathname.startsWith("/admin") ||
+    url.pathname.startsWith("/refund")
   ) {
     if (!user) {
       // If not logged in, go to login
-      url.pathname = "/login";
-      return NextResponse.redirect(url);
+      const loginUrl = new URL("/login", request.url);
+      // Save where they were trying to go
+      loginUrl.searchParams.set("redirect", url.pathname);
+      return NextResponse.redirect(loginUrl);
     }
   }
 
