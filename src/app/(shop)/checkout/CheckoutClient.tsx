@@ -29,6 +29,34 @@ interface DeliveryDetails {
 }
 
 export default function CheckoutClient() {
+  const [promoCode, setPromoCode] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState(0);
+
+  // Add this handler
+  const handleApplyPromo = async () => {
+    // Call API to validate promo (or query supabase directly since we have public read access)
+    const { data, error } = await supabase
+      .from("promo_codes")
+      .select("*")
+      .eq("code", promoCode.toUpperCase())
+      .eq("is_active", true)
+      .single();
+
+    if (data) {
+      // Basic Client-side calc (Server verifies again)
+      let discount = 0;
+      if (data.discount_type === "percentage") {
+        discount = (totalPrice * data.discount_value) / 100;
+      } else {
+        discount = data.discount_value;
+      }
+      setAppliedDiscount(discount);
+      // Show success toast/message
+    } else {
+      // Show error
+      setErrors({ ...errors, promo: "Invalid Code" });
+    }
+  };
   const router = useRouter();
   const { items, totalPrice, clearCart } = useCart();
   const { user } = useAuth();
@@ -460,6 +488,27 @@ export default function CheckoutClient() {
         <div className="lg:col-span-1">
           <div className="sticky top-8 space-y-6">
             <OrderSummary />
+            <div className="flex gap-2 mb-4">
+              <input
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value)}
+                placeholder="Promo Code"
+                className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm"
+              />
+              <button
+                type="button"
+                onClick={handleApplyPromo}
+                className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold"
+              >
+                Apply
+              </button>
+            </div>
+            {appliedDiscount > 0 && (
+              <div className="flex justify-between text-green-600 text-sm font-bold mb-4">
+                <span>Discount</span>
+                <span>- Rs. {appliedDiscount.toFixed(2)}</span>
+              </div>
+            )}
             <button
               type="submit"
               disabled={

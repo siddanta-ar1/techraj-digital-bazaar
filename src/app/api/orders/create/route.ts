@@ -1,11 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { sendOrderEmail } from "@/lib/resend";
 
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
 
-    // 1. Authenticate User
+    // ---------------------------------------------------------
+    // 1. AUTHENTICATE USER
+    // ---------------------------------------------------------
     const {
       data: { user },
       error: authError,
@@ -15,6 +18,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // ---------------------------------------------------------
+    // 2. PARSE REQUEST
+    // ---------------------------------------------------------
     const orderData = await request.json();
     const {
       items,
@@ -23,64 +29,110 @@ export async function POST(request: Request) {
       deliveryDetails,
       paymentScreenshotUrl,
       paymentMeta,
+      promoCode,
     } = orderData;
 
-    const orderNumber = `TR-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+    // ---------------------------------------------------------
+    // 3. PROMO CODE VALIDATION
+    // ---------------------------------------------------------
+    let discountAmount = 0;
+    let finalAmount = Number(totalAmount);
+
+    if (promoCode) {
+      const { data: promo } = await supabase
+        .from("promo_codes")
+        .select("*")
+        .eq("code", promoCode)
+        .eq("is_active", true)
+        .single();
+
+      if (promo) {
+        const isValidExpiry =
+          !promo.expires_at || new Date(promo.expires_at) > new Date();
+
+        const meetsMinAmount = totalAmount >= (promo.min_order_amount || 0);
+
+        if (isValidExpiry && meetsMinAmount) {
+          if (promo.discount_type === "percentage") {
+            discountAmount = (totalAmount * promo.discount_value) / 100;
+          } else {
+            discountAmount = promo.discount_value;
+          }
+
+          finalAmount = Math.max(0, totalAmount - discountAmount);
+
+          // Increment promo usage atomically
+          await supabase.rpc("increment_promo_usage", {
+            promo_id: promo.id,
+          });
+        }
+      }
+    }
+
+    // ---------------------------------------------------------
+    // 4. ORDER IDENTIFIERS
+    // ---------------------------------------------------------
+    const orderNumber = `TR-${Date.now()}-${Math.random()
+      .toString(36)
+      .substr(2, 4)
+      .toUpperCase()}`;
+
     const orderId = crypto.randomUUID();
 
     // ---------------------------------------------------------
-    // WALLET PAYMENT LOGIC (SECURE)
+    // 5. WALLET PAYMENT (ATOMIC & SECURE)
     // ---------------------------------------------------------
     if (paymentMethod === "wallet") {
-      // Call the atomic database function
       const { error: deductionError } = await supabase.rpc(
         "deduct_wallet_balance",
         {
           user_id: user.id,
-          amount: Number(totalAmount),
+          amount: Number(finalAmount),
         },
       );
 
       if (deductionError) {
-        console.error("Wallet deduction failed:", deductionError);
         return NextResponse.json(
           {
             error:
               deductionError.message ||
               "Insufficient balance or payment failed",
           },
-          { status: 400 }, // Bad Request
+          { status: 400 },
         );
       }
 
-      // Log the transaction only AFTER successful deduction
-      // (Even if this fails, the money is safe. You could wrap this in a Retry later)
+      // Log wallet transaction
       const { error: txnError } = await supabase
         .from("wallet_transactions")
         .insert({
           user_id: user.id,
-          amount: Number(totalAmount),
+          amount: Number(finalAmount),
           type: "debit",
           transaction_type: "purchase",
           reference_id: orderId,
           description: `Purchase Order #${orderNumber}`,
-          balance_after: 0, // Note: We'd need to fetch the new balance to be exact, or adjust the RPC to return it.
           status: "completed",
         });
 
-      if (txnError) console.error("Transaction Log Error:", txnError);
+      if (txnError) {
+        console.error("Wallet Transaction Log Error:", txnError);
+      }
     }
-    // ---------------------------------------------------------
 
-    // 2. Create Order
+    // ---------------------------------------------------------
+    // 6. CREATE ORDER
+    // ---------------------------------------------------------
     const { error: orderError } = await supabase.from("orders").insert([
       {
         id: orderId,
         order_number: orderNumber,
         user_id: user.id,
         total_amount: totalAmount,
-        final_amount: totalAmount,
-        status: "pending", // You might want to auto-complete digital orders
+        discount_amount: discountAmount,
+        final_amount: finalAmount,
+        promo_code: promoCode || null,
+        status: "pending",
         payment_method: paymentMethod,
         payment_status: paymentMethod === "wallet" ? "paid" : "pending",
         payment_screenshot_url: paymentScreenshotUrl,
@@ -92,20 +144,20 @@ export async function POST(request: Request) {
       },
     ]);
 
+    // ---- COMPENSATION LOGIC ----
     if (orderError) {
-      console.error("Supabase Order Error:", orderError);
-
-      // COMPENSATION LOGIC: Refund if order creation fails
       if (paymentMethod === "wallet") {
         await supabase.rpc("increment_wallet", {
           p_user_id: user.id,
-          p_amount: totalAmount,
+          p_amount: finalAmount,
         });
       }
       throw new Error(orderError.message);
     }
 
-    // 3. Insert Order Items
+    // ---------------------------------------------------------
+    // 7. INSERT ORDER ITEMS
+    // ---------------------------------------------------------
     const orderItems = items.map((item: any) => ({
       order_id: orderId,
       variant_id: item.variantId,
@@ -120,15 +172,25 @@ export async function POST(request: Request) {
       .insert(orderItems);
 
     if (itemsError) {
-      console.error("Order Items Error:", itemsError);
-      // Note: Ideally, you would trigger a full rollback/refund here too
       throw new Error("Failed to create order items");
     }
 
+    // ---------------------------------------------------------
+    // 8. SEND EMAIL (NON-BLOCKING)
+    // ---------------------------------------------------------
+    if (user.email) {
+      sendOrderEmail(user.email, orderNumber, finalAmount);
+    }
+
+    // ---------------------------------------------------------
+    // 9. RESPONSE
+    // ---------------------------------------------------------
     return NextResponse.json({
       success: true,
       orderId,
       orderNumber,
+      finalAmount,
+      discountAmount,
       paymentStatus: paymentMethod === "wallet" ? "paid" : "pending",
     });
   } catch (error: any) {

@@ -28,15 +28,11 @@ export default function LoginPage() {
       if (error) throw error;
 
       console.log("✅ Login successful, redirecting...");
-
-      // ✅ FIX: Just navigate - don't call refresh()
-      // The AuthProvider will handle the session update
       router.push("/dashboard");
     } catch (error: any) {
       setError(error.message || "Failed to sign in");
-      setLoading(false); // Only reset loading on error
+      setLoading(false);
     }
-    // Don't set loading to false on success - let the navigation happen
   };
 
   const handleGoogleSignIn = async () => {
@@ -105,12 +101,22 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-semibold text-slate-700 mb-2"
-            >
-              Password
-            </label>
+            {/* FIX: Added Flex container to align Label and Forgot Password Link */}
+            <div className="flex items-center justify-between mb-2">
+              <label
+                htmlFor="password"
+                className="block text-sm font-semibold text-slate-700"
+              >
+                Password
+              </label>
+              <Link
+                href="/forgot-password"
+                className="text-sm font-medium text-indigo-600 hover:text-indigo-500 hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
+
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
@@ -157,7 +163,6 @@ export default function LoginPage() {
                        hover:bg-[#f7f8f8] active:bg-[#f1f3f4]
                        transition-all shadow-sm"
           >
-            {/* Google Logo */}
             <svg
               width="20"
               height="20"

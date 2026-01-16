@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
+  // 1. Create response ONCE
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -15,12 +16,13 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
+          // Update request cookies (for immediate use)
           cookiesToSet.forEach(({ name, value, options }) =>
             request.cookies.set(name, value),
           );
-          supabaseResponse = NextResponse.next({
-            request,
-          });
+
+          // Update response cookies (for browser)
+          // FIX: Do NOT recreate NextResponse here. Just set the cookies on the existing object.
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options),
           );
@@ -29,26 +31,37 @@ export async function middleware(request: NextRequest) {
     },
   );
 
-  // Use getUser() instead of getSession() for security and consistency
+  // 2. Check User
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isAuthPage =
-    request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/register");
-  const isProtectedPage =
-    request.nextUrl.pathname.startsWith("/dashboard") ||
-    request.nextUrl.pathname.startsWith("/admin");
+  // 3. Handle Route Protection
+  const url = request.nextUrl.clone();
 
-  // Redirect if trying to access dashboard/admin without a session
-  if (isProtectedPage && !user) {
-    return NextResponse.redirect(new URL("/login", request.url));
+  // Auth pages (Login/Register)
+  if (
+    url.pathname.startsWith("/login") ||
+    url.pathname.startsWith("/register")
+  ) {
+    if (user) {
+      // If logged in, go to dashboard
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
+    return supabaseResponse;
   }
 
-  // Redirect to dashboard if already logged in and hitting login/register
-  if (isAuthPage && user) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+  // Protected pages (Dashboard/Admin)
+  if (
+    url.pathname.startsWith("/dashboard") ||
+    url.pathname.startsWith("/admin")
+  ) {
+    if (!user) {
+      // If not logged in, go to login
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
   }
 
   return supabaseResponse;

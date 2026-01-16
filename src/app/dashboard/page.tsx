@@ -1,33 +1,47 @@
-"use client";
-
-import { useAuth } from "@/lib/providers/AuthProvider";
-import {
-  Package,
-  CreditCard,
-  History,
-  Settings,
-  Wallet,
-  LogOut,
-  Loader2,
-} from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { Package, CreditCard, History, Settings, Wallet } from "lucide-react";
 import Link from "next/link";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { redirect } from "next/navigation";
 
-export default function DashboardPage() {
-  const { user, signOut, isLoading } = useAuth();
-  const router = useRouter();
+// Force dynamic rendering to always get fresh data
+export const dynamic = "force-dynamic";
 
-  // Layout handles loading and auth checks, so we can safely assume user exists here
-  if (!user) return null;
+export default async function DashboardPage() {
+  const supabase = await createClient();
 
-  // 2. Show "Sign In" only if explicitly not logged in (fallback)
-  if (!user) {
-    return null; // The useEffect above handles the redirect, so we return null to avoid flash
+  // 1. Get Session
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) {
+    redirect("/login");
   }
 
+  const userId = session.user.id;
+
+  // 2. Fetch User Profile (Wallet)
+  const { data: userProfile } = await supabase
+    .from("users")
+    .select("full_name, wallet_balance, email")
+    .eq("id", userId)
+    .single();
+
+  // 3. Fetch Order Stats
+  const { data: orders } = await supabase
+    .from("orders")
+    .select("status")
+    .eq("user_id", userId);
+
+  // Calculate Stats
+  const totalOrders = orders?.length || 0;
+  const pendingOrders =
+    orders?.filter((o) => o.status === "pending").length || 0;
+  const completedOrders =
+    orders?.filter((o) => o.status === "completed").length || 0;
+
   return (
-    <div className="bg-gradient-to-b from-slate-50 to-white">
+    <div className="bg-gradient-to-b from-slate-50 to-white min-h-screen pb-12">
       {/* Dashboard Header */}
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg rounded-2xl mb-8">
         <div className="px-6 py-8">
@@ -35,16 +49,11 @@ export default function DashboardPage() {
             <div>
               <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
               <p className="text-indigo-100 text-lg">
-                Welcome back, {user.full_name || user.email?.split("@")[0]}!
+                Welcome back,{" "}
+                {userProfile?.full_name || session.user.email?.split("@")[0]}!
               </p>
             </div>
-            <button
-              onClick={signOut}
-              className="mt-4 md:mt-0 flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 px-4 py-2 rounded-lg transition-all"
-            >
-              <LogOut className="w-4 h-4" />
-              Sign Out
-            </button>
+            {/* Note: Sign Out is handled by the Sidebar/Nav component */}
           </div>
         </div>
       </div>
@@ -61,8 +70,7 @@ export default function DashboardPage() {
             </span>
           </div>
           <div className="text-2xl font-bold text-slate-900">
-            {/* FIX: Handle null/undefined safely */}
-            रु {(user.wallet_balance ?? 0).toFixed(2)}
+            Rs. {(userProfile?.wallet_balance ?? 0).toFixed(2)}
           </div>
         </div>
 
@@ -75,7 +83,7 @@ export default function DashboardPage() {
               Total Orders
             </span>
           </div>
-          <div className="text-2xl font-bold text-slate-900">0</div>
+          <div className="text-2xl font-bold text-slate-900">{totalOrders}</div>
         </div>
 
         <div className="bg-white p-6 rounded-2xl border border-amber-100 shadow-sm hover:shadow-md transition-shadow">
@@ -87,7 +95,9 @@ export default function DashboardPage() {
               Pending Orders
             </span>
           </div>
-          <div className="text-2xl font-bold text-slate-900">0</div>
+          <div className="text-2xl font-bold text-slate-900">
+            {pendingOrders}
+          </div>
         </div>
 
         <div className="bg-white p-6 rounded-2xl border border-green-100 shadow-sm hover:shadow-md transition-shadow">
@@ -99,7 +109,9 @@ export default function DashboardPage() {
               Completed Orders
             </span>
           </div>
-          <div className="text-2xl font-bold text-slate-900">0</div>
+          <div className="text-2xl font-bold text-slate-900">
+            {completedOrders}
+          </div>
         </div>
       </div>
 
@@ -156,28 +168,6 @@ export default function DashboardPage() {
                 <p className="text-sm text-slate-500">Update profile</p>
               </div>
             </div>
-          </Link>
-        </div>
-      </div>
-
-      {/* Recent Activity */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
-        <h2 className="text-xl font-bold text-slate-900 mb-6">
-          Recent Activity
-        </h2>
-        <div className="text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-300">
-          <div className="text-5xl mb-4">📦</div>
-          <h3 className="text-lg font-semibold text-slate-700 mb-2">
-            No activity yet
-          </h3>
-          <p className="text-slate-500 mb-6">
-            Your recent orders will appear here
-          </p>
-          <Link
-            href="/products"
-            className="inline-block bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
-          >
-            Start Shopping
           </Link>
         </div>
       </div>

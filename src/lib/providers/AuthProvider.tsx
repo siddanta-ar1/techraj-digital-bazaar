@@ -12,15 +12,15 @@ import {
   useRef,
 } from "react";
 
-// EXPORTED so other components can use this type
+// 1. ADD avatar_url to the Type Definition
 export type User = {
   id: string;
   email: string;
   full_name?: string;
+  avatar_url?: string; // Added this
   wallet_balance: number;
   role: "user" | "admin";
   phone?: string;
-  is_synced?: boolean; // NEW: Tracks if data is fresh from DB
 };
 
 type AuthContextType = {
@@ -42,7 +42,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const initRef = useRef(false);
 
-  // Synchronizes the user profile with a 5-second safety timeout
   const syncProfile = useCallback(
     async (authUser: any) => {
       if (!authUser) {
@@ -50,14 +49,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // 2. Extract avatar from Google metadata (it's usually in 'avatar_url' or 'picture')
+      const googleAvatar =
+        authUser.user_metadata?.avatar_url ||
+        authUser.user_metadata?.picture ||
+        null;
+
       const fallbackUser: User = {
         id: authUser.id,
         email: authUser.email || "",
         full_name:
           authUser.user_metadata?.full_name || authUser.email?.split("@")[0],
+        avatar_url: googleAvatar, // Set the default from Google
         wallet_balance: 0,
         role: "user",
-        is_synced: false, // <--- Mark as STALE/FALLBACK
       };
 
       try {
@@ -73,15 +78,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ]);
 
         if (error || !data) {
-          // If DB fails, we use fallback but keep is_synced = false
           setUser(fallbackUser);
         } else {
-          // FIX: Safely merge data and set is_synced = true
           setUser({
             ...fallbackUser,
             ...data,
+            // If the user hasn't set a custom avatar in DB, fall back to Google's
+            avatar_url: data.avatar_url || googleAvatar,
             wallet_balance: data.wallet_balance ?? 0,
-            is_synced: true, // <--- Mark as FRESH/SYNCED
           });
         }
       } catch (err) {
@@ -103,7 +107,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const {
           data: { session },
         } = await supabase.auth.getSession();
-
         if (session?.user && mounted) {
           await syncProfile(session.user);
         }
