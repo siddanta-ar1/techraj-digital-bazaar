@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { Tag } from "lucide-react";
 
 const navigation = [
   { name: "Home", href: "/", icon: Home },
@@ -23,6 +24,7 @@ const navigation = [
   { name: "Products", href: "/admin/products", icon: Package },
   { name: "Categories", href: "/admin/categories", icon: Layers }, // Added
   { name: "Users", href: "/admin/users", icon: Users },
+  { name: "Promo Codes", href: "/admin/promos", icon: Tag },
   { name: "Wallet Requests", href: "/admin/wallet", icon: Wallet },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];

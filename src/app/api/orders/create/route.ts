@@ -6,21 +6,15 @@ export async function POST(request: Request) {
   try {
     const supabase = await createClient();
 
-    // ---------------------------------------------------------
-    // 1. AUTHENTICATE USER
-    // ---------------------------------------------------------
+    // 1. Authenticate
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser();
-
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // ---------------------------------------------------------
-    // 2. PARSE REQUEST
-    // ---------------------------------------------------------
     const orderData = await request.json();
     const {
       items,
@@ -32,9 +26,7 @@ export async function POST(request: Request) {
       promoCode,
     } = orderData;
 
-    // ---------------------------------------------------------
-    // 3. PROMO CODE VALIDATION
-    // ---------------------------------------------------------
+    // 2. Validate Promo Code
     let discountAmount = 0;
     let finalAmount = Number(totalAmount);
 
@@ -49,7 +41,6 @@ export async function POST(request: Request) {
       if (promo) {
         const isValidExpiry =
           !promo.expires_at || new Date(promo.expires_at) > new Date();
-
         const meetsMinAmount = totalAmount >= (promo.min_order_amount || 0);
 
         if (isValidExpiry && meetsMinAmount) {
@@ -58,30 +49,16 @@ export async function POST(request: Request) {
           } else {
             discountAmount = promo.discount_value;
           }
-
           finalAmount = Math.max(0, totalAmount - discountAmount);
-
-          // Increment promo usage atomically
-          await supabase.rpc("increment_promo_usage", {
-            promo_id: promo.id,
-          });
+          await supabase.rpc("increment_promo_usage", { promo_id: promo.id });
         }
       }
     }
 
-    // ---------------------------------------------------------
-    // 4. ORDER IDENTIFIERS
-    // ---------------------------------------------------------
-    const orderNumber = `TR-${Date.now()}-${Math.random()
-      .toString(36)
-      .substr(2, 4)
-      .toUpperCase()}`;
-
+    const orderNumber = `TR-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
     const orderId = crypto.randomUUID();
 
-    // ---------------------------------------------------------
-    // 5. WALLET PAYMENT (ATOMIC & SECURE)
-    // ---------------------------------------------------------
+    // 3. Wallet Deduction
     if (paymentMethod === "wallet") {
       const { error: deductionError } = await supabase.rpc(
         "deduct_wallet_balance",
@@ -93,36 +70,91 @@ export async function POST(request: Request) {
 
       if (deductionError) {
         return NextResponse.json(
-          {
-            error:
-              deductionError.message ||
-              "Insufficient balance or payment failed",
-          },
+          { error: deductionError.message || "Insufficient balance" },
           { status: 400 },
         );
       }
 
-      // Log wallet transaction
-      const { error: txnError } = await supabase
-        .from("wallet_transactions")
-        .insert({
-          user_id: user.id,
-          amount: Number(finalAmount),
-          type: "debit",
-          transaction_type: "purchase",
-          reference_id: orderId,
-          description: `Purchase Order #${orderNumber}`,
-          status: "completed",
-        });
-
-      if (txnError) {
-        console.error("Wallet Transaction Log Error:", txnError);
-      }
+      await supabase.from("wallet_transactions").insert({
+        user_id: user.id,
+        amount: Number(finalAmount),
+        type: "debit",
+        transaction_type: "purchase",
+        reference_id: orderId,
+        description: `Purchase Order #${orderNumber}`,
+        status: "completed",
+      });
     }
 
-    // ---------------------------------------------------------
-    // 6. CREATE ORDER
-    // ---------------------------------------------------------
+    // 4. CHECK FOR AUTO-DELIVERY (Digital Codes)
+    let isAutoDelivery = true;
+    const processedItems = [];
+
+    // Loop through all items to find codes
+    for (const item of items) {
+      let deliveredCode = null;
+      let status = "pending";
+
+      // Get variant details to check 'stock_type'
+      const { data: variant } = await supabase
+        .from("product_variants")
+        .select("stock_type")
+        .eq("id", item.variantId)
+        .single();
+
+      if (variant?.stock_type === "codes") {
+        // Try to fetch ONE unused code for this variant
+        // Note: Ideally, if quantity > 1, we need to loop or fetch multiple rows.
+        // For simplicity here, we assume quantity=1 per line item or fetch 1 code.
+        const { data: codeData } = await supabase
+          .from("product_codes")
+          .select("id, code")
+          .eq("variant_id", item.variantId)
+          .eq("is_used", false)
+          .limit(1)
+          .maybeSingle();
+
+        if (codeData) {
+          deliveredCode = codeData.code;
+          status = "delivered";
+
+          // Mark code as used IMMEDIATELY
+          await supabase
+            .from("product_codes")
+            .update({
+              is_used: true,
+              order_id: orderId,
+            })
+            .eq("id", codeData.id);
+        } else {
+          // If no code found, fallback to manual processing
+          isAutoDelivery = false;
+        }
+      } else if (variant?.stock_type !== "codes") {
+        // If any item is NOT a code (e.g. manual top-up), order is NOT auto-complete
+        if (variant?.stock_type !== "unlimited") {
+          // assuming 'unlimited' is auto? usually only 'codes' is auto.
+          isAutoDelivery = false;
+        }
+      }
+
+      processedItems.push({
+        order_id: orderId,
+        variant_id: item.variantId,
+        quantity: item.quantity,
+        unit_price: item.price,
+        total_price: item.price * item.quantity,
+        status: status,
+        delivered_code: deliveredCode, // Saves the code into the order_items table
+      });
+    }
+
+    // Determine Status
+    const orderStatus =
+      paymentMethod === "wallet" && isAutoDelivery ? "completed" : "pending";
+    const paymentStatus = paymentMethod === "wallet" ? "paid" : "pending";
+
+    // 5. Create Order
     const { error: orderError } = await supabase.from("orders").insert([
       {
         id: orderId,
@@ -132,10 +164,11 @@ export async function POST(request: Request) {
         discount_amount: discountAmount,
         final_amount: finalAmount,
         promo_code: promoCode || null,
-        status: "pending",
+        status: orderStatus,
         payment_method: paymentMethod,
-        payment_status: paymentMethod === "wallet" ? "paid" : "pending",
+        payment_status: paymentStatus,
         payment_screenshot_url: paymentScreenshotUrl,
+        delivery_type: isAutoDelivery ? "auto" : "manual",
         delivery_details: {
           ...deliveryDetails,
           transaction_id: paymentMeta?.transactionId,
@@ -144,8 +177,8 @@ export async function POST(request: Request) {
       },
     ]);
 
-    // ---- COMPENSATION LOGIC ----
     if (orderError) {
+      // Refund if error
       if (paymentMethod === "wallet") {
         await supabase.rpc("increment_wallet", {
           p_user_id: user.id,
@@ -155,43 +188,26 @@ export async function POST(request: Request) {
       throw new Error(orderError.message);
     }
 
-    // ---------------------------------------------------------
-    // 7. INSERT ORDER ITEMS
-    // ---------------------------------------------------------
-    const orderItems = items.map((item: any) => ({
-      order_id: orderId,
-      variant_id: item.variantId,
-      quantity: item.quantity,
-      unit_price: item.price,
-      total_price: item.price * item.quantity,
-      status: "pending",
-    }));
-
+    // 6. Insert Items
     const { error: itemsError } = await supabase
       .from("order_items")
-      .insert(orderItems);
+      .insert(processedItems);
 
-    if (itemsError) {
-      throw new Error("Failed to create order items");
-    }
+    if (itemsError) throw new Error("Failed to create order items");
 
-    // ---------------------------------------------------------
-    // 8. SEND EMAIL (NON-BLOCKING)
-    // ---------------------------------------------------------
+    // 7. Send Email (Pass the processed items which contain the codes)
     if (user.email) {
-      sendOrderEmail(user.email, orderNumber, finalAmount);
+      sendOrderEmail(user.email, orderNumber, finalAmount, processedItems);
     }
 
-    // ---------------------------------------------------------
-    // 9. RESPONSE
-    // ---------------------------------------------------------
     return NextResponse.json({
       success: true,
       orderId,
       orderNumber,
       finalAmount,
       discountAmount,
-      paymentStatus: paymentMethod === "wallet" ? "paid" : "pending",
+      paymentStatus,
+      status: orderStatus,
     });
   } catch (error: any) {
     console.error("Order creation error:", error);

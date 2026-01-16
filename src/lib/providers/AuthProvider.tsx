@@ -21,6 +21,7 @@ export type User = {
   role: "user" | "admin";
   phone?: string;
   is_synced?: boolean; // Added this property
+  avatar_url?: string;
 };
 
 type AuthContextType = {
