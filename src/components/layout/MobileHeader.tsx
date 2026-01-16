@@ -2,16 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation"; // Added usePathname
+import { usePathname } from "next/navigation";
 import {
   Menu,
   ShoppingCart,
   X,
   User,
-  Wallet,
   LogOut,
   ChevronRight,
-  LayoutDashboard,
 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/lib/providers/AuthProvider";
@@ -21,9 +19,9 @@ export function MobileHeader() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { totalItems } = useCart();
   const { user, signOut } = useAuth();
-  const pathname = usePathname(); // Get current path
+  const pathname = usePathname();
 
-  // FIX: Hide Mobile Header on Dashboard/Admin pages to prevent conflict with DashboardNav
+  // Hide Mobile Header on Dashboard/Admin pages
   if (pathname.startsWith("/dashboard") || pathname.startsWith("/admin")) {
     return null;
   }
@@ -61,14 +59,13 @@ export function MobileHeader() {
             </Link>
           </div>
 
-          {/* Real Search Component */}
           <div className="relative z-10">
             <SearchWithDropdown />
           </div>
         </div>
       </div>
 
-      {/* Mobile Drawer (Sidebar) */}
+      {/* Mobile Drawer */}
       <div
         className={`fixed inset-0 z-[100] transition-opacity duration-300 ${
           isMenuOpen
@@ -76,19 +73,16 @@ export function MobileHeader() {
             : "opacity-0 invisible pointer-events-none"
         }`}
       >
-        {/* Backdrop */}
         <div
           className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
           onClick={() => setIsMenuOpen(false)}
         />
 
-        {/* Drawer Content */}
         <div
           className={`absolute left-0 top-0 bottom-0 w-[85%] max-w-sm bg-white shadow-2xl transition-transform duration-300 flex flex-col ${
             isMenuOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
-          {/* Drawer Header */}
           <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
             <span className="font-bold text-lg text-slate-800">Menu</span>
             <button
@@ -99,9 +93,7 @@ export function MobileHeader() {
             </button>
           </div>
 
-          {/* Scrollable Content */}
           <div className="flex-1 overflow-y-auto">
-            {/* User Profile Section (Inside Menu) */}
             {user ? (
               <div className="p-5 bg-indigo-50/50 border-b border-indigo-100">
                 <div className="flex items-center gap-3 mb-4">
@@ -126,9 +118,14 @@ export function MobileHeader() {
                     className="flex flex-col items-center p-3 bg-white rounded-xl border border-indigo-100 shadow-sm"
                   >
                     <span className="text-xs text-slate-500 mb-1">Balance</span>
-                    <span className="font-bold text-emerald-600">
-                      Rs. {user.wallet_balance.toFixed(0)}
-                    </span>
+                    {/* FIX: Check is_synced */}
+                    {user.is_synced ? (
+                      <span className="font-bold text-emerald-600">
+                        Rs. {user.wallet_balance.toFixed(0)}
+                      </span>
+                    ) : (
+                      <div className="w-16 h-5 bg-slate-200 animate-pulse rounded" />
+                    )}
                   </Link>
                   <Link
                     href="/dashboard"
@@ -154,7 +151,6 @@ export function MobileHeader() {
               </div>
             )}
 
-            {/* Navigation Links */}
             <div className="p-4 space-y-1">
               <p className="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
                 Browse
@@ -206,7 +202,6 @@ export function MobileHeader() {
             </div>
           </div>
 
-          {/* Drawer Footer */}
           {user && (
             <div className="p-4 border-t border-slate-100 bg-slate-50/50">
               <button

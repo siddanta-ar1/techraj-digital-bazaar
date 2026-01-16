@@ -12,7 +12,6 @@ import Link from "next/link";
 import { useState } from "react";
 import { useAuth } from "@/lib/providers/AuthProvider";
 import { useCart } from "@/contexts/CartContext";
-// IMPORT THE SEARCH COMPONENT
 import SearchWithDropdown from "@/components/layout/SearchWithDropdown";
 
 export function Header() {
@@ -23,7 +22,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur-sm">
-      {/* Top Info Bar - Dark Indigo for Premium Feel */}
+      {/* Top Info Bar */}
       <div className="bg-slate-900 text-slate-300 text-xs py-2">
         <div className="container mx-auto px-4 flex justify-between items-center">
           <div className="flex items-center gap-6">
@@ -38,7 +37,12 @@ export function Header() {
             {user ? (
               <div className="flex items-center gap-2 text-emerald-400 bg-emerald-400/10 px-3 py-0.5 rounded-full">
                 <Wallet className="w-3.5 h-3.5" />
-                <span>रु {user.wallet_balance.toFixed(2)}</span>
+                {/* FIX: Check is_synced to prevent 0 flash */}
+                {user.is_synced ? (
+                  <span>रु {user.wallet_balance.toFixed(2)}</span>
+                ) : (
+                  <div className="w-12 h-3.5 bg-emerald-400/20 animate-pulse rounded" />
+                )}
               </div>
             ) : (
               <div className="flex gap-4">
@@ -97,7 +101,6 @@ export function Header() {
 
           {/* Search and Actions */}
           <div className="flex items-center gap-3">
-            {/* Search Bar - NOW FUNCTIONAL */}
             <div className="hidden md:block w-64 lg:w-72">
               <SearchWithDropdown />
             </div>
@@ -156,7 +159,12 @@ export function Header() {
                       <Wallet className="w-4 h-4" />
                       Wallet{" "}
                       <span className="ml-auto text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                        रु {(user.wallet_balance ?? 0).toFixed(0)}
+                        {/* FIX: Check is_synced here too */}
+                        {user.is_synced ? (
+                          `रु ${(user.wallet_balance ?? 0).toFixed(0)}`
+                        ) : (
+                          <div className="w-8 h-3 bg-slate-200 animate-pulse rounded inline-block" />
+                        )}
                       </span>
                     </Link>
 
@@ -241,8 +249,13 @@ export function Header() {
                       </p>
                       <p className="text-xs text-slate-500">{user.email}</p>
                     </div>
-                    <div className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-sm font-bold">
-                      रु {(user.wallet_balance ?? 0).toFixed(2)}
+                    <div className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-sm font-bold min-w-[80px] text-center">
+                      {/* FIX: Check is_synced */}
+                      {user.is_synced ? (
+                        `रु ${(user.wallet_balance ?? 0).toFixed(2)}`
+                      ) : (
+                        <div className="w-10 h-4 bg-emerald-700/20 animate-pulse rounded mx-auto" />
+                      )}
                     </div>
                   </div>
                   <button

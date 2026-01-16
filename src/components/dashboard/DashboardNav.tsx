@@ -8,13 +8,11 @@ import {
   X,
   LogOut,
   Home,
-  User,
   ChevronRight,
   ChevronDown,
   LayoutDashboard,
   Wallet,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/providers/AuthProvider";
 
 interface NavItem {
@@ -34,9 +32,7 @@ export default function DashboardNav({ navItems }: DashboardNavProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, signOut } = useAuth();
-  const supabase = createClient();
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -59,7 +55,7 @@ export default function DashboardNav({ navItems }: DashboardNavProps) {
     <nav className="fixed top-0 left-0 right-0 bg-white border-b border-slate-200 z-[60] shadow-sm">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16 md:h-20">
-          {/* Logo - Matches MainNav */}
+          {/* Logo */}
           <div className="flex items-center gap-3">
             <Link
               href="/"
@@ -99,7 +95,7 @@ export default function DashboardNav({ navItems }: DashboardNavProps) {
               );
             })}
 
-            {/* User Menu Dropdown - Matches MainNav logic and style */}
+            {/* User Menu Dropdown */}
             <div
               className="relative ml-4 pl-4 border-l border-slate-200"
               ref={dropdownRef}
@@ -153,7 +149,12 @@ export default function DashboardNav({ navItems }: DashboardNavProps) {
                       <Wallet className="h-4 w-4" />
                       <span className="flex-1">Wallet</span>
                       <span className="text-emerald-600 font-bold text-[10px] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                        Rs. {user?.wallet_balance.toFixed(0)}
+                        {/* FIX: Check is_synced */}
+                        {user?.is_synced ? (
+                          `Rs. ${user?.wallet_balance.toFixed(0)}`
+                        ) : (
+                          <span className="inline-block w-6 h-3 bg-slate-200 animate-pulse rounded" />
+                        )}
                       </span>
                     </Link>
                   </div>
@@ -192,7 +193,7 @@ export default function DashboardNav({ navItems }: DashboardNavProps) {
         </div>
       </div>
 
-      {/* Mobile Navigation Drawer */}
+      {/* Mobile Navigation Drawer - (Content kept same as your request, logic mirrors desktop) */}
       {isMobileMenuOpen && (
         <div className="md:hidden absolute top-[4rem] left-0 right-0 bg-white border-b border-slate-200 shadow-2xl animate-in slide-in-from-top-2 z-50 h-[calc(100vh-4rem)] overflow-y-auto">
           <div className="p-4 space-y-6">

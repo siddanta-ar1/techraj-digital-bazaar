@@ -6,7 +6,6 @@ import {
   Download,
   Home,
   ShoppingBag,
-  ArrowRight,
   Clock,
   ShieldCheck,
 } from "lucide-react";
@@ -17,12 +16,17 @@ export const metadata: Metadata = {
   description: "Your order has been successfully placed",
 };
 
-export default function CheckoutSuccessPage({
+// FIX: searchParams is now a Promise in Next.js 15+
+export default async function CheckoutSuccessPage({
   searchParams,
 }: {
-  searchParams: { orderId?: string };
+  searchParams: Promise<{ orderId?: string }>;
 }) {
-  const orderId = searchParams.orderId || "TR-" + Date.now();
+  // FIX: Await the searchParams before using properties
+  const { orderId: paramOrderId } = await searchParams;
+
+  // Use the resolved param or fallback
+  const orderId = paramOrderId || "TR-" + Date.now();
 
   return (
     <div className="min-h-screen bg-slate-50 py-12">

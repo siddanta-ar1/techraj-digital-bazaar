@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
-import Image from "next/image";
 import { PurchaseSection } from "@/components/products/PurchaseSection";
 import { ProductMedia } from "@/components/products/ProductMedia";
 
@@ -54,8 +53,8 @@ export default async function ProductPage({
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           <div className="lg:col-span-7 space-y-6">
-            {/* USE THE CLIENT COMPONENT HERE */}
-            <ProductMedia src={product.featured_url} alt={product.name} />
+            {/* FIX: Changed product.featured_url to product.featured_image */}
+            <ProductMedia src={product.featured_image} alt={product.name} />
 
             <section className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
               <h2 className="text-xl font-bold mb-4 text-slate-900 flex items-center gap-2">
@@ -69,10 +68,9 @@ export default async function ProductPage({
           </div>
 
           <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-24">
-            {/* USE THE CLIENT COMPONENT HERE */}
             <PurchaseSection product={product} variants={sortedVariants} />
 
-            {/* Payment Gateways - Professional Styling */}
+            {/* Payment Gateways */}
             <div className="p-6 border border-slate-200 rounded-2xl bg-white shadow-sm">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4 text-center">
                 Accepted Payment Methods

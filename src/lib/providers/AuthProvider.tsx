@@ -12,13 +12,15 @@ import {
   useRef,
 } from "react";
 
-type User = {
+// EXPORTED so other components can use this type
+export type User = {
   id: string;
   email: string;
   full_name?: string;
   wallet_balance: number;
   role: "user" | "admin";
   phone?: string;
+  is_synced?: boolean; // NEW: Tracks if data is fresh from DB
 };
 
 type AuthContextType = {
@@ -53,8 +55,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: authUser.email || "",
         full_name:
           authUser.user_metadata?.full_name || authUser.email?.split("@")[0],
-        wallet_balance: 0, // Default value
+        wallet_balance: 0,
         role: "user",
+        is_synced: false, // <--- Mark as STALE/FALLBACK
       };
 
       try {
@@ -70,13 +73,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ]);
 
         if (error || !data) {
+          // If DB fails, we use fallback but keep is_synced = false
           setUser(fallbackUser);
         } else {
-          // FIX: Safely merge data and ensure wallet_balance is a number
+          // FIX: Safely merge data and set is_synced = true
           setUser({
-            ...fallbackUser, // Keeps defaults if fields are missing
-            ...data, // Overwrites with DB data
-            wallet_balance: data.wallet_balance ?? 0, // Fallback to 0 if DB is null
+            ...fallbackUser,
+            ...data,
+            wallet_balance: data.wallet_balance ?? 0,
+            is_synced: true, // <--- Mark as FRESH/SYNCED
           });
         }
       } catch (err) {
@@ -95,7 +100,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initialize = async () => {
       try {
-        // Use getSession for fast client-side hydration
         const {
           data: { session },
         } = await supabase.auth.getSession();
