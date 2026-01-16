@@ -58,7 +58,7 @@ export default function CartClient() {
         <div className="lg:col-span-2 space-y-4">
           {items.map((item) => (
             <div
-              key={`${item.productId}-${item.variantId}`}
+              key={item.id}
               className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex gap-4 md:gap-6 group hover:border-indigo-200 transition-all"
             >
               {/* Product Image */}
@@ -90,7 +90,8 @@ export default function CartClient() {
                       </p>
                     </div>
                     <button
-                      onClick={() => removeItem(item.productId, item.variantId)}
+                      // FIX: Use item.id instead of (productId, variantId)
+                      onClick={() => removeItem(item.id)}
                       className="text-slate-400 hover:text-rose-500 p-1 rounded-lg hover:bg-rose-50 transition-colors"
                       title="Remove Item"
                     >
@@ -102,12 +103,9 @@ export default function CartClient() {
                 <div className="flex items-center justify-between mt-4">
                   <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-1 border border-slate-200">
                     <button
+                      // FIX: Use item.id and quantity only
                       onClick={() =>
-                        updateQuantity(
-                          item.productId,
-                          item.variantId,
-                          Math.max(1, item.quantity - 1),
-                        )
+                        updateQuantity(item.id, Math.max(1, item.quantity - 1))
                       }
                       className="w-7 h-7 flex items-center justify-center bg-white rounded-md shadow-sm text-slate-600 hover:text-indigo-600 disabled:opacity-50"
                       disabled={item.quantity <= 1}
@@ -118,13 +116,8 @@ export default function CartClient() {
                       {item.quantity}
                     </span>
                     <button
-                      onClick={() =>
-                        updateQuantity(
-                          item.productId,
-                          item.variantId,
-                          item.quantity + 1,
-                        )
-                      }
+                      // FIX: Use item.id and quantity only
+                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
                       className="w-7 h-7 flex items-center justify-center bg-white rounded-md shadow-sm text-slate-600 hover:text-indigo-600"
                     >
                       <Plus className="w-3 h-3" />
