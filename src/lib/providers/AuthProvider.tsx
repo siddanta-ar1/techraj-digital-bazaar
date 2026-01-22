@@ -9,7 +9,6 @@ import {
   useState,
   useCallback,
   useMemo,
-  useRef,
 } from "react";
 
 export type User = {
@@ -37,29 +36,32 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // Ensure createClient is only called once per provider lifecycle
   const [supabase] = useState(() => createClient());
   const router = useRouter();
-  const initRef = useRef(false);
 
-  const fetchUserProfile = async (
-    userId: string,
-    retryCount = 0,
-  ): Promise<any> => {
-    const { data, error } = await supabase
-      .from("users")
-      .select("*")
-      .eq("id", userId)
-      .maybeSingle();
+  // Robust profile fetch with retry logic
+  const fetchUserProfile = useCallback(
+    async (
+      userId: string,
+      retryCount = 0,
+    ): Promise<{ data: any; error: any }> => {
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", userId)
+        .maybeSingle();
 
-    // If no data found and we haven't retried yet, wait and retry once
-    // This fixes the race condition where Auth is ready but DB Trigger isn't
-    if ((error || !data) && retryCount < 2) {
-      await new Promise((resolve) => setTimeout(resolve, 500)); // 500ms delay
-      return fetchUserProfile(userId, retryCount + 1);
-    }
+      // Retry if data is missing or error occurs (up to 2 times)
+      if ((error || !data) && retryCount < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        return fetchUserProfile(userId, retryCount + 1);
+      }
 
-    return { data, error };
-  };
+      return { data, error };
+    },
+    [supabase],
+  );
 
   const syncProfile = useCallback(
     async (authUser: any) => {
@@ -68,32 +70,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Default fallback state
+      // Default fallback state (Optimistic UI)
       const fallbackUser: User = {
         id: authUser.id,
         email: authUser.email || "",
         full_name:
           authUser.user_metadata?.full_name || authUser.email?.split("@")[0],
         wallet_balance: 0,
-        role: "user", // Default role
+        role: "user",
         is_synced: false,
       };
 
       try {
-        // Attempt to fetch with retry logic
         const { data, error } = await fetchUserProfile(authUser.id);
 
         if (error || !data) {
           console.warn(
-            "AuthProvider: Profile sync failed or still creating.",
+            "AuthProvider: Profile sync failed or user creation pending.",
             error,
           );
-          // Only set fallback if we don't have a user already, to prevent overwriting valid data with empty data
+          // Preserve existing user state if available (prevents flashing), else use fallback
           setUser((prev) => (prev ? prev : fallbackUser));
         } else {
           setUser({
             ...fallbackUser,
-            ...data, // This overwrites the default role/balance with DB values
+            ...data, // Merges DB data (role, balance)
             wallet_balance: data.wallet_balance ?? 0,
             is_synced: true,
           });
@@ -103,13 +104,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(fallbackUser);
       }
     },
-    [supabase],
+    [fetchUserProfile],
   );
 
   useEffect(() => {
-    if (initRef.current) return;
-    initRef.current = true;
-
     let mounted = true;
 
     const initialize = async () => {
@@ -124,6 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (error) {
         console.error("Auth init error:", error);
       } finally {
+        // ✅ CRITICAL: Always turn off loading, even on error
         if (mounted) setIsLoading(false);
       }
     };
@@ -133,7 +132,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Re-sync on sign in, token refresh, or user update
+      if (!mounted) return;
+
       if (
         event === "SIGNED_IN" ||
         event === "TOKEN_REFRESHED" ||
@@ -141,12 +141,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ) {
         await syncProfile(session?.user);
       } else if (event === "SIGNED_OUT") {
-        if (mounted) setUser(null);
+        setUser(null);
         router.refresh();
       }
 
-      // Ensure loading is set to false after auth check completes
-      if (mounted) setIsLoading(false);
+      // Ensure loading is false after any auth event processing
+      setIsLoading(false);
     });
 
     return () => {
@@ -160,7 +160,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(true);
       await supabase.auth.signOut();
       setUser(null);
-      router.push("/login");
+      router.replace("/login");
     } catch (error) {
       console.error("Signout error:", error);
     } finally {

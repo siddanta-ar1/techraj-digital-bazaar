@@ -22,12 +22,13 @@ export default function DashboardLayout({
   const router = useRouter();
 
   useEffect(() => {
-    // If loading is done and middleware let us through but no user is found on client
+    // Only redirect if explicitly not loading and user is missing
     if (!isLoading && !user) {
       router.replace("/login");
     }
   }, [user, isLoading, router]);
 
+  // ✅ Show loader while AuthProvider is initializing
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -39,7 +40,8 @@ export default function DashboardLayout({
     );
   }
 
-  // Prevent UI flicker while the router redirects
+  // ✅ Safe guard: If not loading but no user, return null to prevent
+  // flashing protected content before the useEffect redirect kicks in.
   if (!user) return null;
 
   return (
