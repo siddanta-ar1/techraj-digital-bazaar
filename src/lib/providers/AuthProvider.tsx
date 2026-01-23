@@ -1,7 +1,6 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
 import {
   createContext,
   useContext,
@@ -38,42 +37,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [supabase] = useState(() => createClient());
-  const router = useRouter();
-  const isMounting = useRef(true);
+  const isInitialized = useRef(false);
   const syncingRef = useRef(false);
 
-  // Fetch profile with robust retry logic
+  // Fetch user profile with retry logic
   const fetchUserProfile = useCallback(
     async (
       userId: string,
       retryCount = 0,
     ): Promise<{ data: any; error: any }> => {
-      const { data, error } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
+      try {
+        const { data, error } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", userId)
+          .maybeSingle();
 
-      if ((error || !data) && retryCount < 3) {
-        const delay = retryCount === 0 ? 500 : 1000;
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        return fetchUserProfile(userId, retryCount + 1);
+        if (error && retryCount < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          return fetchUserProfile(userId, retryCount + 1);
+        }
+
+        return { data, error };
+      } catch (err) {
+        if (retryCount < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          return fetchUserProfile(userId, retryCount + 1);
+        }
+        return { data: null, error: err };
       }
-
-      return { data, error };
     },
     [supabase],
   );
 
+  // Sync user profile data
   const syncProfile = useCallback(
     async (authUser: any) => {
       if (!authUser) {
         setUser(null);
-        syncingRef.current = false;
         return;
       }
 
-      // Prevent concurrent sync operations
+      // Prevent concurrent syncing
       if (syncingRef.current) return;
       syncingRef.current = true;
 
@@ -91,30 +96,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data, error } = await fetchUserProfile(authUser.id);
 
         if (error || !data) {
-          console.warn("Using fallback profile due to fetch error");
-          setUser((prev) => {
-            // Only update if user ID changed or we don't have a user
-            if (!prev || prev.id !== authUser.id) {
-              return fallbackUser;
-            }
-            return prev;
-          });
+          console.warn("Profile fetch failed, using fallback");
+          setUser(fallbackUser);
         } else {
           setUser({
-            ...fallbackUser,
-            ...data,
+            id: data.id,
+            email: data.email,
+            full_name: data.full_name || fallbackUser.full_name,
             wallet_balance: data.wallet_balance ?? 0,
+            role: data.role || "user",
+            phone: data.phone,
             is_synced: true,
           });
         }
       } catch (err) {
-        console.error("Sync error", err);
-        setUser((prev) => {
-          if (!prev || prev.id !== authUser.id) {
-            return fallbackUser;
-          }
-          return prev;
-        });
+        console.error("Profile sync error:", err);
+        setUser(fallbackUser);
       } finally {
         syncingRef.current = false;
       }
@@ -122,16 +119,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [fetchUserProfile],
   );
 
+  // Initialize auth - runs only once
   useEffect(() => {
+    if (isInitialized.current) return;
+
     let mounted = true;
-    let initialized = false;
+    isInitialized.current = true;
 
-    const initializeAuth = async () => {
-      if (initialized) return;
-      initialized = true;
-
+    const initAuth = async () => {
       try {
-        // 1. Explicitly check session first (Fixes infinite load)
+        // Get initial session
         const {
           data: { session },
         } = await supabase.auth.getSession();
@@ -142,81 +139,71 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } else {
             setUser(null);
           }
+          setIsLoading(false);
         }
       } catch (error) {
-        console.error("Auth init failed:", error);
-      } finally {
+        console.error("Auth initialization error:", error);
         if (mounted) {
+          setUser(null);
           setIsLoading(false);
-          isMounting.current = false;
         }
       }
     };
 
-    // 2. Listen for future changes
+    initAuth();
+
+    return () => {
+      mounted = false;
+    };
+  }, []); // Empty dependency array - runs only once
+
+  // Listen for auth changes - separate from initialization
+  useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return;
+      // Skip initial session - already handled by initAuth
+      if (event === "INITIAL_SESSION") return;
 
-      // Handle initial session
-      if (event === "INITIAL_SESSION") {
-        if (!initialized) {
-          initializeAuth();
-        }
-        return;
-      }
+      console.log("Auth event:", event);
 
-      if (session?.user) {
-        // Check if we need to sync this user
-        const needsSync =
-          !user || user.id !== session.user.id || !user.is_synced;
-
-        if (
-          needsSync &&
-          (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")
-        ) {
-          await syncProfile(session.user);
-        }
+      if (event === "SIGNED_IN" && session?.user) {
+        await syncProfile(session.user);
+        setIsLoading(false);
       } else if (event === "SIGNED_OUT") {
         setUser(null);
         syncingRef.current = false;
-        router.refresh();
-      }
-
-      if (!isMounting.current) {
+        setIsLoading(false);
+      } else if (event === "TOKEN_REFRESHED" && session?.user) {
+        // Only sync if we don't have user data or user changed
+        const needsSync =
+          !user || user.id !== session.user.id || !user.is_synced;
+        if (needsSync) {
+          await syncProfile(session.user);
+        }
         setIsLoading(false);
       }
     });
 
-    // Start initialization if not already started
-    if (!initialized) {
-      initializeAuth();
-    }
+    return () => subscription.unsubscribe();
+  }, [supabase.auth, syncProfile, user?.id, user?.is_synced]);
 
-    return () => {
-      mounted = false;
-      syncingRef.current = false;
-      subscription.unsubscribe();
-    };
-  }, [supabase, router, syncProfile, user]);
-
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
       setIsLoading(true);
       syncingRef.current = false;
       await supabase.auth.signOut();
       setUser(null);
-      router.replace("/login");
     } catch (error) {
-      console.error("Signout error:", error);
+      console.error("Sign out error:", error);
+    } finally {
       setIsLoading(false);
     }
-  };
+  }, [supabase.auth]);
 
   const value = useMemo(
     () => ({ user, isLoading, signOut }),
-    [user, isLoading],
+    [user, isLoading, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

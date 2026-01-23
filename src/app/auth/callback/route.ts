@@ -5,60 +5,90 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
   const next = requestUrl.searchParams.get("next") || "/dashboard";
+  const origin = requestUrl.origin;
 
-  if (code) {
+  // Handle missing code
+  if (!code) {
+    console.error("Auth callback: No code provided");
+    return NextResponse.redirect(new URL("/login?error=no_code", origin));
+  }
+
+  try {
     const supabase = await createClient();
 
-    // Exchange Code
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    // Exchange code for session
+    const { data: sessionData, error: exchangeError } =
+      await supabase.auth.exchangeCodeForSession(code);
 
-    if (!error) {
-      // Get user to update DB
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    if (exchangeError) {
+      console.error("Auth callback exchange error:", exchangeError);
+      return NextResponse.redirect(
+        new URL(
+          `/login?error=${encodeURIComponent(exchangeError.message)}`,
+          origin,
+        ),
+      );
+    }
 
-      if (user) {
-        // Ensure user exists in table
-        await supabase.from("users").upsert(
-          {
-            id: user.id,
-            email: user.email,
-            full_name: user.user_metadata.full_name,
-            // Don't overwrite wallet_balance if it exists (use upsert carefully or check existance)
-            // Ideally, set default in DB schema, but this is fine for now if it preserves data.
-            // Note: Upsert with just these fields might overwrite wallet if you aren't careful.
-            // Better to just ensure the row exists.
-            role: "user",
-          },
-          { onConflict: "id", ignoreDuplicates: true },
-        ); // Prevent overwriting wallet/data
+    const { session, user } = sessionData;
 
-        // Update specific fields if needed (like name)
+    if (!session || !user) {
+      console.error("Auth callback: No session or user after exchange");
+      return NextResponse.redirect(
+        new URL("/login?error=session_failed", origin),
+      );
+    }
+
+    // Ensure user exists in database
+    try {
+      const { data: existingUser } = await supabase
+        .from("users")
+        .select("id, full_name")
+        .eq("id", user.id)
+        .single();
+
+      if (!existingUser) {
+        // Create new user record
+        const { error: insertError } = await supabase.from("users").insert({
+          id: user.id,
+          email: user.email,
+          full_name:
+            user.user_metadata?.full_name ||
+            user.email?.split("@")[0] ||
+            "User",
+          wallet_balance: 0,
+          role: "user",
+        });
+
+        if (insertError) {
+          console.error("Failed to create user record:", insertError);
+          // Don't fail the login for database issues
+        }
+      } else {
+        // Update existing user's metadata
         await supabase
           .from("users")
           .update({
-            full_name: user.user_metadata.full_name,
+            full_name: user.user_metadata?.full_name || existingUser.full_name,
             email: user.email,
           })
           .eq("id", user.id);
       }
-
-      return NextResponse.redirect(new URL(next, requestUrl.origin));
-    } else {
-      console.error("Auth Callback Error:", error);
-      // Redirect to login with error
-      return NextResponse.redirect(
-        new URL(
-          `/login?error=${encodeURIComponent(error.message)}`,
-          requestUrl.origin,
-        ),
-      );
+    } catch (dbError) {
+      console.error("Database operation failed:", dbError);
+      // Continue with login even if DB operations fail
     }
-  }
 
-  // No code present
-  return NextResponse.redirect(
-    new URL("/login?error=no_code", requestUrl.origin),
-  );
+    // Successful authentication - redirect to target page
+    console.log("Auth callback successful, redirecting to:", next);
+    return NextResponse.redirect(new URL(next, origin));
+  } catch (error) {
+    console.error("Auth callback error:", error);
+    return NextResponse.redirect(
+      new URL(
+        `/login?error=${encodeURIComponent("Authentication failed")}`,
+        origin,
+      ),
+    );
+  }
 }

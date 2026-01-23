@@ -15,7 +15,7 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
+          cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value),
           );
           supabaseResponse = NextResponse.next({
@@ -29,66 +29,82 @@ export async function middleware(request: NextRequest) {
     },
   );
 
-  // This refreshes the session if expired
+  // Refresh session if needed - this handles token refresh automatically
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+    error,
+  } = await supabase.auth.getSession();
 
   const url = request.nextUrl.clone();
+  const isAuthPage =
+    url.pathname.startsWith("/login") ||
+    url.pathname.startsWith("/register") ||
+    url.pathname.startsWith("/auth/callback");
 
-  // Helper: Ensure cookies travel with redirects
-  const safeRedirect = (path: string) => {
-    const newUrl = request.nextUrl.clone();
-    newUrl.pathname = path;
-    // Preserve query params if needed (e.g. ?redirect=...)
-    if (path === "/login" && url.pathname !== "/") {
-      newUrl.searchParams.set("redirect", url.pathname);
+  const isProtectedPage =
+    url.pathname.startsWith("/dashboard") ||
+    url.pathname.startsWith("/admin") ||
+    url.pathname.startsWith("/refund");
+
+  // Helper function to create redirect with preserved cookies
+  const createRedirect = (path: string) => {
+    const redirectUrl = url.clone();
+    redirectUrl.pathname = path;
+
+    // Preserve redirect parameter for login
+    if (path === "/login" && isProtectedPage) {
+      redirectUrl.searchParams.set("redirect", url.pathname);
     }
 
-    const response = NextResponse.redirect(newUrl);
+    const response = NextResponse.redirect(redirectUrl);
 
-    // CRITICAL: Copy cookies from supabaseResponse (which has the fresh session)
-    // to the new redirect response
-    const cookiesToSet = supabaseResponse.cookies.getAll();
-    cookiesToSet.forEach((cookie) => {
+    // Copy all cookies from supabase response to redirect response
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
       response.cookies.set(cookie.name, cookie.value, cookie);
     });
 
     return response;
   };
 
-  // 1. Auth Pages (Login/Register)
-  if (
-    url.pathname.startsWith("/login") ||
-    url.pathname.startsWith("/register")
-  ) {
-    if (user) {
-      // User is already logged in -> Go to Dashboard
-      const redirectTarget = url.searchParams.get("redirect") || "/dashboard";
-      // We manually construct the URL here because safeRedirect handles the base logic
-      const targetUrl = new URL(redirectTarget, request.url);
-      const response = NextResponse.redirect(targetUrl);
+  // Handle authentication error (expired/invalid session)
+  if (error) {
+    console.log("Auth error in middleware:", error.message);
 
-      // Copy cookies
-      supabaseResponse.cookies.getAll().forEach((c) => {
-        response.cookies.set(c.name, c.value, c);
-      });
-
-      return response;
+    if (isProtectedPage) {
+      return createRedirect("/login");
     }
+
+    // Clear invalid session cookies
+    if (
+      error.message.includes("session_not_found") ||
+      error.message.includes("invalid")
+    ) {
+      supabaseResponse.cookies.delete("sb-access-token");
+      supabaseResponse.cookies.delete("sb-refresh-token");
+    }
+  }
+
+  // User is authenticated
+  if (session?.user) {
+    // Redirect authenticated users away from auth pages
+    if (isAuthPage && !url.pathname.includes("/auth/callback")) {
+      const redirectTo = url.searchParams.get("redirect") || "/dashboard";
+      return createRedirect(redirectTo);
+    }
+
+    // Allow access to protected pages
     return supabaseResponse;
   }
 
-  // 2. Protected Pages
-  if (
-    url.pathname.startsWith("/dashboard") ||
-    url.pathname.startsWith("/admin") ||
-    url.pathname.startsWith("/refund")
-  ) {
-    if (!user) {
-      // User not logged in -> Go to Login
-      return safeRedirect("/login");
+  // User is not authenticated
+  if (!session) {
+    // Block access to protected pages
+    if (isProtectedPage) {
+      return createRedirect("/login");
     }
+
+    // Allow access to public and auth pages
+    return supabaseResponse;
   }
 
   return supabaseResponse;
@@ -96,6 +112,13 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - images, icons, and other static assets
+     */
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

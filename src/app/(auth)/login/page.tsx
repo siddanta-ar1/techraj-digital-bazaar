@@ -1,18 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { LogIn, Mail, Lock, AlertCircle, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+
+  // Handle URL error parameters
+  useEffect(() => {
+    const urlError = searchParams.get("error");
+    if (urlError) {
+      switch (urlError) {
+        case "no_code":
+          setError("Authentication failed. Please try again.");
+          break;
+        case "session_failed":
+          setError("Session creation failed. Please try again.");
+          break;
+        default:
+          setError(decodeURIComponent(urlError));
+      }
+
+      // Clear error from URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete("error");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,15 +47,20 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) throw error;
 
-      console.log("✅ Login successful, redirecting...");
-      router.push("/dashboard");
+      // Get redirect target from URL params
+      const redirectTo = searchParams.get("redirect") || "/dashboard";
+
+      console.log("✅ Login successful, redirecting to:", redirectTo);
+
+      // Use replace to prevent back button issues
+      router.replace(redirectTo);
     } catch (error: any) {
       setError(error.message || "Failed to sign in");
     } finally {
@@ -48,10 +76,12 @@ export default function LoginPage() {
     setError("");
 
     try {
+      const redirectTo = searchParams.get("redirect") || "/dashboard";
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
         },
       });
 
@@ -214,5 +244,31 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4">
+          <div className="max-w-md w-full space-y-8">
+            <div className="text-center">
+              <div className="flex justify-center mb-6">
+                <div className="bg-indigo-100 p-4 rounded-2xl shadow-sm">
+                  <LogIn className="w-10 h-10 text-indigo-600" />
+                </div>
+              </div>
+              <h2 className="text-3xl font-extrabold text-slate-900">
+                Welcome Back
+              </h2>
+              <p className="mt-2 text-slate-600">Loading...</p>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }
