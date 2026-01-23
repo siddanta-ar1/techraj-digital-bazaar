@@ -47,7 +47,21 @@
 - No infinite loops or loading states
 - Clean session cleanup
 
-### 5. **LOGOUT SCENARIOS** ✅
+### 5. **REFUND PAGE SCENARIOS** ✅
+- [ ] Access `/refund` while authenticated
+- [ ] Access `/refund` while unauthenticated
+- [ ] Refresh refund page (valid session)
+- [ ] Refresh refund page (invalid session)
+- [ ] Open refund page in new tab
+- [ ] Navigate to refund after login
+
+**Expected Behavior:**
+- Authenticated: Instant refund page load with user orders
+- Unauthenticated: Instant redirect to `/login?redirect=/refund`
+- No "Verifying session..." or inconsistent loading
+- Orders load immediately on server-side
+
+### 6. **LOGOUT SCENARIOS** ✅
 - [ ] Manual logout from dashboard
 - [ ] Logout and try to access protected route
 - [ ] Multiple tab logout synchronization
@@ -74,9 +88,16 @@
    → Should load dashboard immediately
    → No auth loading screen
 
-4. Logout
+4. Visit /refund (authenticated)
+   → Should load refund page immediately
+   → Orders should be visible instantly
+
+5. Visit /refund (not authenticated) 
+   → Should redirect to /login?redirect=/refund immediately
+
+6. Logout
    → Should redirect to /login
-   → Cannot access /dashboard without login
+   → Cannot access /dashboard or /refund without login
 ```
 
 ### ✅ **EDGE CASES**
@@ -133,6 +154,12 @@
    
    # Should immediately redirect to:
    http://localhost:3000/login
+   
+   # Go to refund without login
+   http://localhost:3000/refund
+   
+   # Should immediately redirect to:
+   http://localhost:3000/login?redirect=/refund
    ```
 
 3. **Test Login Flow:**
@@ -147,13 +174,17 @@
    # Open new tab while logged in
    # Go to /dashboard
    # Should load immediately (no loading screen)
+   
+   # Go to /refund in new tab
+   # Should load immediately with orders visible
    ```
 
 5. **Test Session Persistence:**
    ```bash
    # Refresh the page
-   # Close and reopen browser
+   # Close and reopen browser  
    # Dashboard should load without re-authentication
+   # Refund page should load without re-authentication
    ```
 
 ---
@@ -175,6 +206,12 @@
 1. Check AuthProvider initialization
 2. Verify Supabase client configuration
 3. Check listener cleanup in useEffect
+
+### **If refund page shows loading inconsistently:**
+1. Verify server-side auth check in page.tsx
+2. Check middleware protection for /refund route
+3. Ensure RefundClient receives proper props
+4. Verify orders are fetched server-side
 
 ---
 
