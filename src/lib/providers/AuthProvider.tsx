@@ -40,26 +40,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   // Fetch profile with robust retry logic for "First Login" cold starts
-  const fetchUserProfile = useCallback(async (
-    userId: string,
-    retryCount = 0
-  ): Promise<{ data: any; error: any }> => {
-    const { data, error } = await supabase
-      .from("users")
-      .select("*")
-      .eq("id", userId)
-      .maybeSingle();
+  const fetchUserProfile = useCallback(
+    async (
+      userId: string,
+      retryCount = 0,
+    ): Promise<{ data: any; error: any }> => {
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", userId)
+        .maybeSingle();
 
-    // Retry up to 3 times (approx 2.5s total wait) to allow DB triggers to fire
-    if ((error || !data) && retryCount < 3) {
-      // Exponential backoff: 500ms, 1000ms, 1000ms
-      const delay = retryCount === 0 ? 500 : 1000;
-      await new Promise((resolve) => setTimeout(resolve, delay));
-      return fetchUserProfile(userId, retryCount + 1);
-    }
+      // Retry up to 3 times (approx 2.5s total wait) to allow DB triggers to fire
+      if ((error || !data) && retryCount < 3) {
+        // Exponential backoff: 500ms, 1000ms, 1000ms
+        const delay = retryCount === 0 ? 500 : 1000;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return fetchUserProfile(userId, retryCount + 1);
+      }
 
-    return { data, error };
-  }, [supabase]);
+      return { data, error };
+    },
+    [supabase],
+  );
 
   const syncProfile = useCallback(
     async (authUser: any) => {
@@ -69,7 +72,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // 1. Prepare Optimistic / Fallback User
-      // This ensures we have a valid user object even if the DB read fails
       const fallbackUser: User = {
         id: authUser.id,
         email: authUser.email || "",
@@ -87,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (error || !data) {
           console.warn(
             "AuthProvider: Profile missing after retries (using fallback).",
-            error
+            error,
           );
           // If we don't have a user yet, set the fallback to unblock the UI
           setUser((prev) => (prev ? prev : fallbackUser));
@@ -106,53 +108,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser((prev) => (prev ? prev : fallbackUser));
       }
     },
-    [fetchUserProfile]
+    [fetchUserProfile],
   );
 
   useEffect(() => {
     let mounted = true;
 
-    const initialize = async () => {
-      try {
-        // Start fresh
-        setIsLoading(true);
-
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (session?.user && mounted) {
-          await syncProfile(session.user);
-        } else if (mounted) {
-          setUser(null);
-        }
-      } catch (error) {
-        console.error("Auth init error:", error);
-      } finally {
-        // ✅ CRITICAL: Always turn off loading
-        if (mounted) setIsLoading(false);
-      }
-    };
-
-    initialize();
-
+    // SINGLE SOURCE OF TRUTH: The Auth State Listener
+    // This fires immediately with the current session state, replacing the need for a separate `initialize()` call.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
-      if (
-        event === "SIGNED_IN" ||
-        event === "TOKEN_REFRESHED" ||
-        event === "USER_UPDATED"
-      ) {
-        await syncProfile(session?.user);
-      } else if (event === "SIGNED_OUT") {
+      if (session?.user) {
+        // Handle login or update
+        await syncProfile(session.user);
+      } else {
+        // Handle logout
         setUser(null);
-        router.refresh();
+        if (event === "SIGNED_OUT") {
+          router.refresh();
+        }
       }
 
-      // Ensure loading is false after auth state updates
+      // Always turn off loading after handling the event
       setIsLoading(false);
     });
 
@@ -177,7 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo(
     () => ({ user, isLoading, signOut }),
-    [user, isLoading]
+    [user, isLoading],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

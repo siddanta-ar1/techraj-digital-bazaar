@@ -1,8 +1,8 @@
+// src/middleware.ts
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
-  // 1. Create response ONCE
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -16,12 +16,9 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          // Update request cookies (for immediate use)
           cookiesToSet.forEach(({ name, value, options }) =>
             request.cookies.set(name, value),
           );
-
-          // Update response cookies (for browser)
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options),
           );
@@ -30,46 +27,53 @@ export async function middleware(request: NextRequest) {
     },
   );
 
-  // 2. Check User
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // 3. Handle Route Protection
   const url = request.nextUrl.clone();
 
-  // Auth pages (Login/Register)
+  // --- FIX START: Helper to carry cookies to redirects ---
+  const redirect = (to: URL | string) => {
+    const newResponse = NextResponse.redirect(to);
+    // Copy cookies from the response where Supabase might have refreshed tokens
+    newResponse.cookies.getAll().forEach((c) => {
+      newResponse.cookies.set(c.name, c.value, c);
+    });
+    // Copy cookies from supabaseResponse (the critical part)
+    supabaseResponse.cookies.getAll().forEach((c) => {
+      newResponse.cookies.set(c.name, c.value, c);
+    });
+    return newResponse;
+  };
+  // --- FIX END ---
+
+  // Auth pages
   if (
     url.pathname.startsWith("/login") ||
     url.pathname.startsWith("/register")
   ) {
     if (user) {
-      // FIX: Check if there is a 'redirect' param (e.g. /login?redirect=/refund)
       const redirectTarget = url.searchParams.get("redirect");
       if (redirectTarget) {
-        return NextResponse.redirect(new URL(redirectTarget, request.url));
+        return redirect(new URL(redirectTarget, request.url)); // Use helper
       }
-
-      // Default behavior: go to dashboard
       url.pathname = "/dashboard";
-      return NextResponse.redirect(url);
+      return redirect(url); // Use helper
     }
     return supabaseResponse;
   }
 
-  // Protected pages (Dashboard/Admin/Refund)
-  // FIX: Added "/refund" to protected list so unauthenticated users are stopped here
+  // Protected pages
   if (
     url.pathname.startsWith("/dashboard") ||
     url.pathname.startsWith("/admin") ||
     url.pathname.startsWith("/refund")
   ) {
     if (!user) {
-      // If not logged in, go to login
       const loginUrl = new URL("/login", request.url);
-      // Save where they were trying to go
       loginUrl.searchParams.set("redirect", url.pathname);
-      return NextResponse.redirect(loginUrl);
+      return redirect(loginUrl); // Use helper
     }
   }
 
