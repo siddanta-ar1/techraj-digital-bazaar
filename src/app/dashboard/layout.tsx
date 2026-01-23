@@ -31,26 +31,24 @@ export default function DashboardLayout({
   // 1. Show Loader: Only when genuinely loading
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mx-auto mb-4" />
-          <p className="text-slate-600 font-medium">Verifying session...</p>
-        </div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
+        <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
+        <p className="text-slate-500 font-medium text-lg">
+          Verifying session...
+        </p>
       </div>
     );
   }
 
-  // 2. Safety Gate: If not loading, but no user, return null
-  // This prevents the protected content from flashing before the router.replace kicks in.
+  // 2. Safety Gate
   if (!user) return null;
 
   // 3. Render Dashboard
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <DashboardNav navItems={navItems} />
-      <main className="flex-1 container mx-auto px-4 py-8 mt-16">
-        {children}
-      </main>
+      {/* Added pt-20 to account for fixed header */}
+      <main className="flex-1 w-full pt-20">{children}</main>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { SettingsForm } from "./SettingsForm";
-import { Settings } from "lucide-react";
+import { Settings as SettingsIcon } from "lucide-react";
 
 export const metadata = {
   title: "Site Settings - Admin Panel",
@@ -19,18 +19,23 @@ export default async function AdminSettingsPage() {
   });
 
   return (
-    <div className="max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-          <Settings className="h-8 w-8 text-indigo-600" />
-          Site Settings
-        </h1>
-        <p className="text-slate-500 mt-2">
-          Configure global website parameters
-        </p>
-      </div>
+    <div className="min-h-screen bg-slate-50 p-6">
+      <div className="max-w-7xl mx-auto space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
+            <div className="p-2 bg-indigo-100 rounded-lg">
+              <SettingsIcon className="h-8 w-8 text-indigo-600" />
+            </div>
+            Site Settings
+          </h1>
+          <p className="text-slate-500 mt-2">
+            Configure global website parameters, announcements, and maintenance
+            mode.
+          </p>
+        </div>
 
-      <SettingsForm initialSettings={settingsMap} />
+        <SettingsForm initialSettings={settingsMap} />
+      </div>
     </div>
   );
 }

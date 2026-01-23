@@ -70,7 +70,7 @@ export default function OrdersHeader({ orders }: OrdersHeaderProps) {
     <div className="flex gap-3">
       <button
         onClick={exportToCSV}
-        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+        className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors shadow-lg hover:shadow-xl font-medium"
       >
         <Download className="h-4 w-4" />
         Export CSV
