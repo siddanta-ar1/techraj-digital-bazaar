@@ -38,6 +38,10 @@ const nextConfig: NextConfig = {
         port: "",
         pathname: "**",
       },
+      {
+        protocol: "https",
+        hostname: "**.supabase.co", // Wildcard to support any Supabase project ID
+      },
     ],
   },
 };

@@ -36,32 +36,30 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  // Ensure createClient is only called once per provider lifecycle
   const [supabase] = useState(() => createClient());
   const router = useRouter();
 
-  // Robust profile fetch with retry logic
-  const fetchUserProfile = useCallback(
-    async (
-      userId: string,
-      retryCount = 0,
-    ): Promise<{ data: any; error: any }> => {
-      const { data, error } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
+  // Fetch profile with robust retry logic for "First Login" cold starts
+  const fetchUserProfile = useCallback(async (
+    userId: string,
+    retryCount = 0
+  ): Promise<{ data: any; error: any }> => {
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
 
-      // Retry if data is missing or error occurs (up to 2 times)
-      if ((error || !data) && retryCount < 2) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        return fetchUserProfile(userId, retryCount + 1);
-      }
+    // Retry up to 3 times (approx 2.5s total wait) to allow DB triggers to fire
+    if ((error || !data) && retryCount < 3) {
+      // Exponential backoff: 500ms, 1000ms, 1000ms
+      const delay = retryCount === 0 ? 500 : 1000;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      return fetchUserProfile(userId, retryCount + 1);
+    }
 
-      return { data, error };
-    },
-    [supabase],
-  );
+    return { data, error };
+  }, [supabase]);
 
   const syncProfile = useCallback(
     async (authUser: any) => {
@@ -70,7 +68,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Default fallback state (Optimistic UI)
+      // 1. Prepare Optimistic / Fallback User
+      // This ensures we have a valid user object even if the DB read fails
       const fallbackUser: User = {
         id: authUser.id,
         email: authUser.email || "",
@@ -82,29 +81,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
 
       try {
+        // 2. Attempt to fetch real profile data
         const { data, error } = await fetchUserProfile(authUser.id);
 
         if (error || !data) {
           console.warn(
-            "AuthProvider: Profile sync failed or user creation pending.",
-            error,
+            "AuthProvider: Profile missing after retries (using fallback).",
+            error
           );
-          // Preserve existing user state if available (prevents flashing), else use fallback
+          // If we don't have a user yet, set the fallback to unblock the UI
           setUser((prev) => (prev ? prev : fallbackUser));
         } else {
+          // 3. Success: Merge DB data
           setUser({
             ...fallbackUser,
-            ...data, // Merges DB data (role, balance)
+            ...data,
             wallet_balance: data.wallet_balance ?? 0,
             is_synced: true,
           });
         }
       } catch (err) {
-        console.error("AuthProvider: Critical sync error.", err);
-        setUser(fallbackUser);
+        console.error("AuthProvider: Sync error", err);
+        // Safety net: ensure user is set so loading stops
+        setUser((prev) => (prev ? prev : fallbackUser));
       }
     },
-    [fetchUserProfile],
+    [fetchUserProfile]
   );
 
   useEffect(() => {
@@ -112,17 +114,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initialize = async () => {
       try {
+        // Start fresh
+        setIsLoading(true);
+
         const {
           data: { session },
         } = await supabase.auth.getSession();
 
         if (session?.user && mounted) {
           await syncProfile(session.user);
+        } else if (mounted) {
+          setUser(null);
         }
       } catch (error) {
         console.error("Auth init error:", error);
       } finally {
-        // ✅ CRITICAL: Always turn off loading, even on error
+        // ✅ CRITICAL: Always turn off loading
         if (mounted) setIsLoading(false);
       }
     };
@@ -145,7 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         router.refresh();
       }
 
-      // Ensure loading is false after any auth event processing
+      // Ensure loading is false after auth state updates
       setIsLoading(false);
     });
 
@@ -170,7 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo(
     () => ({ user, isLoading, signOut }),
-    [user, isLoading],
+    [user, isLoading]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

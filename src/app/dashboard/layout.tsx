@@ -22,13 +22,13 @@ export default function DashboardLayout({
   const router = useRouter();
 
   useEffect(() => {
-    // Only redirect if explicitly not loading and user is missing
+    // Only redirect if explicitly NOT loading and user is missing
     if (!isLoading && !user) {
       router.replace("/login");
     }
   }, [user, isLoading, router]);
 
-  // ✅ Show loader while AuthProvider is initializing
+  // 1. Show Loader: Only when genuinely loading
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -40,10 +40,11 @@ export default function DashboardLayout({
     );
   }
 
-  // ✅ Safe guard: If not loading but no user, return null to prevent
-  // flashing protected content before the useEffect redirect kicks in.
+  // 2. Safety Gate: If not loading, but no user, return null
+  // This prevents the protected content from flashing before the router.replace kicks in.
   if (!user) return null;
 
+  // 3. Render Dashboard
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <DashboardNav navItems={navItems} />
