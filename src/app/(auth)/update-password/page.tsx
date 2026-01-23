@@ -15,6 +15,10 @@ export default function UpdatePasswordPage() {
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Prevent double submission
+    if (loading) return;
+
     setError("");
 
     if (password !== confirmPassword) {
@@ -29,14 +33,20 @@ export default function UpdatePasswordPage() {
 
     setLoading(true);
 
-    // Updates the password for the currently authenticated user (from the email link session)
-    const { error } = await supabase.auth.updateUser({ password });
+    try {
+      // Updates the password for the currently authenticated user (from the email link session)
+      const { error } = await supabase.auth.updateUser({ password });
 
-    if (!error) {
-      // Redirect to dashboard on success
-      router.push("/dashboard");
-    } else {
-      setError(error.message);
+      if (!error) {
+        alert("Password updated successfully!");
+        router.push("/dashboard");
+      } else {
+        setError(error.message);
+      }
+    } catch (error: any) {
+      console.error("Update password error:", error);
+      setError(error.message || "Failed to update password. Please try again.");
+    } finally {
       setLoading(false);
     }
   };

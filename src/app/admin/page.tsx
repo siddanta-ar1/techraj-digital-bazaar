@@ -7,6 +7,7 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
+  Plus,
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -74,64 +75,78 @@ export default async function AdminDashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all">
+        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 p-6 rounded-2xl border border-emerald-200 shadow-sm hover:shadow-lg transition-all">
           <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-indigo-50 rounded-xl text-indigo-600">
+            <div className="p-3 bg-emerald-500 rounded-xl text-white shadow-md">
               <TrendingUp className="w-6 h-6" />
             </div>
-            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+            <span className="text-xs font-bold text-emerald-700 bg-emerald-200 px-2 py-1 rounded-full">
               Total Sales
             </span>
           </div>
-          <div className="text-2xl font-black text-slate-900">
+          <div className="text-3xl font-black text-emerald-900">
             Rs. {totalRevenue.toLocaleString()}
           </div>
-          <p className="text-sm text-slate-500 mt-1">Lifetime Revenue</p>
+          <p className="text-sm text-emerald-600 mt-1 font-medium">
+            Lifetime Revenue
+          </p>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all">
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-2xl border border-blue-200 shadow-sm hover:shadow-lg transition-all">
           <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-blue-50 rounded-xl text-blue-600">
+            <div className="p-3 bg-blue-500 rounded-xl text-white shadow-md">
               <ShoppingBag className="w-6 h-6" />
             </div>
+            <span className="text-xs font-bold text-blue-700 bg-blue-200 px-2 py-1 rounded-full">
+              Orders
+            </span>
           </div>
-          <div className="text-2xl font-black text-slate-900">
+          <div className="text-3xl font-black text-blue-900">
             {totalOrders || 0}
           </div>
-          <p className="text-sm text-slate-500 mt-1">Total Orders Placed</p>
+          <p className="text-sm text-blue-600 mt-1 font-medium">
+            Total Orders Placed
+          </p>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all">
+        <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-2xl border border-purple-200 shadow-sm hover:shadow-lg transition-all">
           <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-purple-50 rounded-xl text-purple-600">
+            <div className="p-3 bg-purple-500 rounded-xl text-white shadow-md">
               <Users className="w-6 h-6" />
             </div>
+            <span className="text-xs font-bold text-purple-700 bg-purple-200 px-2 py-1 rounded-full">
+              Users
+            </span>
           </div>
-          <div className="text-2xl font-black text-slate-900">
+          <div className="text-3xl font-black text-purple-900">
             {totalUsers || 0}
           </div>
-          <p className="text-sm text-slate-500 mt-1">Registered Users</p>
+          <p className="text-sm text-purple-600 mt-1 font-medium">
+            Registered Users
+          </p>
         </div>
 
         <Link href="/admin/wallet" className="block">
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group cursor-pointer relative overflow-hidden">
+          <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-6 rounded-2xl border border-amber-200 shadow-sm hover:shadow-lg transition-all group cursor-pointer relative overflow-hidden">
             {pendingTopups > 0 ? (
-              <div className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full m-4 animate-pulse"></div>
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-pulse shadow-lg flex items-center justify-center">
+                <div className="w-2 h-2 bg-red-600 rounded-full"></div>
+              </div>
             ) : null}
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-amber-50 rounded-xl text-amber-600 group-hover:bg-amber-100 transition-colors">
+              <div className="p-3 bg-amber-500 rounded-xl text-white shadow-md group-hover:scale-105 transition-transform">
                 <Wallet className="w-6 h-6" />
               </div>
               <span
-                className={`text-xs font-bold px-2 py-1 rounded-full ${pendingTopups > 0 ? "bg-red-50 text-red-600" : "bg-slate-50 text-slate-500"}`}
+                className={`text-xs font-bold px-2 py-1 rounded-full ${pendingTopups > 0 ? "bg-red-100 text-red-700 animate-pulse" : "bg-amber-200 text-amber-700"}`}
               >
                 {pendingTopups} Pending
               </span>
             </div>
-            <div className="text-2xl font-black text-slate-900">
+            <div className="text-3xl font-black text-amber-900">
               Top-up Requests
             </div>
-            <p className="text-sm text-slate-500 mt-1 group-hover:text-amber-600 transition-colors">
+            <p className="text-sm text-amber-600 mt-1 group-hover:text-amber-700 transition-colors font-medium">
               Manage wallet requests &rarr;
             </p>
           </div>
@@ -141,16 +156,19 @@ export default async function AdminDashboard() {
       {/* Recent Activity Section */}
       <div className="grid lg:grid-cols-3 gap-8">
         {/* Recent Orders Table */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-            <h2 className="font-bold text-slate-900 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-slate-400" /> Recent Orders
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
+          <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-slate-50 to-slate-100">
+            <h2 className="font-bold text-slate-900 flex items-center gap-3">
+              <div className="p-2 bg-indigo-100 rounded-lg">
+                <Clock className="w-5 h-5 text-indigo-600" />
+              </div>
+              Recent Orders
             </h2>
             <Link
               href="/admin/orders"
-              className="text-sm text-indigo-600 font-medium hover:underline"
+              className="text-sm text-indigo-600 font-semibold hover:text-indigo-800 transition-colors px-3 py-1 rounded-lg hover:bg-indigo-50"
             >
-              View All
+              View All →
             </Link>
           </div>
 
@@ -211,18 +229,23 @@ export default async function AdminDashboard() {
 
         {/* Quick Actions / System Status */}
         <div className="space-y-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-            <h3 className="font-bold text-slate-900 mb-4">Quick Actions</h3>
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-lg">
+            <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <div className="p-1.5 bg-indigo-100 rounded-lg">
+                <Plus className="w-4 h-4 text-indigo-600" />
+              </div>
+              Quick Actions
+            </h3>
             <div className="space-y-3">
               <Link
                 href="/admin/products/new"
                 className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all group"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-500 text-white flex items-center justify-center shadow-sm">
                     <ShoppingBag className="w-4 h-4" />
                   </div>
-                  <span className="font-medium text-slate-700">
+                  <span className="font-semibold text-slate-800">
                     Add New Product
                   </span>
                 </div>
@@ -236,10 +259,10 @@ export default async function AdminDashboard() {
                 className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all group"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center shadow-sm">
                     <CheckCircle2 className="w-4 h-4" />
                   </div>
-                  <span className="font-medium text-slate-700">
+                  <span className="font-semibold text-slate-800">
                     Add Digital Codes
                   </span>
                 </div>
@@ -253,10 +276,10 @@ export default async function AdminDashboard() {
                 className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all group"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-purple-500 text-white flex items-center justify-center shadow-sm">
                     <Users className="w-4 h-4" />
                   </div>
-                  <span className="font-medium text-slate-700">
+                  <span className="font-semibold text-slate-800">
                     Manage Users
                   </span>
                 </div>
@@ -267,21 +290,33 @@ export default async function AdminDashboard() {
             </div>
           </div>
 
-          <div className="bg-indigo-900 p-6 rounded-2xl text-white relative overflow-hidden">
+          <div className="bg-gradient-to-br from-indigo-900 to-indigo-800 p-6 rounded-2xl text-white relative overflow-hidden shadow-xl">
             <div className="absolute top-0 right-0 -mr-4 -mt-4 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
-            <h3 className="font-bold text-lg mb-2 relative z-10">
+            <div className="absolute bottom-0 left-0 -ml-2 -mb-2 w-16 h-16 bg-white/5 rounded-full blur-xl"></div>
+            <h3 className="font-bold text-lg mb-3 relative z-10 flex items-center gap-2">
+              <div className="p-1.5 bg-white/20 rounded-lg">
+                <AlertCircle className="w-4 h-4" />
+              </div>
               Pending Tasks
             </h3>
             <div className="space-y-2 relative z-10">
               {pendingTopups > 0 ? (
-                <div className="flex items-center gap-2 text-indigo-200 text-sm">
-                  <AlertCircle className="w-4 h-4 text-amber-400" />
-                  <span>{pendingTopups} Wallet requests to review</span>
+                <div className="flex items-center gap-3 text-indigo-100 text-sm bg-white/10 p-3 rounded-lg backdrop-blur-sm">
+                  <div className="p-1 bg-amber-500 rounded-full">
+                    <AlertCircle className="w-3 h-3 text-white" />
+                  </div>
+                  <span className="font-medium">
+                    {pendingTopups} Wallet requests to review
+                  </span>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 text-indigo-200 text-sm">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span>All wallet requests cleared!</span>
+                <div className="flex items-center gap-3 text-indigo-100 text-sm bg-white/10 p-3 rounded-lg backdrop-blur-sm">
+                  <div className="p-1 bg-emerald-500 rounded-full">
+                    <CheckCircle2 className="w-3 h-3 text-white" />
+                  </div>
+                  <span className="font-medium">
+                    All wallet requests cleared!
+                  </span>
                 </div>
               )}
             </div>

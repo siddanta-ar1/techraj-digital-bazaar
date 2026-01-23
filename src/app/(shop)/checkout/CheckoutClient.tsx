@@ -98,6 +98,10 @@ export default function CheckoutClient() {
   // ------------------------------------------------------------------
   const handleApplyPromo = async () => {
     if (!promoCode.trim()) return;
+
+    // Prevent multiple simultaneous requests
+    if (isProcessing) return;
+
     setIsProcessing(true);
     setPromoMessage("");
     setDiscount(0);
@@ -107,82 +111,36 @@ export default function CheckoutClient() {
     try {
       const codeToTest = promoCode.trim();
 
-      // 1. FIRST CHECK: Look in 'product_codes' (Inventory Codes)
-      //    We check for codes that are NOT used.
-      const { data: inventoryCode, error: inventoryError } = await supabase
-        .from("product_codes")
-        .select("*")
-        .eq("code", codeToTest)
-        .eq("is_used", false)
-        .maybeSingle();
+      // Use API endpoint to validate promo codes atomically to prevent race conditions
+      const response = await fetch("/api/promo/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: codeToTest,
+          totalAmount: totalPrice,
+        }),
+      });
 
-      if (inventoryCode) {
-        // Found a valid inventory code!
-        const val = inventoryCode.discount_amount || 0;
+      const result = await response.json();
 
-        if (val <= 0) {
-          setPromoMessage("This code has no value attached.");
-          setIsProcessing(false);
-          return;
-        }
-
-        // Cap discount at total price (cannot go below 0)
-        const calculatedDiscount = Math.min(val, totalPrice);
-
-        setDiscount(calculatedDiscount);
-        setIsPromoApplied(true);
-        setUsedCodeId(inventoryCode.id); // Save ID to send to backend
-        setPromoMessage("Gift Card Applied Successfully!");
-        setIsProcessing(false);
-        return; // Stop here, do not check promo_codes table
-      }
-
-      // 2. SECOND CHECK: Look in 'promo_codes' (Standard Coupons like "SUMMER20")
-      const { data: promo, error } = await supabase
-        .from("promo_codes")
-        .select("*")
-        .eq("code", codeToTest.toUpperCase())
-        .eq("is_active", true)
-        .single();
-
-      if (error || !promo) {
-        setPromoMessage("Invalid promo code");
-        setIsProcessing(false);
+      if (!response.ok) {
+        setPromoMessage(result.error || "Invalid promo code");
         return;
       }
 
-      // Expiry Check
-      if (promo.expires_at && new Date(promo.expires_at) < new Date()) {
-        setPromoMessage("Promo code expired");
-        setIsProcessing(false);
-        return;
-      }
+      const { type, discount, message, codeId } = result;
 
-      // Min Order Check
-      if (totalPrice < (promo.min_order_amount || 0)) {
-        setPromoMessage(
-          `Minimum order of Rs. ${promo.min_order_amount} required`,
-        );
-        setIsProcessing(false);
-        return;
-      }
-
-      // Calculate Discount
-      let calculatedDiscount = 0;
-      if (promo.discount_type === "percentage") {
-        calculatedDiscount = (totalPrice * promo.discount_value) / 100;
-      } else {
-        calculatedDiscount = promo.discount_value;
-      }
-
-      calculatedDiscount = Math.min(calculatedDiscount, totalPrice);
-
-      setDiscount(calculatedDiscount);
+      setDiscount(discount);
       setIsPromoApplied(true);
-      setPromoMessage("Promo code applied successfully!");
+      setPromoMessage(message);
+
+      // Store code ID for inventory codes to mark as used during order creation
+      if (type === "inventory" && codeId) {
+        setUsedCodeId(codeId);
+      }
     } catch (err) {
-      console.error(err);
-      setPromoMessage("Error applying code");
+      console.error("Promo validation error:", err);
+      setPromoMessage("Error applying code. Please try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -224,7 +182,11 @@ export default function CheckoutClient() {
 
     if (!validateForm()) return;
 
+    // Prevent double submission
+    if (isProcessing) return;
+
     setIsProcessing(true);
+    setErrors({}); // Clear previous errors
 
     try {
       let screenshotUrl = "";
@@ -232,7 +194,7 @@ export default function CheckoutClient() {
       // Upload screenshot only if there is a payment to be made AND a file selected
       if (finalTotal > 0 && paymentMethod !== "wallet" && paymentScreenshot) {
         const fileExt = paymentScreenshot.name.split(".").pop();
-        const fileName = `${user?.id}_${Date.now()}.${fileExt}`;
+        const fileName = `${user?.id}_${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
           .from("payment-screenshots")
@@ -254,7 +216,7 @@ export default function CheckoutClient() {
           price: item.price,
           quantity: item.quantity,
         })),
-        paymentMethod: finalTotal === 0 ? "wallet" : paymentMethod, // If covered by code, mark as wallet/internal
+        paymentMethod: finalTotal === 0 ? "wallet" : paymentMethod,
         totalAmount: totalPrice,
         discountAmount: discount,
         promoCode: isPromoApplied ? promoCode : null,
@@ -268,7 +230,6 @@ export default function CheckoutClient() {
         paymentMeta: {
           transactionId: transactionId,
           amountPaid: manualAmountPaid,
-          // CRITICAL: Send this to backend so you can mark the code as is_used=true
           usedProductCodeId: usedCodeId,
         },
       };
@@ -285,8 +246,14 @@ export default function CheckoutClient() {
         throw new Error(result.error || "Failed to create order");
       }
 
+      // Clear cart and redirect only on success
       clearCart();
       triggerWhatsappNotification(result.orderNumber);
+
+      // Redirect to success page
+      setTimeout(() => {
+        router.push(`/order-success?order=${result.orderNumber}`);
+      }, 2000);
     } catch (error: any) {
       console.error("Checkout Error:", error);
       setErrors({

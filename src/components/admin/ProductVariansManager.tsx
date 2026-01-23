@@ -16,6 +16,17 @@ interface Variant {
   sort_order: number;
 }
 
+// FIX: New Interface to handle string inputs
+interface VariantFormState {
+  variant_name: string;
+  price: string;
+  original_price: string;
+  stock_type: "limited" | "unlimited" | "codes";
+  stock_quantity: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
 interface Props {
   productId: string;
   initialVariants: Variant[];
@@ -29,13 +40,13 @@ export function ProductVariantsManager({ productId, initialVariants }: Props) {
   const supabase = createClient();
   const router = useRouter();
 
-  // Form State
-  const [formData, setFormData] = useState<Partial<Variant>>({
+  // FIX: Form State initialized as strings for numeric fields
+  const [formData, setFormData] = useState<VariantFormState>({
     variant_name: "",
-    price: 0,
-    original_price: null,
+    price: "",
+    original_price: "",
     stock_type: "unlimited",
-    stock_quantity: 0,
+    stock_quantity: "0",
     is_active: true,
     sort_order: 0,
   });
@@ -43,10 +54,10 @@ export function ProductVariantsManager({ productId, initialVariants }: Props) {
   const resetForm = () => {
     setFormData({
       variant_name: "",
-      price: 0,
-      original_price: null,
+      price: "",
+      original_price: "",
       stock_type: "unlimited",
-      stock_quantity: 0,
+      stock_quantity: "0",
       is_active: true,
       sort_order: variants.length,
     });
@@ -55,7 +66,16 @@ export function ProductVariantsManager({ productId, initialVariants }: Props) {
   };
 
   const handleEdit = (variant: Variant) => {
-    setFormData(variant);
+    // FIX: Convert numbers to strings when loading edit form
+    setFormData({
+      variant_name: variant.variant_name,
+      price: variant.price.toString(),
+      original_price: variant.original_price?.toString() || "",
+      stock_type: variant.stock_type,
+      stock_quantity: variant.stock_quantity.toString(),
+      is_active: variant.is_active,
+      sort_order: variant.sort_order,
+    });
     setEditingId(variant.id);
     setIsAdding(true);
   };
@@ -74,7 +94,7 @@ export function ProductVariantsManager({ productId, initialVariants }: Props) {
       setVariants((prev) => prev.filter((v) => v.id !== id));
       router.refresh();
     } else {
-      alert("Failed to delete variant");
+      alert("Failed to delete variant. It might be in use.");
     }
   };
 
@@ -82,9 +102,28 @@ export function ProductVariantsManager({ productId, initialVariants }: Props) {
     e.preventDefault();
     setLoading(true);
 
+    // FIX: Parsing and Validation Logic
+    const parsedPrice = parseFloat(formData.price);
+    const parsedOriginalPrice = formData.original_price
+      ? parseFloat(formData.original_price)
+      : null;
+    const parsedQuantity = parseInt(formData.stock_quantity);
+
+    if (isNaN(parsedPrice)) {
+      alert("Price must be a valid number");
+      setLoading(false);
+      return;
+    }
+
     const payload = {
-      ...formData,
       product_id: productId,
+      variant_name: formData.variant_name,
+      price: parsedPrice,
+      original_price: parsedOriginalPrice,
+      stock_type: formData.stock_type,
+      stock_quantity: isNaN(parsedQuantity) ? 0 : parsedQuantity,
+      is_active: formData.is_active,
+      sort_order: formData.sort_order,
     };
 
     let error;
@@ -173,6 +212,7 @@ export function ProductVariantsManager({ productId, initialVariants }: Props) {
                   <label className="block text-xs font-medium text-slate-500 mb-1">
                     Price (Rs)
                   </label>
+                  {/* FIX: Input type="number" but value is string */}
                   <input
                     required
                     type="number"
@@ -181,7 +221,7 @@ export function ProductVariantsManager({ productId, initialVariants }: Props) {
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        price: parseFloat(e.target.value),
+                        price: e.target.value,
                       })
                     }
                     className="w-full px-3 py-2 border rounded-lg text-sm"
@@ -191,16 +231,15 @@ export function ProductVariantsManager({ productId, initialVariants }: Props) {
                   <label className="block text-xs font-medium text-slate-500 mb-1">
                     Original Price
                   </label>
+                  {/* FIX: Input type="number" but value is string */}
                   <input
                     type="number"
                     step="0.01"
-                    value={formData.original_price || ""}
+                    value={formData.original_price}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        original_price: e.target.value
-                          ? parseFloat(e.target.value)
-                          : null,
+                        original_price: e.target.value,
                       })
                     }
                     className="w-full px-3 py-2 border rounded-lg text-sm"
@@ -231,13 +270,14 @@ export function ProductVariantsManager({ productId, initialVariants }: Props) {
                   <label className="block text-xs font-medium text-slate-500 mb-1">
                     Quantity
                   </label>
+                  {/* FIX: Input type="number" but value is string */}
                   <input
                     type="number"
                     value={formData.stock_quantity}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        stock_quantity: parseInt(e.target.value),
+                        stock_quantity: e.target.value,
                       })
                     }
                     className="w-full px-3 py-2 border rounded-lg text-sm"
@@ -269,7 +309,7 @@ export function ProductVariantsManager({ productId, initialVariants }: Props) {
         </div>
       )}
 
-      {/* Variants Table */}
+      {/* Variants Table - Remains largely the same */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-500">

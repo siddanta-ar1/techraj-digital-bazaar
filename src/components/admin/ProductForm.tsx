@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Upload, Loader2, Save, ArrowLeft } from "lucide-react";
+import { Upload, Loader2, Save, ArrowLeft, XCircle } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -15,6 +15,8 @@ interface ProductFormProps {
 export function ProductForm({ initialData, categories }: ProductFormProps) {
   const router = useRouter();
   const supabase = createClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -31,7 +33,7 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
     delivery_instructions: initialData?.delivery_instructions || "",
   });
 
-  // NEW: Quick Variant State (Only for creation)
+  // Numeric input state (string-based for better UX)
   const [basePrice, setBasePrice] = useState("");
 
   const generateSlug = (name: string) => {
@@ -45,40 +47,67 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
     const { name, value } = e.target;
     setFormData((prev) => {
       const newData = { ...prev, [name]: value };
-      if (
-        name === "name" &&
-        (!prev.slug || prev.slug === generateSlug(prev.name))
-      ) {
+      if (name === "name" && !initialData) {
         newData.slug = generateSlug(value);
       }
       return newData;
     });
   };
 
-  // NEW: Image Upload Handler
+  // FIX: Non-blocking Image Upload
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-
-    setUploading(true);
     const file = e.target.files[0];
-    const fileExt = file.name.split(".").pop();
-    const fileName = `${Math.random()}.${fileExt}`;
-    const filePath = `product-images/${fileName}`;
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert("File size must be less than 2MB");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
 
     try {
+      setUploading(true);
+
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `product-images/${fileName}`;
+
       const { error: uploadError } = await supabase.storage
-        .from("products") // Make sure 'products' bucket exists
-        .upload(filePath, file);
+        .from("products")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
 
       if (uploadError) throw uploadError;
 
       const { data } = supabase.storage.from("products").getPublicUrl(filePath);
+      const newImageUrl = `${data.publicUrl}?t=${Date.now()}`;
+      const oldImageUrl = formData.featured_image;
 
-      setFormData((prev) => ({ ...prev, featured_image: data.publicUrl }));
+      setFormData((prev) => ({ ...prev, featured_image: newImageUrl }));
+
+      // Background Cleanup
+      if (oldImageUrl && oldImageUrl.includes("/products/")) {
+        const oldPath = oldImageUrl.split("/products/").pop()?.split("?")[0];
+        if (oldPath) {
+          supabase.storage
+            .from("products")
+            .remove([oldPath])
+            .then(({ error }) => {
+              if (error)
+                console.warn("Failed to clean up old image:", error.message);
+            });
+        }
+      }
     } catch (error: any) {
-      alert("Error uploading image: " + error.message);
+      console.error("Upload Error:", error);
+      alert("Failed to upload image: " + (error.message || "Unknown error"));
     } finally {
       setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   };
 
@@ -87,22 +116,31 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
     setLoading(true);
 
     try {
-      let productId = initialData?.id;
+      // FIX: Strict Validation for UUID fields
+      if (!formData.category_id) {
+        alert("Please select a category.");
+        setLoading(false);
+        return;
+      }
 
+      let productId = initialData?.id;
+      const cleanImageUrl = formData.featured_image?.split("?")[0] || "";
+
+      // FIX: Sanitize Payload (Convert empty strings to null for UUID/Foreign Keys)
       const dataToSave = {
         ...formData,
+        category_id: formData.category_id || null, // Safety net
+        featured_image: cleanImageUrl,
         updated_at: new Date().toISOString(),
       };
 
       if (initialData?.id) {
-        // Update
         const { error } = await supabase
           .from("products")
           .update(dataToSave)
           .eq("id", initialData.id);
         if (error) throw error;
       } else {
-        // Create
         const { data: newProduct, error } = await supabase
           .from("products")
           .insert([dataToSave])
@@ -112,12 +150,13 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
         if (error) throw error;
         productId = newProduct.id;
 
-        // NEW: Create default variant if price provided
-        if (basePrice) {
+        // Create Default Variant
+        const priceValue = parseFloat(basePrice);
+        if (basePrice && !isNaN(priceValue)) {
           await supabase.from("product_variants").insert({
             product_id: productId,
             variant_name: "Standard",
-            price: parseFloat(basePrice),
+            price: priceValue,
             stock_type: "unlimited",
             sort_order: 0,
             is_active: true,
@@ -127,9 +166,9 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
 
       router.push("/admin/products");
       router.refresh();
-    } catch (error) {
-      alert("Error saving product");
-      console.error(error);
+    } catch (error: any) {
+      console.error("Save Error:", error);
+      alert("Error saving product: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -200,19 +239,18 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
             </div>
           </div>
 
-          {/* NEW: Price Field for new products */}
           {!initialData && (
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
               <h3 className="font-semibold text-slate-900 mb-2">Pricing</h3>
               <p className="text-sm text-slate-500 mb-4">
-                This will create a default "Standard" variant. You can add more
-                variants after creating.
+                This will create a default "Standard" variant.
               </p>
               <label className="block text-sm font-medium text-slate-700 mb-1">
                 Base Price (Rs)
               </label>
               <input
                 type="number"
+                step="0.01"
                 value={basePrice}
                 onChange={(e) => setBasePrice(e.target.value)}
                 className="w-full px-4 py-2 border rounded-lg"
@@ -244,18 +282,40 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
             <h3 className="font-semibold text-slate-900">Media</h3>
 
-            {/* NEW: File Upload UI */}
-            <div className="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center hover:bg-slate-50 transition-colors relative">
+            <div
+              className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors relative ${
+                uploading
+                  ? "bg-slate-50 border-slate-300"
+                  : "hover:bg-slate-50 border-slate-300"
+              }`}
+            >
               <input
+                ref={fileInputRef}
                 type="file"
                 accept="image/*"
                 onChange={handleImageUpload}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                disabled={uploading}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
               />
-              <Upload className="h-6 w-6 text-slate-400 mx-auto mb-2" />
-              <p className="text-xs text-slate-500">
-                {uploading ? "Uploading..." : "Click to upload image"}
-              </p>
+              <div className="flex flex-col items-center justify-center">
+                {uploading ? (
+                  <>
+                    <Loader2 className="h-6 w-6 text-indigo-600 animate-spin mb-2" />
+                    <p className="text-xs text-indigo-600 font-medium">
+                      Uploading...
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-6 w-6 text-slate-400 mb-2" />
+                    <p className="text-xs text-slate-500">
+                      {formData.featured_image
+                        ? "Click to Replace"
+                        : "Click to Upload"}
+                    </p>
+                  </>
+                )}
+              </div>
             </div>
 
             <div className="flex gap-2 items-center">
@@ -270,13 +330,30 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
             </div>
 
             {formData.featured_image && (
-              <div className="relative h-40 w-full rounded-lg overflow-hidden border">
+              <div className="relative h-40 w-full rounded-lg overflow-hidden border bg-slate-100 group">
                 <Image
                   src={formData.featured_image}
                   alt="Preview"
                   fill
-                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // FIX: Added sizes prop
+                  className={`object-cover transition-opacity ${uploading ? "opacity-50" : "opacity-100"}`}
                 />
+
+                {uploading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-white/50 z-10">
+                    <Loader2 className="h-8 w-8 text-indigo-600 animate-spin" />
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData((prev) => ({ ...prev, featured_image: "" }))
+                  }
+                  className="absolute top-2 right-2 bg-white/80 p-1 rounded-full text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-600 z-20"
+                >
+                  <XCircle className="h-5 w-5" />
+                </button>
               </div>
             )}
           </div>

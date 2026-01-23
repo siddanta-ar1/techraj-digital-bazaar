@@ -9,6 +9,7 @@ import {
   useState,
   useCallback,
   useMemo,
+  useRef,
 } from "react";
 
 export type User = {
@@ -38,8 +39,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [supabase] = useState(() => createClient());
   const router = useRouter();
+  const isMounting = useRef(true);
+  const syncingRef = useRef(false);
 
-  // Fetch profile with robust retry logic for "First Login" cold starts
+  // Fetch profile with robust retry logic
   const fetchUserProfile = useCallback(
     async (
       userId: string,
@@ -51,9 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq("id", userId)
         .maybeSingle();
 
-      // Retry up to 3 times (approx 2.5s total wait) to allow DB triggers to fire
       if ((error || !data) && retryCount < 3) {
-        // Exponential backoff: 500ms, 1000ms, 1000ms
         const delay = retryCount === 0 ? 500 : 1000;
         await new Promise((resolve) => setTimeout(resolve, delay));
         return fetchUserProfile(userId, retryCount + 1);
@@ -68,10 +69,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (authUser: any) => {
       if (!authUser) {
         setUser(null);
+        syncingRef.current = false;
         return;
       }
 
-      // 1. Prepare Optimistic / Fallback User
+      // Prevent concurrent sync operations
+      if (syncingRef.current) return;
+      syncingRef.current = true;
+
       const fallbackUser: User = {
         id: authUser.id,
         email: authUser.email || "",
@@ -83,18 +88,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
 
       try {
-        // 2. Attempt to fetch real profile data
         const { data, error } = await fetchUserProfile(authUser.id);
 
         if (error || !data) {
-          console.warn(
-            "AuthProvider: Profile missing after retries (using fallback).",
-            error,
-          );
-          // If we don't have a user yet, set the fallback to unblock the UI
-          setUser((prev) => (prev ? prev : fallbackUser));
+          console.warn("Using fallback profile due to fetch error");
+          setUser((prev) => {
+            // Only update if user ID changed or we don't have a user
+            if (!prev || prev.id !== authUser.id) {
+              return fallbackUser;
+            }
+            return prev;
+          });
         } else {
-          // 3. Success: Merge DB data
           setUser({
             ...fallbackUser,
             ...data,
@@ -103,9 +108,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
         }
       } catch (err) {
-        console.error("AuthProvider: Sync error", err);
-        // Safety net: ensure user is set so loading stops
-        setUser((prev) => (prev ? prev : fallbackUser));
+        console.error("Sync error", err);
+        setUser((prev) => {
+          if (!prev || prev.id !== authUser.id) {
+            return fallbackUser;
+          }
+          return prev;
+        });
+      } finally {
+        syncingRef.current = false;
       }
     },
     [fetchUserProfile],
@@ -113,44 +124,92 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    let initialized = false;
 
-    // SINGLE SOURCE OF TRUTH: The Auth State Listener
-    // This fires immediately with the current session state, replacing the need for a separate `initialize()` call.
+    const initializeAuth = async () => {
+      if (initialized) return;
+      initialized = true;
+
+      try {
+        // 1. Explicitly check session first (Fixes infinite load)
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (mounted) {
+          if (session?.user) {
+            await syncProfile(session.user);
+          } else {
+            setUser(null);
+          }
+        }
+      } catch (error) {
+        console.error("Auth init failed:", error);
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+          isMounting.current = false;
+        }
+      }
+    };
+
+    // 2. Listen for future changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
-      if (session?.user) {
-        // Handle login or update
-        await syncProfile(session.user);
-      } else {
-        // Handle logout
-        setUser(null);
-        if (event === "SIGNED_OUT") {
-          router.refresh();
+      // Handle initial session
+      if (event === "INITIAL_SESSION") {
+        if (!initialized) {
+          initializeAuth();
         }
+        return;
       }
 
-      // Always turn off loading after handling the event
-      setIsLoading(false);
+      if (session?.user) {
+        // Check if we need to sync this user
+        const needsSync =
+          !user || user.id !== session.user.id || !user.is_synced;
+
+        if (
+          needsSync &&
+          (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")
+        ) {
+          await syncProfile(session.user);
+        }
+      } else if (event === "SIGNED_OUT") {
+        setUser(null);
+        syncingRef.current = false;
+        router.refresh();
+      }
+
+      if (!isMounting.current) {
+        setIsLoading(false);
+      }
     });
+
+    // Start initialization if not already started
+    if (!initialized) {
+      initializeAuth();
+    }
 
     return () => {
       mounted = false;
+      syncingRef.current = false;
       subscription.unsubscribe();
     };
-  }, [supabase, router, syncProfile]);
+  }, [supabase, router, syncProfile, user]);
 
   const signOut = async () => {
     try {
       setIsLoading(true);
+      syncingRef.current = false;
       await supabase.auth.signOut();
       setUser(null);
       router.replace("/login");
     } catch (error) {
       console.error("Signout error:", error);
-    } finally {
       setIsLoading(false);
     }
   };

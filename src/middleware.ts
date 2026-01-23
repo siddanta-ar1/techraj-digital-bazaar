@@ -1,4 +1,3 @@
-// src/middleware.ts
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -19,6 +18,9 @@ export async function middleware(request: NextRequest) {
           cookiesToSet.forEach(({ name, value, options }) =>
             request.cookies.set(name, value),
           );
+          supabaseResponse = NextResponse.next({
+            request,
+          });
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options),
           );
@@ -27,53 +29,65 @@ export async function middleware(request: NextRequest) {
     },
   );
 
+  // This refreshes the session if expired
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   const url = request.nextUrl.clone();
 
-  // --- FIX START: Helper to carry cookies to redirects ---
-  const redirect = (to: URL | string) => {
-    const newResponse = NextResponse.redirect(to);
-    // Copy cookies from the response where Supabase might have refreshed tokens
-    newResponse.cookies.getAll().forEach((c) => {
-      newResponse.cookies.set(c.name, c.value, c);
-    });
-    // Copy cookies from supabaseResponse (the critical part)
-    supabaseResponse.cookies.getAll().forEach((c) => {
-      newResponse.cookies.set(c.name, c.value, c);
-    });
-    return newResponse;
-  };
-  // --- FIX END ---
+  // Helper: Ensure cookies travel with redirects
+  const safeRedirect = (path: string) => {
+    const newUrl = request.nextUrl.clone();
+    newUrl.pathname = path;
+    // Preserve query params if needed (e.g. ?redirect=...)
+    if (path === "/login" && url.pathname !== "/") {
+      newUrl.searchParams.set("redirect", url.pathname);
+    }
 
-  // Auth pages
+    const response = NextResponse.redirect(newUrl);
+
+    // CRITICAL: Copy cookies from supabaseResponse (which has the fresh session)
+    // to the new redirect response
+    const cookiesToSet = supabaseResponse.cookies.getAll();
+    cookiesToSet.forEach((cookie) => {
+      response.cookies.set(cookie.name, cookie.value, cookie);
+    });
+
+    return response;
+  };
+
+  // 1. Auth Pages (Login/Register)
   if (
     url.pathname.startsWith("/login") ||
     url.pathname.startsWith("/register")
   ) {
     if (user) {
-      const redirectTarget = url.searchParams.get("redirect");
-      if (redirectTarget) {
-        return redirect(new URL(redirectTarget, request.url)); // Use helper
-      }
-      url.pathname = "/dashboard";
-      return redirect(url); // Use helper
+      // User is already logged in -> Go to Dashboard
+      const redirectTarget = url.searchParams.get("redirect") || "/dashboard";
+      // We manually construct the URL here because safeRedirect handles the base logic
+      const targetUrl = new URL(redirectTarget, request.url);
+      const response = NextResponse.redirect(targetUrl);
+
+      // Copy cookies
+      supabaseResponse.cookies.getAll().forEach((c) => {
+        response.cookies.set(c.name, c.value, c);
+      });
+
+      return response;
     }
     return supabaseResponse;
   }
 
-  // Protected pages
+  // 2. Protected Pages
   if (
     url.pathname.startsWith("/dashboard") ||
     url.pathname.startsWith("/admin") ||
     url.pathname.startsWith("/refund")
   ) {
     if (!user) {
-      const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("redirect", url.pathname);
-      return redirect(loginUrl); // Use helper
+      // User not logged in -> Go to Login
+      return safeRedirect("/login");
     }
   }
 

@@ -45,7 +45,7 @@ export function CategoriesClient({
       slug: "",
       description: "",
       icon: "📦",
-      sort_order: categories.length + 1,
+      sort_order: (categories?.length || 0) + 1,
       is_active: true,
     });
     setEditingId(null);
@@ -58,7 +58,7 @@ export function CategoriesClient({
       slug: category.slug,
       description: category.description || "",
       icon: category.icon || "📦",
-      sort_order: category.sort_order,
+      sort_order: category.sort_order || 0,
       is_active: category.is_active,
     });
     setEditingId(category.id);
@@ -253,11 +253,11 @@ export function CategoriesClient({
                 </label>
                 <input
                   type="number"
-                  value={formData.sort_order}
+                  value={formData.sort_order || 0}
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      sort_order: parseInt(e.target.value),
+                      sort_order: parseInt(e.target.value) || 0,
                     })
                   }
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"

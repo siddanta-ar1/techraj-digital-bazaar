@@ -46,6 +46,9 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Prevent double submission
+    if (loading) return;
+
     if (formData.password !== formData.confirmPassword) {
       showModal(
         "error",

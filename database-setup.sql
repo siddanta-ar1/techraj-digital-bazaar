@@ -115,11 +115,29 @@ CREATE TABLE public.product_codes (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   variant_id uuid,
   code text NOT NULL,
+  discount_amount numeric DEFAULT 0,
   is_used boolean DEFAULT false,
   order_id uuid,
+  used_at timestamp with time zone,
   created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
   CONSTRAINT product_codes_pkey PRIMARY KEY (id),
   CONSTRAINT product_codes_variant_id_fkey FOREIGN KEY (variant_id) REFERENCES public.product_variants(id)
+);
+
+CREATE TABLE public.promo_codes (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  code text NOT NULL UNIQUE,
+  discount_type text NOT NULL CHECK (discount_type = ANY (ARRAY['percentage'::text, 'fixed'::text])),
+  discount_value numeric NOT NULL,
+  max_discount_amount numeric,
+  min_order_amount numeric DEFAULT 0,
+  usage_limit integer,
+  usage_count integer DEFAULT 0,
+  is_active boolean DEFAULT true,
+  expires_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT promo_codes_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.site_settings (
@@ -175,6 +193,7 @@ $$ language 'plpgsql';
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON public.users FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 CREATE TRIGGER update_products_updated_at BEFORE UPDATE ON public.products FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON public.orders FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+CREATE TRIGGER update_promo_codes_updated_at BEFORE UPDATE ON public.promo_codes FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 CREATE TRIGGER update_topup_requests_updated_at BEFORE UPDATE ON public.topup_requests FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 CREATE TRIGGER update_site_settings_updated_at BEFORE UPDATE ON public.site_settings FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
@@ -215,6 +234,56 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Function to atomically claim product codes (prevents race conditions)
+CREATE OR REPLACE FUNCTION claim_product_codes_atomic(
+  p_variant_id uuid,
+  p_quantity integer,
+  p_order_id uuid
+) RETURNS text[] AS $$
+DECLARE
+  claimed_codes text[];
+  code_record RECORD;
+BEGIN
+  -- Initialize array
+  claimed_codes := ARRAY[]::text[];
+
+  -- Use FOR UPDATE to lock rows and prevent race conditions
+  FOR code_record IN
+    SELECT id, code
+    FROM public.product_codes
+    WHERE variant_id = p_variant_id
+      AND is_used = false
+    ORDER BY created_at ASC
+    LIMIT p_quantity
+    FOR UPDATE SKIP LOCKED  -- Skip already locked rows (other concurrent transactions)
+  LOOP
+    -- Mark the code as used
+    UPDATE public.product_codes
+    SET
+      is_used = true,
+      order_id = p_order_id,
+      used_at = timezone('utc'::text, now())
+    WHERE id = code_record.id;
+
+    -- Add to result array
+    claimed_codes := array_append(claimed_codes, code_record.code);
+  END LOOP;
+
+  RETURN claimed_codes;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to increment promo code usage count
+CREATE OR REPLACE FUNCTION increment_promo_usage(
+  promo_id uuid
+) RETURNS void AS $$
+BEGIN
+  UPDATE public.promo_codes
+  SET usage_count = COALESCE(usage_count, 0) + 1
+  WHERE id = promo_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- 5. ROW LEVEL SECURITY (RLS) POLICIES
 
 -- Enable RLS on all tables
@@ -225,6 +294,7 @@ ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.product_codes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.promo_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.topup_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.wallet_transactions ENABLE ROW LEVEL SECURITY;
@@ -288,6 +358,12 @@ CREATE POLICY "Users view delivered codes" ON public.product_codes FOR SELECT US
     WHERE oi.delivered_code = product_codes.code  -- Assuming delivered_code stores the actual code string, if it stores UUID change to product_codes.id::text
     AND o.user_id = auth.uid()
   )
+);
+
+-- PROMO CODES: Public Read Active, Admin All
+CREATE POLICY "Public read active promo codes" ON public.promo_codes FOR SELECT USING (is_active = true);
+CREATE POLICY "Admin full access promo codes" ON public.promo_codes FOR ALL USING (
+  EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin')
 );
 
 -- SITE SETTINGS: Public Read, Admin All
