@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle, Package, ArrowRight, Clock } from "lucide-react";
 import Link from "next/link";
 
-export default function OrderSuccessPage() {
+// 1. Move the logic into a separate component
+function OrderSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const orderNumber = searchParams.get("order");
@@ -68,21 +69,27 @@ export default function OrderSuccessPage() {
 
         {/* What's Next */}
         <div className="mb-8">
-          <h2 className="font-semibold text-gray-900 mb-3">What's Next?</h2>
+          <h2 className="font-semibold text-gray-900 mb-3">
+            What&apos;s Next?
+          </h2>
           <div className="space-y-3 text-sm text-left">
             <div className="flex items-start gap-3">
               <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
               <div>
-                <div className="font-medium text-gray-900">Email Confirmation</div>
+                <div className="font-medium text-gray-900">
+                  Email Confirmation
+                </div>
                 <div className="text-gray-600">
-                  You'll receive an order confirmation email shortly
+                  You&apos;ll receive an order confirmation email shortly
                 </div>
               </div>
             </div>
             <div className="flex items-start gap-3">
               <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
               <div>
-                <div className="font-medium text-gray-900">Digital Delivery</div>
+                <div className="font-medium text-gray-900">
+                  Digital Delivery
+                </div>
                 <div className="text-gray-600">
                   Digital products will be delivered instantly to your email
                 </div>
@@ -125,5 +132,20 @@ export default function OrderSuccessPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// 2. Wrap in Suspense Boundary in the default export
+export default function OrderSuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-gray-500">Loading order details...</div>
+        </div>
+      }
+    >
+      <OrderSuccessContent />
+    </Suspense>
   );
 }

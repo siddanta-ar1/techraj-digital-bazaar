@@ -1,6 +1,12 @@
 // src/app/dashboard/orders/page.tsx
 import { Metadata } from "next";
-import { ShoppingBag } from "lucide-react";
+import {
+  ShoppingBag,
+  Package,
+  Clock,
+  CheckCircle,
+  CreditCard,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import OrdersClient from "./OrdersClient";
@@ -72,7 +78,9 @@ export default async function OrdersPage() {
                 {totalOrders}
               </p>
             </div>
-            <div className="h-10 w-10 bg-blue-500 rounded-full opacity-20"></div>
+            <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+              <Package className="h-5 w-5 text-blue-600" />
+            </div>
           </div>
         </div>
 
@@ -85,7 +93,9 @@ export default async function OrdersPage() {
                 {pendingOrders}
               </p>
             </div>
-            <div className="h-10 w-10 bg-amber-500 rounded-full opacity-20"></div>
+            <div className="h-10 w-10 bg-amber-100 rounded-full flex items-center justify-center">
+              <Clock className="h-5 w-5 text-amber-600" />
+            </div>
           </div>
         </div>
 
@@ -98,7 +108,9 @@ export default async function OrdersPage() {
                 {completedOrders}
               </p>
             </div>
-            <div className="h-10 w-10 bg-green-500 rounded-full opacity-20"></div>
+            <div className="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+            </div>
           </div>
         </div>
 
@@ -111,7 +123,9 @@ export default async function OrdersPage() {
                 Rs. {totalSpent}
               </p>
             </div>
-            <div className="h-10 w-10 bg-purple-500 rounded-full opacity-20"></div>
+            <div className="h-10 w-10 bg-purple-100 rounded-full flex items-center justify-center">
+              <CreditCard className="h-5 w-5 text-purple-600" />
+            </div>
           </div>
         </div>
       </div>
