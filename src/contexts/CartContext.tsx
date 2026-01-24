@@ -17,6 +17,9 @@ interface CartItem {
   price: number;
   quantity: number;
   imageUrl?: string;
+  // PPOM fields
+  combinationId?: string;
+  optionSelections?: Record<string, string | string[]>;
 }
 
 interface CartContextType {
@@ -68,10 +71,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (!isInitialized) return;
 
     setItems((prev) => {
+      // Check for duplicates: same product + variant + combination (for PPOM)
       const existing = prev.find(
         (item) =>
           item.productId === newItem.productId &&
-          item.variantId === newItem.variantId,
+          item.variantId === newItem.variantId &&
+          // For PPOM items, also check combinationId
+          item.combinationId === newItem.combinationId,
       );
 
       let updatedItems: CartItem[];

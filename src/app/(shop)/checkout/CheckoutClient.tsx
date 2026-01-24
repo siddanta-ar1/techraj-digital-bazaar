@@ -215,6 +215,10 @@ export default function CheckoutClient() {
           variantId: item.variantId,
           price: item.price,
           quantity: item.quantity,
+          // PPOM fields
+          combinationId: item.combinationId || null,
+          optionSelections: item.optionSelections || null,
+          variantName: item.variantName,
         })),
         paymentMethod: finalTotal === 0 ? "wallet" : paymentMethod,
         totalAmount: totalPrice,
@@ -356,11 +360,10 @@ export default function CheckoutClient() {
             ) : (
               <div className="p-6 space-y-4">
                 <label
-                  className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                    paymentMethod === "wallet"
+                  className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === "wallet"
                       ? "border-indigo-600 bg-indigo-50/30"
                       : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"
-                  }`}
+                    }`}
                 >
                   <input
                     type="radio"
@@ -371,11 +374,10 @@ export default function CheckoutClient() {
                   />
                   <div className="flex items-center gap-4 flex-1">
                     <div
-                      className={`p-3 rounded-full ${
-                        paymentMethod === "wallet"
+                      className={`p-3 rounded-full ${paymentMethod === "wallet"
                           ? "bg-indigo-100 text-indigo-600"
                           : "bg-slate-100 text-slate-500"
-                      }`}
+                        }`}
                     >
                       <Wallet className="h-6 w-6" />
                     </div>
@@ -395,11 +397,10 @@ export default function CheckoutClient() {
                 </label>
 
                 <label
-                  className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                    paymentMethod === "esewa"
+                  className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === "esewa"
                       ? "border-green-500 bg-green-50/30"
                       : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"
-                  }`}
+                    }`}
                 >
                   <input
                     type="radio"
@@ -410,11 +411,10 @@ export default function CheckoutClient() {
                   />
                   <div className="flex items-center gap-4 flex-1">
                     <div
-                      className={`p-3 rounded-full ${
-                        paymentMethod === "esewa"
+                      className={`p-3 rounded-full ${paymentMethod === "esewa"
                           ? "bg-green-100 text-green-600"
                           : "bg-slate-100 text-slate-500"
-                      }`}
+                        }`}
                     >
                       <Smartphone className="h-6 w-6" />
                     </div>
@@ -433,11 +433,10 @@ export default function CheckoutClient() {
                 </label>
 
                 <label
-                  className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                    paymentMethod === "bank_transfer"
+                  className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === "bank_transfer"
                       ? "border-purple-500 bg-purple-50/30"
                       : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"
-                  }`}
+                    }`}
                 >
                   <input
                     type="radio"
@@ -448,11 +447,10 @@ export default function CheckoutClient() {
                   />
                   <div className="flex items-center gap-4 flex-1">
                     <div
-                      className={`p-3 rounded-full ${
-                        paymentMethod === "bank_transfer"
+                      className={`p-3 rounded-full ${paymentMethod === "bank_transfer"
                           ? "bg-purple-100 text-purple-600"
                           : "bg-slate-100 text-slate-500"
-                      }`}
+                        }`}
                     >
                       <Building className="h-6 w-6" />
                     </div>

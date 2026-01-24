@@ -2,7 +2,9 @@ import { createClient } from "@/lib/supabase/server";
 import { ProductForm } from "@/components/admin/ProductForm";
 import { notFound } from "next/navigation";
 import { ProductVariantsManager } from "@/components/admin/ProductVariansManager";
-import { ArrowLeft, Box, Settings, Layers } from "lucide-react";
+import { ProductOptionGroupsManager } from "@/components/admin/ProductOptionGroupsManager";
+import { OptionCombinationsManager } from "@/components/admin/OptionCombinationsManager";
+import { ArrowLeft, Box, Settings, Layers, Sliders, Grid } from "lucide-react";
 import Link from "next/link";
 
 // 1. Change the type definition for params
@@ -30,6 +32,8 @@ export default async function EditProductPage({
   if (productRes.error || !productRes.data) {
     notFound();
   }
+
+  const product = productRes.data;
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
@@ -65,25 +69,53 @@ export default async function EditProductPage({
           </div>
           <div className="p-6">
             <ProductForm
-              initialData={productRes.data}
+              initialData={product}
               categories={categoriesRes.data || []}
             />
           </div>
         </section>
 
-        {/* Variants Manager */}
-        <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="px-6 py-4 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-100 flex items-center gap-2">
-            <Layers className="h-5 w-5 text-indigo-600" />
-            <h2 className="font-semibold text-slate-800">Pricing & Variants</h2>
-          </div>
-          <div className="p-6">
-            <ProductVariantsManager
-              productId={productRes.data.id}
-              initialVariants={variantsRes.data || []}
-            />
-          </div>
-        </section>
+        {/* PPOM Option Groups - Only show when PPOM is enabled */}
+        {product.ppom_enabled && (
+          <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="px-6 py-4 bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-slate-100 flex items-center gap-2">
+              <Sliders className="h-5 w-5 text-purple-600" />
+              <h2 className="font-semibold text-slate-800">Option Groups</h2>
+            </div>
+            <div className="p-6">
+              <ProductOptionGroupsManager productId={product.id} />
+            </div>
+          </section>
+        )}
+
+        {/* PPOM Option Combinations - Only show when PPOM is enabled */}
+        {product.ppom_enabled && (
+          <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="px-6 py-4 bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-slate-100 flex items-center gap-2">
+              <Grid className="h-5 w-5 text-purple-600" />
+              <h2 className="font-semibold text-slate-800">Option Combinations</h2>
+            </div>
+            <div className="p-6">
+              <OptionCombinationsManager productId={product.id} />
+            </div>
+          </section>
+        )}
+
+        {/* Variants Manager - Only show when legacy variants enabled or PPOM disabled */}
+        {(product.legacy_variants_enabled || !product.ppom_enabled) && (
+          <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="px-6 py-4 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-100 flex items-center gap-2">
+              <Layers className="h-5 w-5 text-indigo-600" />
+              <h2 className="font-semibold text-slate-800">Pricing & Variants (Legacy)</h2>
+            </div>
+            <div className="p-6">
+              <ProductVariantsManager
+                productId={product.id}
+                initialVariants={variantsRes.data || []}
+              />
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

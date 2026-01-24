@@ -32,6 +32,7 @@ export default async function ProductPage({
   const { slug } = await params;
   const supabase = await createClient();
 
+  // Fetch product with category and variants
   const { data: product, error } = await supabase
     .from("products")
     .select(`*, category:categories(*), variants:product_variants(*)`)
@@ -40,6 +41,46 @@ export default async function ProductPage({
     .single();
 
   if (error || !product) notFound();
+
+  // Fetch PPOM data if enabled
+  let optionGroups: any[] = [];
+  let combinations: any[] = [];
+
+  if (product.ppom_enabled) {
+    // Fetch option groups assigned to this product
+    const { data: pogData } = await supabase
+      .from("product_option_groups")
+      .select(`
+        *,
+        option_group:option_groups(
+          *,
+          options:options(*)
+        )
+      `)
+      .eq("product_id", product.id)
+      .order("sort_order");
+
+    optionGroups = (pogData || []).map((pog: any) => ({
+      ...pog,
+      option_group: pog.option_group
+        ? {
+          ...pog.option_group,
+          options: pog.option_group.options
+            ?.filter((o: any) => o.is_active)
+            .sort((a: any, b: any) => a.sort_order - b.sort_order),
+        }
+        : null,
+    }));
+
+    // Fetch combinations
+    const { data: comboData } = await supabase
+      .from("option_combinations")
+      .select("*")
+      .eq("product_id", product.id)
+      .eq("is_active", true);
+
+    combinations = comboData || [];
+  }
 
   const sortedVariants =
     product.variants?.sort((a: any, b: any) => a.price - b.price) || [];
@@ -53,7 +94,6 @@ export default async function ProductPage({
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           <div className="lg:col-span-7 space-y-6">
-            {/* FIX: Changed product.featured_url to product.featured_image */}
             <ProductMedia src={product.featured_image} alt={product.name} />
 
             <section className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
@@ -68,7 +108,12 @@ export default async function ProductPage({
           </div>
 
           <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-24">
-            <PurchaseSection product={product} variants={sortedVariants} />
+            <PurchaseSection
+              product={product}
+              variants={sortedVariants}
+              optionGroups={optionGroups}
+              combinations={combinations}
+            />
 
             {/* Payment Gateways */}
             <div className="p-6 border border-slate-200 rounded-2xl bg-white shadow-sm">

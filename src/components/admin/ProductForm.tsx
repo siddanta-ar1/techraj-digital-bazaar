@@ -47,6 +47,10 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
     is_featured: initialData?.is_featured ?? false,
     requires_manual_delivery: initialData?.requires_manual_delivery ?? false,
     delivery_instructions: initialData?.delivery_instructions || "",
+    // PPOM Settings
+    ppom_enabled: initialData?.ppom_enabled ?? false,
+    legacy_variants_enabled: initialData?.legacy_variants_enabled ?? true,
+    auto_generate_combinations: initialData?.auto_generate_combinations ?? true,
   });
 
   const generateSlug = (name: string) => {
@@ -237,7 +241,7 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
       showError(
         "Submission Failed",
         error.message ||
-          "Failed to save product. Please check all fields and try again.",
+        "Failed to save product. Please check all fields and try again.",
       );
     } finally {
       setLoading(false);
@@ -300,9 +304,8 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
-                    className={`w-full px-4 py-3 border rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors ${
-                      errors.name ? "border-red-300" : "border-slate-300"
-                    }`}
+                    className={`w-full px-4 py-3 border rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors ${errors.name ? "border-red-300" : "border-slate-300"
+                      }`}
                     placeholder="e.g. Premium Gaming Account"
                   />
                   {errors.name && (
@@ -320,9 +323,8 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
                     name="slug"
                     value={formData.slug}
                     onChange={handleChange}
-                    className={`w-full px-4 py-3 border rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors ${
-                      errors.slug ? "border-red-300" : "border-slate-300"
-                    }`}
+                    className={`w-full px-4 py-3 border rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors ${errors.slug ? "border-red-300" : "border-slate-300"
+                      }`}
                     placeholder="premium-gaming-account"
                   />
                   {errors.slug && (
@@ -343,9 +345,8 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
                   name="category_id"
                   value={formData.category_id}
                   onChange={handleChange}
-                  className={`w-full px-4 py-3 border rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors ${
-                    errors.category_id ? "border-red-300" : "border-slate-300"
-                  }`}
+                  className={`w-full px-4 py-3 border rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors ${errors.category_id ? "border-red-300" : "border-slate-300"
+                    }`}
                 >
                   <option value="">Select a category</option>
                   {categories.map((category) => (
@@ -371,9 +372,8 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
                   value={formData.description}
                   onChange={handleChange}
                   rows={4}
-                  className={`w-full px-4 py-3 border rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors resize-none ${
-                    errors.description ? "border-red-300" : "border-slate-300"
-                  }`}
+                  className={`w-full px-4 py-3 border rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors resize-none ${errors.description ? "border-red-300" : "border-slate-300"
+                    }`}
                   placeholder="Describe your product in detail..."
                 />
                 {errors.description && (
@@ -547,11 +547,10 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
                       value={formData.delivery_instructions}
                       onChange={handleChange}
                       rows={3}
-                      className={`w-full px-4 py-3 border rounded-xl bg-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-colors resize-none ${
-                        errors.delivery_instructions
-                          ? "border-red-300"
-                          : "border-slate-300"
-                      }`}
+                      className={`w-full px-4 py-3 border rounded-xl bg-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-colors resize-none ${errors.delivery_instructions
+                        ? "border-red-300"
+                        : "border-slate-300"
+                        }`}
                       placeholder="Provide specific instructions for manual delivery..."
                     />
                     {errors.delivery_instructions && (
@@ -562,6 +561,99 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+
+          {/* PPOM Options */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-purple-50 to-indigo-50">
+              <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                <Settings className="w-5 h-5 text-purple-600" />
+                Product Options (PPOM)
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">
+                Configure custom product options with dynamic pricing
+              </p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* PPOM Enabled Toggle */}
+              <div className="flex items-center justify-between p-4 bg-purple-50 border border-purple-200 rounded-xl">
+                <div>
+                  <h3 className="font-medium text-slate-800">
+                    Enable Product Options
+                  </h3>
+                  <p className="text-sm text-slate-500">
+                    Allow customers to customize this product with options
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="ppom_enabled"
+                    checked={formData.ppom_enabled}
+                    onChange={handleChange}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                </label>
+              </div>
+
+              {formData.ppom_enabled && (
+                <div className="grid md:grid-cols-2 gap-4 pt-2">
+                  {/* Legacy Variants Toggle */}
+                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                    <div>
+                      <h3 className="font-medium text-slate-800">
+                        Legacy Variants
+                      </h3>
+                      <p className="text-sm text-slate-500">
+                        Also show old variant selector
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        name="legacy_variants_enabled"
+                        checked={formData.legacy_variants_enabled}
+                        onChange={handleChange}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                  </div>
+
+                  {/* Auto Generate Combinations */}
+                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                    <div>
+                      <h3 className="font-medium text-slate-800">
+                        Auto-Generate Combos
+                      </h3>
+                      <p className="text-sm text-slate-500">
+                        Auto-create option combinations
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        name="auto_generate_combinations"
+                        checked={formData.auto_generate_combinations}
+                        onChange={handleChange}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {formData.ppom_enabled && initialData?.id && (
+                <div className="pt-2">
+                  <p className="text-sm text-slate-500 mb-3">
+                    Configure option groups and combinations in the sections below after saving.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 

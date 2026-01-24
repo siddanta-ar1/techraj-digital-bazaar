@@ -10,6 +10,9 @@ export interface CartItem {
   imageUrl?: string
   stockType?: 'limited' | 'unlimited' | 'codes'
   stockQuantity?: number
+  // PPOM fields
+  combinationId?: string
+  optionSelections?: Record<string, string | string[]>
 }
 
 export interface CartContextType {

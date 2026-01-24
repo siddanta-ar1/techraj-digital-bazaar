@@ -189,12 +189,15 @@ export async function POST(request: Request) {
         total_price: item.price * item.quantity,
         status: itemStatus,
         delivered_code: assignedCode, // Save code in history
+        // PPOM fields
+        combination_id: item.combinationId || null,
+        option_selections: item.optionSelections || null,
       });
 
       // Prepare item for Email
       emailItems.push({
         productName: item.productName || "Product",
-        variantName: item.variantName,
+        variantName: item.variantName || "Standard",
         quantity: item.quantity,
         delivered_code: assignedCode, // Email template checks this
       });

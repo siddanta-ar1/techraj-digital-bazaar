@@ -12,6 +12,7 @@ import {
   Home,
   Wallet,
   Layers, // Icon for Categories
+  Sliders, // Icon for Product Options
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -22,6 +23,7 @@ const navigation = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { name: "Orders", href: "/admin/orders", icon: ShoppingBag },
   { name: "Products", href: "/admin/products", icon: Package },
+  { name: "Product Options", href: "/admin/options", icon: Sliders },
   { name: "Categories", href: "/admin/categories", icon: Layers }, // Added
   { name: "Users", href: "/admin/users", icon: Users },
   { name: "Promo Codes", href: "/admin/promos", icon: Tag },
@@ -57,11 +59,10 @@ export function AdminSidebar() {
             <Link
               key={item.name}
               href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                isActive
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${isActive
                   ? "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-lg transform scale-105"
                   : "text-slate-300 hover:bg-slate-700/50 hover:text-white hover:transform hover:scale-102"
-              }`}
+                }`}
             >
               <div
                 className={`p-1.5 rounded-lg ${isActive ? "bg-white/20" : "bg-slate-700/50"}`}
