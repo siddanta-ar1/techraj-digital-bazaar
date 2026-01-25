@@ -214,6 +214,7 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
         );
 
         setTimeout(() => {
+          router.refresh();
           router.push("/admin/products");
         }, 2000);
       } else {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
     Loader2,
@@ -30,6 +31,7 @@ export function OptionCombinationsManager({
     const [saving, setSaving] = useState<Set<string>>(new Set());
     const [optionGroups, setOptionGroups] = useState<(ProductOptionGroup & { option_group: OptionGroup & { options: any[] } })[]>([]);
     const supabase = createClient();
+    const router = useRouter();
 
     useEffect(() => {
         fetchData();
@@ -153,6 +155,7 @@ export function OptionCombinationsManager({
             alert("Failed to generate combinations");
         } else {
             fetchData();
+            router.refresh();
         }
 
         setGenerating(false);
@@ -174,6 +177,7 @@ export function OptionCombinationsManager({
             setCombinations((prev) =>
                 prev.map((c) => (c.id === id ? { ...c, [field]: value } : c))
             );
+            router.refresh();
         }
 
         setSaving(prev => {
@@ -195,6 +199,7 @@ export function OptionCombinationsManager({
             console.error("Error deleting:", error);
         } else {
             setCombinations((prev) => prev.filter((c) => c.id !== id));
+            router.refresh();
         }
     };
 

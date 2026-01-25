@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
     Plus,
@@ -28,6 +29,7 @@ export function ProductOptionGroupsManager({
     const [toggling, setToggling] = useState<Set<string>>(new Set());
     const [selectedGroupId, setSelectedGroupId] = useState("");
     const supabase = createClient();
+    const router = useRouter();
 
     useEffect(() => {
         fetchData();
@@ -86,6 +88,7 @@ export function ProductOptionGroupsManager({
         } else {
             setSelectedGroupId("");
             fetchData();
+            router.refresh();
         }
         setAdding(false);
     };
@@ -103,6 +106,7 @@ export function ProductOptionGroupsManager({
             alert("Failed to remove option group");
         } else {
             fetchData();
+            router.refresh();
         }
     };
 
@@ -122,6 +126,7 @@ export function ProductOptionGroupsManager({
             setAssignedGroups((prev) =>
                 prev.map((g) => (g.id === id ? { ...g, is_required: !currentValue } : g))
             );
+            router.refresh();
         }
 
         setToggling(prev => {
