@@ -25,6 +25,7 @@ export function ProductOptionGroupsManager({
     const [availableGroups, setAvailableGroups] = useState<OptionGroup[]>([]);
     const [loading, setLoading] = useState(true);
     const [adding, setAdding] = useState(false);
+    const [toggling, setToggling] = useState<Set<string>>(new Set());
     const [selectedGroupId, setSelectedGroupId] = useState("");
     const supabase = createClient();
 
@@ -106,6 +107,10 @@ export function ProductOptionGroupsManager({
     };
 
     const handleToggleRequired = async (id: string, currentValue: boolean) => {
+        // Prevent rapid toggles on same item
+        if (toggling.has(id)) return;
+        setToggling(prev => new Set(prev).add(id));
+
         const { error } = await supabase
             .from("product_option_groups")
             .update({ is_required: !currentValue })
@@ -118,6 +123,12 @@ export function ProductOptionGroupsManager({
                 prev.map((g) => (g.id === id ? { ...g, is_required: !currentValue } : g))
             );
         }
+
+        setToggling(prev => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+        });
     };
 
     if (loading) {

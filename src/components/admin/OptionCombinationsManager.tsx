@@ -27,7 +27,7 @@ export function OptionCombinationsManager({
     const [combinations, setCombinations] = useState<CombinationDisplay[]>([]);
     const [loading, setLoading] = useState(true);
     const [generating, setGenerating] = useState(false);
-    const [saving, setSaving] = useState<string | null>(null);
+    const [saving, setSaving] = useState<Set<string>>(new Set());
     const [optionGroups, setOptionGroups] = useState<(ProductOptionGroup & { option_group: OptionGroup & { options: any[] } })[]>([]);
     const supabase = createClient();
 
@@ -159,7 +159,9 @@ export function OptionCombinationsManager({
     };
 
     const updateCombination = async (id: string, field: string, value: any) => {
-        setSaving(id);
+        // Prevent concurrent updates on the same row
+        if (saving.has(id)) return;
+        setSaving(prev => new Set(prev).add(id));
 
         const { error } = await supabase
             .from("option_combinations")
@@ -174,7 +176,11 @@ export function OptionCombinationsManager({
             );
         }
 
-        setSaving(null);
+        setSaving(prev => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+        });
     };
 
     const deleteCombination = async (id: string) => {
@@ -325,7 +331,7 @@ export function OptionCombinationsManager({
                                         </button>
                                     </td>
                                     <td className="px-4 py-3 text-center">
-                                        {saving === combo.id ? (
+                                        {saving.has(combo.id) ? (
                                             <Loader2 className="w-4 h-4 animate-spin text-indigo-600 mx-auto" />
                                         ) : (
                                             <button

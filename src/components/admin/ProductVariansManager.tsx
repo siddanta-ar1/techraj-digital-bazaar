@@ -88,6 +88,7 @@ export function ProductVariantsManager({ productId, initialVariants }: Props) {
   };
 
   const handleDelete = async (id: string) => {
+    if (loading) return; // Prevent during other operations
     if (!confirm("Delete this variant?")) return;
 
     setLoading(true);
@@ -107,6 +108,7 @@ export function ProductVariantsManager({ productId, initialVariants }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return; // Prevent double submission
     setLoading(true);
 
     // FIX: Parsing and Validation Logic
