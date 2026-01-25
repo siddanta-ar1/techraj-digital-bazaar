@@ -19,7 +19,7 @@ import Modal from "@/components/ui/Modal";
 import { useModal } from "@/hooks/useModal";
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const supabase = createClient();
 
   const [fullName, setFullName] = useState("");
@@ -105,7 +105,24 @@ export default function SettingsPage() {
     );
   };
 
-  if (!user) return null;
+  // Show loading state while user is being loaded
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
+
+  // Show error state if user is not available after loading
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-500">
+        <AlertCircle className="h-8 w-8 mb-2" />
+        <p>Please log in to view settings</p>
+      </div>
+    );
+  }
 
   return (
     <>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Plus, Trash2, Edit2, Save, X, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -40,6 +40,13 @@ export function ProductVariantsManager({ productId, initialVariants }: Props) {
   const supabase = createClient();
   const router = useRouter();
 
+  // Sync variants when initialVariants changes, but preserve during editing
+  useEffect(() => {
+    if (!editingId && !isAdding) {
+      setVariants(initialVariants);
+    }
+  }, [initialVariants]);
+
   // FIX: Form State initialized as strings for numeric fields
   const [formData, setFormData] = useState<VariantFormState>({
     variant_name: "",
@@ -72,7 +79,7 @@ export function ProductVariantsManager({ productId, initialVariants }: Props) {
       price: variant.price.toString(),
       original_price: variant.original_price?.toString() || "",
       stock_type: variant.stock_type,
-      stock_quantity: variant.stock_quantity.toString(),
+      stock_quantity: (variant.stock_quantity ?? 0).toString(),
       is_active: variant.is_active,
       sort_order: variant.sort_order,
     });
@@ -348,15 +355,14 @@ export function ProductVariantsManager({ productId, initialVariants }: Props) {
                   </td>
                   <td className="px-6 py-3">
                     <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                        variant.stock_type === "unlimited"
-                          ? "bg-green-100 text-green-700"
-                          : variant.stock_type === "codes"
-                            ? "bg-purple-100 text-purple-700"
-                            : variant.stock_quantity > 0
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-red-100 text-red-700"
-                      }`}
+                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${variant.stock_type === "unlimited"
+                        ? "bg-green-100 text-green-700"
+                        : variant.stock_type === "codes"
+                          ? "bg-purple-100 text-purple-700"
+                          : variant.stock_quantity > 0
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-red-100 text-red-700"
+                        }`}
                     >
                       {variant.stock_type === "unlimited"
                         ? "Unlimited"

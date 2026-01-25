@@ -61,7 +61,7 @@ export function ProductOptionGroupsManager({
 
         // Filter out already assigned
         const assignedIds = new Set((assigned || []).map((a: any) => a.group_id));
-        setAvailableGroups((allGroups || []).filter((g) => !assignedIds.has(g.id)));
+        setAvailableGroups((allGroups || []).filter((g: OptionGroup) => !assignedIds.has(g.id)));
 
         setLoading(false);
     };
@@ -198,8 +198,8 @@ export function ProductOptionGroupsManager({
                             <button
                                 onClick={() => handleToggleRequired(pog.id, pog.is_required)}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${pog.is_required
-                                        ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                    ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                                     }`}
                             >
                                 <CheckCircle className="w-4 h-4" />

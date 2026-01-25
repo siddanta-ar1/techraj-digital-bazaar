@@ -80,7 +80,7 @@ export function CategoryMarquee() {
         .order("sort_order", { ascending: true });
 
       if (data) {
-        const processed = data.map((cat) => ({
+        const processed = data.map((cat: { id: string; name: string; slug: string }) => ({
           id: cat.id,
           name: cat.name,
           slug: cat.slug,

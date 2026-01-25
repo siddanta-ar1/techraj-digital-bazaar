@@ -147,7 +147,7 @@ export default function ProductCodesManager() {
         );
 
       if (existingCodes.data && existingCodes.data.length > 0) {
-        const duplicates = existingCodes.data.map((c) => c.code).join(", ");
+        const duplicates = existingCodes.data.map((c: { code: string }) => c.code).join(", ");
         showError(
           "Duplicate Codes Found",
           `The following codes already exist: ${duplicates}`,

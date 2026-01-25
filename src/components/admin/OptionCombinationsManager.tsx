@@ -64,7 +64,7 @@ export function OptionCombinationsManager({
         const allOptions = (groups || []).flatMap((g: any) => g.option_group?.options || []);
         const optionMap = new Map(allOptions.map((o: any) => [o.id, o.name]));
 
-        const displayCombos: CombinationDisplay[] = (combos || []).map((c) => {
+        const displayCombos: CombinationDisplay[] = (combos || []).map((c: OptionCombination) => {
             let optionIds: string[] = [];
             try {
                 const parsed = JSON.parse(c.combination);
@@ -313,8 +313,8 @@ export function OptionCombinationsManager({
                                         <button
                                             onClick={() => updateCombination(combo.id, "is_active", !combo.is_active)}
                                             className={`p-1 rounded-lg transition-colors ${combo.is_active
-                                                    ? "text-green-600 hover:bg-green-50"
-                                                    : "text-slate-400 hover:bg-slate-100"
+                                                ? "text-green-600 hover:bg-green-50"
+                                                : "text-slate-400 hover:bg-slate-100"
                                                 }`}
                                         >
                                             {combo.is_active ? (

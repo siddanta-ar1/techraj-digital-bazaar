@@ -1,6 +1,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import {
   createContext,
   useContext,
@@ -30,7 +31,7 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   isLoading: true,
-  signOut: async () => {},
+  signOut: async () => { },
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -161,11 +162,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Skip initial session - already handled by initAuth
-      if (event === "INITIAL_SESSION") return;
-
+    } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
       console.log("Auth event:", event);
+
+      // Handle INITIAL_SESSION for new tabs with existing sessions
+      if (event === "INITIAL_SESSION") {
+        if (session?.user && !user) {
+          await syncProfile(session.user);
+        }
+        setIsLoading(false);
+        return;
+      }
 
       if (event === "SIGNED_IN" && session?.user) {
         await syncProfile(session.user);
