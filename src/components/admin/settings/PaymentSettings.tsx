@@ -222,7 +222,7 @@ export function PaymentSettings({
                                 </div>
                                 <input
                                     type="file"
-                                    ref={(el) => (fileInputRefs.current["esewa"] = el)}
+                                    ref={(el) => { fileInputRefs.current["esewa"] = el; }}
                                     className="hidden"
                                     accept="image/*"
                                     onChange={(e) => {
@@ -297,7 +297,7 @@ export function PaymentSettings({
                                 </div>
                                 <input
                                     type="file"
-                                    ref={(el) => (fileInputRefs.current["khalti"] = el)}
+                                    ref={(el) => { fileInputRefs.current["khalti"] = el; }}
                                     className="hidden"
                                     accept="image/*"
                                     onChange={(e) => {
@@ -426,7 +426,7 @@ export function PaymentSettings({
                             </div>
                             <input
                                 type="file"
-                                ref={(el) => (fileInputRefs.current["bank_transfer"] = el)}
+                                ref={(el) => { fileInputRefs.current["bank_transfer"] = el; }}
                                 className="hidden"
                                 accept="image/*"
                                 onChange={(e) => {
