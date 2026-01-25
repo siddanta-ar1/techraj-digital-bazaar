@@ -23,7 +23,7 @@ import {
 // You can remove this import if you aren't using it directly in the return
 // import OrderSummary from "@/components/checkout/OrderSummary";
 
-type PaymentMethod = "wallet" | "esewa" | "bank_transfer";
+type PaymentMethod = "wallet" | "esewa" | "khalti" | "bank_transfer";
 
 interface DeliveryDetails {
   contactEmail: string;
@@ -62,6 +62,33 @@ export default function CheckoutClient() {
   const [promoMessage, setPromoMessage] = useState("");
   // New state to track the specific ID of the inventory code used (for backend marking)
   const [usedCodeId, setUsedCodeId] = useState<string | null>(null);
+
+  // Dynamic Payment Settings State
+  const [paymentSettings, setPaymentSettings] = useState<any>(null);
+  const [paymentSettingsLoading, setPaymentSettingsLoading] = useState(true);
+
+  // Fetch Payment Settings
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("site_settings")
+          .select("value")
+          .eq("key", "payment_methods")
+          .single();
+
+        if (data?.value) {
+          setPaymentSettings(data.value);
+        }
+      } catch (err) {
+        console.error("Failed to fetch payment settings:", err);
+      } finally {
+        setPaymentSettingsLoading(false);
+      }
+    };
+
+    fetchSettings();
+  }, [supabase]);
 
   // Check empty cart
   useEffect(() => {
@@ -361,8 +388,8 @@ export default function CheckoutClient() {
               <div className="p-6 space-y-4">
                 <label
                   className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === "wallet"
-                      ? "border-indigo-600 bg-indigo-50/30"
-                      : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"
+                    ? "border-indigo-600 bg-indigo-50/30"
+                    : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"
                     }`}
                 >
                   <input
@@ -375,8 +402,8 @@ export default function CheckoutClient() {
                   <div className="flex items-center gap-4 flex-1">
                     <div
                       className={`p-3 rounded-full ${paymentMethod === "wallet"
-                          ? "bg-indigo-100 text-indigo-600"
-                          : "bg-slate-100 text-slate-500"
+                        ? "bg-indigo-100 text-indigo-600"
+                        : "bg-slate-100 text-slate-500"
                         }`}
                     >
                       <Wallet className="h-6 w-6" />
@@ -396,98 +423,210 @@ export default function CheckoutClient() {
                   )}
                 </label>
 
-                <label
-                  className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === "esewa"
-                      ? "border-green-500 bg-green-50/30"
-                      : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"
-                    }`}
-                >
-                  <input
-                    type="radio"
-                    name="payment"
-                    className="hidden"
-                    checked={paymentMethod === "esewa"}
-                    onChange={() => setPaymentMethod("esewa")}
-                  />
-                  <div className="flex items-center gap-4 flex-1">
-                    <div
-                      className={`p-3 rounded-full ${paymentMethod === "esewa"
-                          ? "bg-green-100 text-green-600"
-                          : "bg-slate-100 text-slate-500"
-                        }`}
-                    >
-                      <Smartphone className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <div className="font-bold text-slate-900">
-                        Esewa / Khalti
+                {/* Dynamic Payment Options */}
+                {paymentSettings?.esewa?.enabled !== false && (
+                  <label
+                    className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === "esewa"
+                        ? "border-green-500 bg-green-50/30"
+                        : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"
+                      }`}
+                  >
+                    <input
+                      type="radio"
+                      name="payment"
+                      className="hidden"
+                      checked={paymentMethod === "esewa"}
+                      onChange={() => setPaymentMethod("esewa")}
+                    />
+                    <div className="flex items-center gap-4 flex-1">
+                      <div
+                        className={`p-3 rounded-full ${paymentMethod === "esewa"
+                            ? "bg-green-100 text-green-600"
+                            : "bg-slate-100 text-slate-500"
+                          }`}
+                      >
+                        <Smartphone className="h-6 w-6" />
                       </div>
-                      <div className="text-sm text-slate-500">
-                        Scan QR code & upload screenshot
+                      <div>
+                        <div className="font-bold text-slate-900">
+                          Esewa
+                        </div>
+                        <div className="text-sm text-slate-500">
+                          Scan QR code & upload screenshot
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  {paymentMethod === "esewa" && (
-                    <CheckCircle2 className="h-6 w-6 text-green-600 animate-in zoom-in" />
-                  )}
-                </label>
+                    {paymentMethod === "esewa" && (
+                      <CheckCircle2 className="h-6 w-6 text-green-600 animate-in zoom-in" />
+                    )}
+                  </label>
+                )}
 
-                <label
-                  className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === "bank_transfer"
+                {paymentSettings?.khalti?.enabled !== false && (
+                  <label
+                    className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === "khalti"
+                        ? "border-purple-500 bg-purple-50/30"
+                        : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"
+                      }`}
+                  >
+                    <input
+                      type="radio"
+                      name="payment"
+                      className="hidden"
+                      checked={paymentMethod === "khalti"}
+                      onChange={() => setPaymentMethod("khalti")}
+                    />
+                    <div className="flex items-center gap-4 flex-1">
+                      <div
+                        className={`p-3 rounded-full ${paymentMethod === "khalti"
+                            ? "bg-purple-100 text-purple-600"
+                            : "bg-slate-100 text-slate-500"
+                          }`}
+                      >
+                        <Wallet className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-900">
+                          Khalti
+                        </div>
+                        <div className="text-sm text-slate-500">
+                          Scan QR code & upload screenshot
+                        </div>
+                      </div>
+                    </div>
+                    {paymentMethod === "khalti" && (
+                      <CheckCircle2 className="h-6 w-6 text-purple-600 animate-in zoom-in" />
+                    )}
+                  </label>
+                )}
+
+                {paymentSettings?.bank_transfer?.enabled !== false && (
+                  <label
+                    className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === "bank_transfer"
                       ? "border-purple-500 bg-purple-50/30"
                       : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"
-                    }`}
-                >
-                  <input
-                    type="radio"
-                    name="payment"
-                    className="hidden"
-                    checked={paymentMethod === "bank_transfer"}
-                    onChange={() => setPaymentMethod("bank_transfer")}
-                  />
-                  <div className="flex items-center gap-4 flex-1">
-                    <div
-                      className={`p-3 rounded-full ${paymentMethod === "bank_transfer"
+                      }`}
+                  >
+                    <input
+                      type="radio"
+                      name="payment"
+                      className="hidden"
+                      checked={paymentMethod === "bank_transfer"}
+                      onChange={() => setPaymentMethod("bank_transfer")}
+                    />
+                    <div className="flex items-center gap-4 flex-1">
+                      <div
+                        className={`p-3 rounded-full ${paymentMethod === "bank_transfer"
                           ? "bg-purple-100 text-purple-600"
                           : "bg-slate-100 text-slate-500"
-                        }`}
-                    >
-                      <Building className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <div className="font-bold text-slate-900">
-                        Bank Transfer
+                          }`}
+                      >
+                        <Building className="h-6 w-6" />
                       </div>
-                      <div className="text-sm text-slate-500">
-                        Direct deposit & upload receipt
+                      <div>
+                        <div className="font-bold text-slate-900">
+                          Bank Transfer
+                        </div>
+                        <div className="text-sm text-slate-500">
+                          Direct deposit & upload receipt
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  {paymentMethod === "bank_transfer" && (
-                    <CheckCircle2 className="h-6 w-6 text-purple-600 animate-in zoom-in" />
-                  )}
-                </label>
+                    {paymentMethod === "bank_transfer" && (
+                      <CheckCircle2 className="h-6 w-6 text-purple-600 animate-in zoom-in" />
+                    )}
+                  </label>
+                )}
               </div>
             )}
 
-            {(paymentMethod === "esewa" || paymentMethod === "bank_transfer") &&
+            {(paymentMethod === "esewa" ||
+              paymentMethod === "khalti" ||
+              paymentMethod === "bank_transfer") &&
               finalTotal > 0 && (
                 <div className="p-6 border-t border-slate-100 bg-slate-50/50 animate-in slide-in-from-top-2">
                   <div className="bg-white border border-slate-200 rounded-xl p-6 mb-6 text-center shadow-sm">
-                    <div className="mx-auto w-40 h-40 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center mb-4 text-slate-400">
-                      <QrCode className="h-12 w-12 mb-2" />
-                      <span className="text-xs font-medium">QR CODE</span>
-                    </div>
+                    {/* DYNAMIC QR DISPLAY */}
+                    {paymentMethod === "esewa" && paymentSettings?.esewa?.qr_image_url ? (
+                      <div className="mx-auto w-48 h-48 bg-slate-50 rounded-xl border border-slate-200 p-2 mb-4">
+                        <img
+                          src={paymentSettings.esewa.qr_image_url}
+                          alt="Esewa QR"
+                          className="w-full h-full object-contain rounded-lg"
+                        />
+                      </div>
+                    ) : paymentMethod === "khalti" && paymentSettings?.khalti?.qr_image_url ? (
+                      <div className="mx-auto w-48 h-48 bg-slate-50 rounded-xl border border-slate-200 p-2 mb-4">
+                        <img
+                          src={paymentSettings.khalti.qr_image_url}
+                          alt="Khalti QR"
+                          className="w-full h-full object-contain rounded-lg"
+                        />
+                      </div>
+                    ) : paymentMethod === "bank_transfer" && paymentSettings?.bank_transfer?.qr_image_url ? (
+                      <div className="mx-auto w-48 h-48 bg-slate-50 rounded-xl border border-slate-200 p-2 mb-4">
+                        <img
+                          src={paymentSettings.bank_transfer.qr_image_url}
+                          alt="Bank QR"
+                          className="w-full h-full object-contain rounded-lg"
+                        />
+                      </div>
+                    ) : (
+                      <div className="mx-auto w-40 h-40 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center mb-4 text-slate-400">
+                        <QrCode className="h-12 w-12 mb-2" />
+                        <span className="text-xs font-medium">QR CODE</span>
+                      </div>
+                    )}
+
                     <div className="text-sm font-medium text-slate-600 mb-2">
                       Send Payment To:
                     </div>
-                    {/* FIX: Use Env Variable Display */}
-                    <div className="font-mono text-lg font-bold text-slate-900 bg-slate-100 py-2 px-4 rounded-lg inline-block mb-1">
-                      {ADMIN_PHONE}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      TechRaj Digital / Esewa ID
-                    </div>
+
+                    {paymentMethod === "esewa" && (
+                      <>
+                        <div className="font-mono text-lg font-bold text-slate-900 bg-slate-100 py-2 px-4 rounded-lg inline-block mb-1">
+                          {paymentSettings?.esewa?.account_id || ADMIN_PHONE}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          Esewa ID
+                        </div>
+                      </>
+                    )}
+
+                    {paymentMethod === "khalti" && (
+                      <>
+                        <div className="font-mono text-lg font-bold text-slate-900 bg-slate-100 py-2 px-4 rounded-lg inline-block mb-1">
+                          {paymentSettings?.khalti?.account_id || ADMIN_PHONE}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          Khalti ID
+                        </div>
+                      </>
+                    )}
+
+                    {paymentMethod === "bank_transfer" && (
+                      <div className="text-left max-w-xs mx-auto space-y-2 bg-slate-50 p-4 rounded-lg border border-slate-200">
+                        <div>
+                          <div className="text-xs text-slate-500 uppercase font-bold tracking-wider">Bank Name</div>
+                          <div className="font-semibold text-slate-900">{paymentSettings?.bank_transfer?.bank_name || "Bank Name"}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-500 uppercase font-bold tracking-wider">Account Number</div>
+                          <div className="font-mono font-bold text-slate-900 text-lg tracking-wide">{paymentSettings?.bank_transfer?.account_number || "0000 0000 0000"}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-500 uppercase font-bold tracking-wider">Account Name</div>
+                          <div className="font-medium text-slate-900">{paymentSettings?.bank_transfer?.account_name || "Account Name"}</div>
+                        </div>
+                        {paymentSettings?.bank_transfer?.branch && (
+                          <div>
+                            <div className="text-xs text-slate-500 uppercase font-bold tracking-wider">Branch</div>
+                            <div className="font-medium text-slate-900">{paymentSettings.bank_transfer.branch}</div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                   </div>
 
                   <div className="grid md:grid-cols-2 gap-6">
