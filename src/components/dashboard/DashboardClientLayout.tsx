@@ -22,7 +22,7 @@ export function DashboardClientLayout({
 }: DashboardClientLayoutProps) {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <DashboardNav navItems={navItems} />
+      <DashboardNav navItems={navItems} session={session} />
       {/* Added pt-20 to account for fixed header */}
       <main className="flex-1 w-full pt-20">{children}</main>
     </div>
