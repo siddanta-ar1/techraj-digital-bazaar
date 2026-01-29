@@ -71,14 +71,13 @@ export default function CheckoutClient() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const { data, error } = await supabase
-          .from("site_settings")
-          .select("value")
-          .eq("key", "payment_methods")
-          .single();
+        setPaymentSettingsLoading(true);
+        const response = await fetch("/api/settings/payment");
+        if (!response.ok) throw new Error("Failed to fetch settings");
 
-        if (data?.value) {
-          setPaymentSettings(data.value);
+        const data = await response.json();
+        if (data?.settings) {
+          setPaymentSettings(data.settings);
         }
       } catch (err) {
         console.error("Failed to fetch payment settings:", err);
@@ -88,7 +87,7 @@ export default function CheckoutClient() {
     };
 
     fetchSettings();
-  }, [supabase]);
+  }, []);
 
   // Check empty cart
   useEffect(() => {
@@ -220,20 +219,22 @@ export default function CheckoutClient() {
 
       // Upload screenshot only if there is a payment to be made AND a file selected
       if (finalTotal > 0 && paymentMethod !== "wallet" && paymentScreenshot) {
-        const fileExt = paymentScreenshot.name.split(".").pop();
-        const fileName = `${user?.id}_${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const formData = new FormData();
+        formData.append("file", paymentScreenshot);
+        formData.append("path", "payment-screenshots"); // Optional context
 
-        const { error: uploadError } = await supabase.storage
-          .from("payment-screenshots")
-          .upload(fileName, paymentScreenshot);
+        const uploadResponse = await fetch("/api/upload/payment-screenshot", {
+          method: "POST",
+          body: formData,
+        });
 
-        if (uploadError) throw uploadError;
+        if (!uploadResponse.ok) {
+          const res = await uploadResponse.json();
+          throw new Error(res.error || "Failed to upload payment screenshot");
+        }
 
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from("payment-screenshots").getPublicUrl(fileName);
-
-        screenshotUrl = publicUrl;
+        const { url } = await uploadResponse.json();
+        screenshotUrl = url;
       }
 
       const orderPayload = {
@@ -427,8 +428,8 @@ export default function CheckoutClient() {
                 {paymentSettings?.esewa?.enabled !== false && (
                   <label
                     className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === "esewa"
-                        ? "border-green-500 bg-green-50/30"
-                        : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"
+                      ? "border-green-500 bg-green-50/30"
+                      : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"
                       }`}
                   >
                     <input
@@ -441,8 +442,8 @@ export default function CheckoutClient() {
                     <div className="flex items-center gap-4 flex-1">
                       <div
                         className={`p-3 rounded-full ${paymentMethod === "esewa"
-                            ? "bg-green-100 text-green-600"
-                            : "bg-slate-100 text-slate-500"
+                          ? "bg-green-100 text-green-600"
+                          : "bg-slate-100 text-slate-500"
                           }`}
                       >
                         <Smartphone className="h-6 w-6" />
@@ -465,8 +466,8 @@ export default function CheckoutClient() {
                 {paymentSettings?.khalti?.enabled !== false && (
                   <label
                     className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === "khalti"
-                        ? "border-purple-500 bg-purple-50/30"
-                        : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"
+                      ? "border-purple-500 bg-purple-50/30"
+                      : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"
                       }`}
                   >
                     <input
@@ -479,8 +480,8 @@ export default function CheckoutClient() {
                     <div className="flex items-center gap-4 flex-1">
                       <div
                         className={`p-3 rounded-full ${paymentMethod === "khalti"
-                            ? "bg-purple-100 text-purple-600"
-                            : "bg-slate-100 text-slate-500"
+                          ? "bg-purple-100 text-purple-600"
+                          : "bg-slate-100 text-slate-500"
                           }`}
                       >
                         <Wallet className="h-6 w-6" />

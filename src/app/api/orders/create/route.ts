@@ -44,17 +44,42 @@ export async function POST(request: Request) {
       );
     }
 
+    // ---------------------------------------------------------
+    // 3.5 PROMO CODE & PRICE VALIDATION
+    // ---------------------------------------------------------
+    // We validate promo availability AND increment usage *before* creating the order.
+    // This reduces race conditions where multiple users use the last promo code at the same time.
+
     let promoId = null;
+    let promoDiscount = 0;
+
     if (promoCode) {
-      const { data: promo } = await supabase
+      // Fetch promo details
+      const { data: promo, error: promoError } = await supabase
         .from("promo_codes")
-        .select("id")
+        .select("*")
         .eq("code", promoCode.toUpperCase())
         .eq("is_active", true)
         .maybeSingle();
 
-      if (promo) {
-        promoId = promo.id;
+      if (promoError || !promo) {
+        // If user claimed a promo but it's invalid/inactive, we should fail or strip custom
+        return NextResponse.json({ error: "Invalid or expired promo code" }, { status: 400 });
+      }
+
+      // Check usage limits if applicable
+      if (promo.max_uses && promo.current_uses >= promo.max_uses) {
+        return NextResponse.json({ error: "Promo code usage limit reached" }, { status: 400 });
+      }
+
+      promoId = promo.id;
+
+      // OPTIONAL: Recalculate discount here for security (skipping for now to match strict instruction scope, but recommended)
+
+      // Increment Usage NOW
+      const { error: incrementError } = await supabase.rpc("increment_promo_usage", { promo_id: promoId });
+      if (incrementError) {
+        return NextResponse.json({ error: "Failed to apply promo code" }, { status: 400 });
       }
     }
 
@@ -69,6 +94,7 @@ export async function POST(request: Request) {
       .toUpperCase()}`;
     const orderId = crypto.randomUUID();
 
+
     // 5. HANDLE INVENTORY CODE USAGE (if applicable)
     if (paymentMeta?.usedProductCodeId) {
       const { error: markUsedError } = await supabase
@@ -79,9 +105,12 @@ export async function POST(request: Request) {
           used_at: new Date().toISOString(),
         })
         .eq("id", paymentMeta.usedProductCodeId)
-        .eq("is_used", false); // Ensure it wasn't already used (race condition protection)
+        .eq("is_used", false);
 
       if (markUsedError) {
+        // Rollback Promo
+        if (promoId) await supabase.rpc("decrement_promo_usage", { promo_id: promoId });
+
         return NextResponse.json(
           { error: "Gift card has already been used" },
           { status: 400 },
@@ -100,7 +129,7 @@ export async function POST(request: Request) {
       );
 
       if (deductionError) {
-        // Rollback inventory code if wallet deduction fails
+        // Rollback inventory code
         if (paymentMeta?.usedProductCodeId) {
           await supabase
             .from("product_codes")
@@ -111,6 +140,8 @@ export async function POST(request: Request) {
             })
             .eq("id", paymentMeta.usedProductCodeId);
         }
+        // Rollback Promo
+        if (promoId) await supabase.rpc("decrement_promo_usage", { promo_id: promoId });
 
         return NextResponse.json(
           {
@@ -122,7 +153,7 @@ export async function POST(request: Request) {
         );
       }
 
-      // Log wallet transaction
+      // ... Wallet Transaction Insert ...
       await supabase.from("wallet_transactions").insert({
         user_id: user.id,
         amount: Number(finalAmount),
@@ -264,6 +295,9 @@ export async function POST(request: Request) {
         })
         .eq("order_id", orderId);
 
+      // Rollback Promo
+      if (promoId) await supabase.rpc("decrement_promo_usage", { promo_id: promoId });
+
       throw new Error(orderError.message);
     }
 
@@ -276,10 +310,7 @@ export async function POST(request: Request) {
       throw new Error("Failed to create order items");
     }
 
-    // 10. UPDATE PROMO USAGE (If used)
-    if (promoId) {
-      await supabase.rpc("increment_promo_usage", { promo_id: promoId });
-    }
+    // 10. PROMO USAGE ALREADY HANDLED AT STEP 3.5
 
     // 11. SEND EMAIL (Now with codes!)
     if (user.email) {
