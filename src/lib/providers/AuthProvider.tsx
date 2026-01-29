@@ -83,27 +83,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (syncingRef.current) return;
       syncingRef.current = true;
 
-      const fallbackUser: User = {
-        id: authUser.id,
-        email: authUser.email || "",
-        full_name:
-          authUser.user_metadata?.full_name || authUser.email?.split("@")[0],
-        wallet_balance: 0,
-        role: "user",
-        is_synced: false,
-      };
-
       try {
         const { data, error } = await fetchUserProfile(authUser.id);
 
         if (error || !data) {
-          console.warn("Profile fetch failed, using fallback");
-          setUser(fallbackUser);
+          console.error("Profile fetch failed, signing out for security:", error);
+          await supabase.auth.signOut();
+          setUser(null);
         } else {
           setUser({
             id: data.id,
             email: data.email,
-            full_name: data.full_name || fallbackUser.full_name,
+            full_name: data.full_name || authUser.user_metadata?.full_name || authUser.email?.split("@")[0],
             wallet_balance: data.wallet_balance ?? 0,
             role: data.role || "user",
             phone: data.phone,
@@ -111,8 +102,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
         }
       } catch (err) {
-        console.error("Profile sync error:", err);
-        setUser(fallbackUser);
+        console.error("Profile sync error, signing out:", err);
+        await supabase.auth.signOut();
+        setUser(null);
       } finally {
         syncingRef.current = false;
       }
