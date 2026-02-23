@@ -1,6 +1,6 @@
-// src/app/api/admin/orders/route.ts
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { sendOrderStatusEmail } from "@/lib/resend";
 
 export async function GET(request: Request) {
   try {
@@ -127,6 +127,29 @@ export async function PATCH(request: Request) {
         .update({ status: "delivered" })
         .eq("order_id", orderId)
         .eq("status", "pending");
+    }
+
+    // Send status update email to customer
+    if (updates.status && ["completed", "processing", "cancelled"].includes(updates.status)) {
+      try {
+        const { data: customer } = await supabase
+          .from("users")
+          .select("email")
+          .eq("id", order.user_id)
+          .single();
+
+        if (customer?.email) {
+          await sendOrderStatusEmail(
+            customer.email,
+            order.order_number,
+            updates.status,
+            order.final_amount,
+          );
+        }
+      } catch (emailError) {
+        // Don't fail the status update if email fails
+        console.error("Failed to send status email:", emailError);
+      }
     }
 
     return NextResponse.json({

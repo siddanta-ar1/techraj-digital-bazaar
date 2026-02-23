@@ -231,6 +231,7 @@ export async function POST(request: Request) {
         variantName: item.variantName || "Standard",
         quantity: item.quantity,
         delivered_code: assignedCode, // Email template checks this
+        optionSelections: item.optionSelections || null, // PPOM customizations
       });
     }
 
