@@ -58,19 +58,18 @@ export default async function AdminOrderDetailPage({
             <div>
               <div className="flex items-center gap-3 mb-1">
                 <h1 className="text-2xl font-bold text-slate-900">
-                  Order #{order.order_number || order.id.slice(0, 8)}
+                  Order #{order.order_number || `LEGACY-${order.id.slice(0, 8).toUpperCase()}`}
                 </h1>
                 <span
                   className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide
-                  ${
-                    order.status === "completed"
+                  ${order.status === "completed"
                       ? "bg-emerald-100 text-emerald-700"
                       : order.status === "pending"
                         ? "bg-amber-100 text-amber-700"
                         : order.status === "cancelled"
                           ? "bg-red-100 text-red-700"
                           : "bg-blue-100 text-blue-700"
-                  }`}
+                    }`}
                 >
                   {order.status}
                 </span>

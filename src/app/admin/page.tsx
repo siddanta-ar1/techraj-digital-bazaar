@@ -189,7 +189,7 @@ export default async function AdminDashboard() {
                     className="hover:bg-slate-50 transition-colors"
                   >
                     <td className="px-6 py-4 font-medium text-slate-900">
-                      {order.order_number}
+                      {order.order_number || `LEGACY-${order.id.slice(0, 8).toUpperCase()}`}
                     </td>
                     <td className="px-6 py-4 text-slate-600">
                       {order.user?.full_name || "Unknown"}
@@ -199,13 +199,12 @@ export default async function AdminDashboard() {
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                          order.status === "completed"
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${order.status === "completed"
                             ? "bg-green-50 text-green-700 border-green-100"
                             : order.status === "pending"
                               ? "bg-amber-50 text-amber-700 border-amber-100"
                               : "bg-slate-50 text-slate-600 border-slate-100"
-                        }`}
+                          }`}
                       >
                         {order.status}
                       </span>

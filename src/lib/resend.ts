@@ -31,8 +31,8 @@ export const sendOrderEmail = async (
           <h3 style="border-bottom: 2px solid #f3f4f6; padding-bottom: 10px;">Order Summary</h3>
           <ul style="list-style: none; padding: 0;">
             ${items
-              .map(
-                (item) => `
+          .map(
+            (item) => `
               <li style="border-bottom: 1px solid #f3f4f6; padding: 15px 0;">
                 <div style="font-weight: bold; font-size: 16px;">
                   ${item.productName || item.variant?.product?.name || "Product"}
@@ -41,9 +41,8 @@ export const sendOrderEmail = async (
                   Variant: ${item.variantName || item.variant?.variant_name || "Standard"} | Qty: ${item.quantity}
                 </div>
 
-                ${
-                  item.delivered_code
-                    ? `
+                ${item.delivered_code
+                ? `
                   <div style="margin-top: 12px; background: #ecfdf5; padding: 15px; border: 1px dashed #10b981; border-radius: 8px; text-align: center;">
                     <div style="font-size: 12px; text-transform: uppercase; color: #047857; margin-bottom: 6px; font-weight: bold;">Your Digital Code</div>
                     <div style="font-family: monospace; font-size: 20px; letter-spacing: 2px; font-weight: bold; color: #065f46; background: white; padding: 8px; border-radius: 4px;">
@@ -54,16 +53,16 @@ export const sendOrderEmail = async (
                     </div>
                   </div>
                 `
-                    : ""
-                }
+                : ""
+              }
               </li>
             `,
-              )
-              .join("")}
+          )
+          .join("")}
           </ul>
 
           <div style="margin-top: 30px; text-align: center;">
-            <a href="https://techraj.np/dashboard/orders" style="background: #111827; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px;">View Order in Dashboard</a>
+            <a href="https://www.techrajshop.com/dashboard/orders" style="background: #111827; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px;">View Order in Dashboard</a>
           </div>
 
           <p style="margin-top: 30px; font-size: 12px; color: #9ca3af; text-align: center;">
@@ -105,7 +104,7 @@ export const sendTopupApprovedEmail = async (
           </div>
 
           <div style="text-align: center;">
-            <a href="https://techraj.np/products" style="display: inline-block; background: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Shop Now</a>
+            <a href="https://www.techrajshop.com/products" style="display: inline-block; background: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Shop Now</a>
           </div>
         </div>
       `,

@@ -215,7 +215,7 @@ export default function AdminOrdersClient({
                 >
                   <td className="px-6 py-4">
                     <span className="font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded text-sm">
-                      #{order.order_number}
+                      #{order.order_number || `LEGACY-${order.id.slice(0, 8).toUpperCase()}`}
                     </span>
                     <div className="text-xs text-slate-500 mt-1.5 flex items-center gap-1">
                       {new Date(order.created_at).toLocaleDateString()}
