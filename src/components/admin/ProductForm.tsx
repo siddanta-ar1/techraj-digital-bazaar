@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useSupabaseUpload } from "@/hooks/useSupabaseUpload";
 import {
   Upload,
   Loader2,
@@ -33,7 +34,6 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
     useModal();
 
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Form State
@@ -113,57 +113,38 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
     return Object.keys(newErrors).length === 0;
   };
 
+  // TUS Resumable Upload
+  const { upload: tusUpload, progress: uploadProgress, isUploading: uploading, abort: abortUpload } = useSupabaseUpload({
+    bucket: "products",
+    onSuccess: (publicUrl) => {
+      setFormData((prev) => ({ ...prev, featured_image: publicUrl }));
+      showSuccess("Image Uploaded", "Product image has been uploaded successfully!");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    },
+    onError: (error) => {
+      showError("Upload Failed", error.message || "Failed to upload image. Please try again.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    },
+  });
+
   const handleImageUpload = async (file: File) => {
     if (!file) return;
 
-    // Validate file size (5MB limit)
     if (file.size > 5 * 1024 * 1024) {
       showError("File Too Large", "Please select an image smaller than 5MB.");
       return;
     }
 
-    // Validate file type
     if (!file.type.startsWith("image/")) {
       showError("Invalid File Type", "Please select a valid image file.");
       return;
     }
 
-    try {
-      setUploading(true);
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const filePath = `product-images/${fileName}`;
 
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `product-images/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("products")
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
-
-      if (uploadError) throw uploadError;
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("products").getPublicUrl(filePath);
-
-      setFormData((prev) => ({ ...prev, featured_image: publicUrl }));
-      showSuccess(
-        "Image Uploaded",
-        "Product image has been uploaded successfully!",
-      );
-    } catch (error: any) {
-      console.error("Upload error:", error);
-      showError(
-        "Upload Failed",
-        error.message || "Failed to upload image. Please try again.",
-      );
-    } finally {
-      setUploading(false);
-      // Reset file input so the same file can be re-selected
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
+    await tusUpload(file, filePath);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -252,6 +233,7 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
   };
 
   const handleImageClick = () => {
+    if (uploading) return; // Don't open file dialog during active upload
     fileInputRef.current?.click();
   };
 
@@ -424,13 +406,40 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
                     className="w-48 h-48 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/50 transition-all mb-4"
                   >
                     {uploading ? (
-                      <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-2" />
+                      <>
+                        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-2" />
+                        <p className="text-sm font-medium text-indigo-600">
+                          {uploadProgress}%
+                        </p>
+                      </>
                     ) : (
                       <Upload className="w-8 h-8 text-slate-400 mb-2" />
                     )}
                     <p className="text-sm text-slate-500 text-center">
                       {uploading ? "Uploading..." : "Click to upload image"}
                     </p>
+                  </div>
+                )}
+
+                {/* Progress bar during upload */}
+                {uploading && (
+                  <div className="w-full max-w-xs mb-4">
+                    <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-indigo-600 h-2 rounded-full transition-all duration-300 ease-out"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="text-xs text-slate-500">{uploadProgress}% uploaded</span>
+                      <button
+                        type="button"
+                        onClick={abortUpload}
+                        className="text-xs text-red-500 hover:text-red-700 font-medium"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 )}
 

@@ -17,6 +17,7 @@ import {
   Upload,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useSupabaseUpload } from "@/hooks/useSupabaseUpload";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -65,7 +66,6 @@ interface OrderDetailsClientProps {
 
 export default function OrderDetailsClient({ order }: OrderDetailsClientProps) {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
   const supabase = createClient();
   const router = useRouter();
 
@@ -96,43 +96,40 @@ export default function OrderDetailsClient({ order }: OrderDetailsClientProps) {
     }
   };
 
+  // TUS Resumable Upload for payment proof
+  const { upload: tusUpload, progress: uploadProgress, isUploading: uploading, abort: abortUpload } = useSupabaseUpload({
+    bucket: "orders",
+    onSuccess: async (publicUrl) => {
+      try {
+        await supabase
+          .from("orders")
+          .update({
+            payment_screenshot_url: publicUrl,
+            payment_status: "pending",
+          })
+          .eq("id", order.id);
+
+        alert("Proof uploaded successfully!");
+        router.refresh();
+      } catch {
+        alert("File uploaded but failed to update order. Please contact support.");
+      }
+    },
+    onError: () => {
+      alert("Failed to upload proof");
+    },
+  });
+
   const handleUploadProof = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = "";
 
-    setUploading(true);
     const fileExt = file.name.split(".").pop();
     const fileName = `${order.id}-${Math.random()}.${fileExt}`;
     const filePath = `payments/${fileName}`;
 
-    try {
-      const { error: uploadError } = await supabase.storage
-        .from("orders")
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("orders").getPublicUrl(filePath);
-
-      await supabase
-        .from("orders")
-        .update({
-          payment_screenshot_url: publicUrl,
-          payment_status: "pending",
-        })
-        .eq("id", order.id);
-
-      alert("Proof uploaded successfully!");
-      router.refresh();
-    } catch (error) {
-      alert("Failed to upload proof");
-    } finally {
-      setUploading(false);
-      // Reset file input so the same file can be re-selected
-      e.target.value = "";
-    }
+    await tusUpload(file, filePath);
   };
 
   return (
@@ -216,8 +213,8 @@ export default function OrderDetailsClient({ order }: OrderDetailsClientProps) {
                 >
                   <div
                     className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center border-2 ${step.active
-                        ? "bg-indigo-600 border-indigo-600 text-white"
-                        : "bg-white border-slate-200 text-slate-300"
+                      ? "bg-indigo-600 border-indigo-600 text-white"
+                      : "bg-white border-slate-200 text-slate-300"
                       }`}
                   >
                     <step.icon className="w-4 h-4" />
@@ -348,8 +345,8 @@ export default function OrderDetailsClient({ order }: OrderDetailsClientProps) {
                 </span>
                 <span
                   className={`ml-auto px-2.5 py-0.5 rounded-full text-xs font-bold capitalize ${order.payment_status === "paid"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-amber-100 text-amber-700"
+                    ? "bg-green-100 text-green-700"
+                    : "bg-amber-100 text-amber-700"
                     }`}
                 >
                   {order.payment_status}
@@ -370,9 +367,27 @@ export default function OrderDetailsClient({ order }: OrderDetailsClientProps) {
                       disabled={uploading}
                     />
                     {uploading ? (
-                      <span className="text-indigo-600 font-medium animate-pulse">
-                        Uploading...
-                      </span>
+                      <div className="space-y-3">
+                        <span className="text-indigo-600 font-medium">
+                          Uploading... {uploadProgress}%
+                        </span>
+                        <div className="w-full bg-indigo-200 rounded-full h-2 overflow-hidden">
+                          <div
+                            className="bg-indigo-600 h-2 rounded-full transition-all duration-300 ease-out"
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            abortUpload();
+                          }}
+                          className="text-xs text-red-500 hover:text-red-700 font-medium"
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     ) : (
                       <div className="flex flex-col items-center gap-2">
                         <Upload className="w-6 h-6 text-indigo-600" />

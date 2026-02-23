@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useSupabaseUpload } from "@/hooks/useSupabaseUpload";
 import {
     Smartphone,
     Building,
@@ -47,7 +48,7 @@ export function PaymentSettings({
         },
     );
     const [saving, setSaving] = useState(false);
-    const [uploading, setUploading] = useState<string | null>(null);
+    const [uploadingMethod, setUploadingMethod] = useState<string | null>(null);
     const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
     // Modal Hooks
@@ -68,40 +69,35 @@ export function PaymentSettings({
         }));
     };
 
+    // TUS Resumable Upload
+    const { upload: tusUpload, progress: uploadProgress, isUploading, abort: abortUpload } = useSupabaseUpload({
+        bucket: "payment-screenshots",
+        onSuccess: (publicUrl) => {
+            if (uploadingMethod) {
+                handleUpdate(uploadingMethod as any, "qr_image_url", publicUrl);
+                if (fileInputRefs.current[uploadingMethod]) fileInputRefs.current[uploadingMethod]!.value = "";
+            }
+            showSuccess("Upload Successful", "QR code image has been uploaded.");
+            setUploadingMethod(null);
+        },
+        onError: (error) => {
+            showError("Upload Failed", error.message || "Failed to upload image.");
+            if (uploadingMethod && fileInputRefs.current[uploadingMethod]) {
+                fileInputRefs.current[uploadingMethod]!.value = "";
+            }
+            setUploadingMethod(null);
+        },
+    });
+
     const handleImageUpload = async (
         method: "esewa" | "khalti" | "bank_transfer",
         file: File,
     ) => {
-        try {
-            setUploading(method);
-
-            // 1. Upload to Supabase Storage
-            const fileExt = file.name.split(".").pop();
-            const fileName = `${method}_qr_${Date.now()}.${fileExt}`;
-            const filePath = `qr-codes/${fileName}`;
-
-            const { error: uploadError } = await supabase.storage
-                .from("payment-screenshots") // Reusing payment-screenshots or create new public bucket 'assets' if preferred, but let's stick to existing
-                .upload(filePath, file);
-
-            if (uploadError) throw uploadError;
-
-            // 2. Get Public URL
-            const {
-                data: { publicUrl },
-            } = supabase.storage.from("payment-screenshots").getPublicUrl(filePath);
-
-            // 3. Update State
-            handleUpdate(method, "qr_image_url", publicUrl);
-            showSuccess("Upload Successful", "QR code image has been uploaded.");
-        } catch (error: any) {
-            console.error("Upload error:", error);
-            showError("Upload Failed", error.message || "Failed to upload image.");
-        } finally {
-            setUploading(null);
-            // Reset file input so the same file can be re-selected
-            if (fileInputRefs.current[method]) fileInputRefs.current[method]!.value = "";
-        }
+        setUploadingMethod(method);
+        const fileExt = file.name.split(".").pop();
+        const fileName = `${method}_qr_${Date.now()}.${fileExt}`;
+        const filePath = `qr-codes/${fileName}`;
+        await tusUpload(file, filePath);
     };
 
     const saveSettings = async () => {
@@ -209,12 +205,15 @@ export function PaymentSettings({
                                             onClick={() => fileInputRefs.current["esewa"]?.click()}
                                             className="w-24 h-24 rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 hover:bg-slate-50 hover:border-slate-400 transition-colors cursor-pointer"
                                         >
-                                            {uploading === "esewa" ? (
-                                                <Loader2 className="h-6 w-6 animate-spin" />
+                                            {uploadingMethod === "esewa" ? (
+                                                <>
+                                                    <Loader2 className="h-6 w-6 animate-spin" />
+                                                    <span className="text-[10px] mt-1 font-bold text-indigo-600">{uploadProgress}%</span>
+                                                </>
                                             ) : (
                                                 <Upload className="h-6 w-6" />
                                             )}
-                                            <span className="text-[10px] mt-1 font-medium">Upload</span>
+                                            {uploadingMethod !== "esewa" && <span className="text-[10px] mt-1 font-medium">Upload</span>}
                                         </div>
                                     )}
                                     <div className="flex-1 text-xs text-slate-500">
@@ -285,12 +284,15 @@ export function PaymentSettings({
                                             onClick={() => fileInputRefs.current["khalti"]?.click()}
                                             className="w-24 h-24 rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 hover:bg-slate-50 hover:border-slate-400 transition-colors cursor-pointer"
                                         >
-                                            {uploading === "khalti" ? (
-                                                <Loader2 className="h-6 w-6 animate-spin" />
+                                            {uploadingMethod === "khalti" ? (
+                                                <>
+                                                    <Loader2 className="h-6 w-6 animate-spin" />
+                                                    <span className="text-[10px] mt-1 font-bold text-indigo-600">{uploadProgress}%</span>
+                                                </>
                                             ) : (
                                                 <Upload className="h-6 w-6" />
                                             )}
-                                            <span className="text-[10px] mt-1 font-medium">Upload</span>
+                                            {uploadingMethod !== "khalti" && <span className="text-[10px] mt-1 font-medium">Upload</span>}
                                         </div>
                                     )}
                                     <div className="flex-1 text-xs text-slate-500">
@@ -414,12 +416,15 @@ export function PaymentSettings({
                                         onClick={() => fileInputRefs.current["bank_transfer"]?.click()}
                                         className="w-24 h-24 rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 hover:bg-slate-50 hover:border-slate-400 transition-colors cursor-pointer"
                                     >
-                                        {uploading === "bank_transfer" ? (
-                                            <Loader2 className="h-6 w-6 animate-spin" />
+                                        {uploadingMethod === "bank_transfer" ? (
+                                            <>
+                                                <Loader2 className="h-6 w-6 animate-spin" />
+                                                <span className="text-[10px] mt-1 font-bold text-indigo-600">{uploadProgress}%</span>
+                                            </>
                                         ) : (
                                             <Upload className="h-6 w-6" />
                                         )}
-                                        <span className="text-[10px] mt-1 font-medium">Upload</span>
+                                        {uploadingMethod !== "bank_transfer" && <span className="text-[10px] mt-1 font-medium">Upload</span>}
                                     </div>
                                 )}
                                 <div className="flex-1 text-xs text-slate-500">
