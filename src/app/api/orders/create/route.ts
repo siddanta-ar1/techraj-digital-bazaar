@@ -242,8 +242,9 @@ export async function POST(request: Request) {
     const orderStatus =
       isInstantPayment && allDelivered ? "completed" : "pending";
 
-    // 8. CREATE ORDER
-    const { error: orderError } = await supabase.from("orders").insert([
+    // 8. CREATE ORDER — use .select() to read back the DB-generated order_number
+    // (A database trigger may rewrite order_number to a different format)
+    const { data: createdOrder, error: orderError } = await supabase.from("orders").insert([
       {
         id: orderId,
         order_number: orderNumber,
@@ -262,7 +263,9 @@ export async function POST(request: Request) {
           amount_paid: paymentMeta?.amountPaid,
         },
       },
-    ]);
+    ])
+      .select("order_number")
+      .single();
 
     // Rollback on order creation failure
     if (orderError) {
@@ -312,16 +315,19 @@ export async function POST(request: Request) {
 
     // 10. PROMO USAGE ALREADY HANDLED AT STEP 3.5
 
+    // Use the DB-generated order_number (may differ from the JS-generated one due to DB trigger)
+    const finalOrderNumber = createdOrder?.order_number || orderNumber;
+
     // 11. SEND EMAIL (Now with codes!)
     if (user.email) {
       // We pass 'emailItems' which contains 'delivered_code'
-      await sendOrderEmail(user.email, orderNumber, finalAmount, emailItems);
+      await sendOrderEmail(user.email, finalOrderNumber, finalAmount, emailItems);
     }
 
     return NextResponse.json({
       success: true,
       orderId,
-      orderNumber,
+      orderNumber: finalOrderNumber,
       finalAmount: Number(finalAmount),
       discountAmount: Number(discountAmount),
       paymentStatus: isInstantPayment ? "paid" : "pending",
