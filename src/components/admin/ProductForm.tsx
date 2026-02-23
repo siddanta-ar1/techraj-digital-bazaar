@@ -161,6 +161,8 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
       );
     } finally {
       setUploading(false);
+      // Reset file input so the same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -255,6 +257,8 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
 
   const removeImage = () => {
     setFormData((prev) => ({ ...prev, featured_image: "" }));
+    // Reset file input so the same file can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   return (

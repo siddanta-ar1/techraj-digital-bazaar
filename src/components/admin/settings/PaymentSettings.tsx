@@ -99,6 +99,8 @@ export function PaymentSettings({
             showError("Upload Failed", error.message || "Failed to upload image.");
         } finally {
             setUploading(null);
+            // Reset file input so the same file can be re-selected
+            if (fileInputRefs.current[method]) fileInputRefs.current[method]!.value = "";
         }
     };
 

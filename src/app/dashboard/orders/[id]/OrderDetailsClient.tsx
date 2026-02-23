@@ -130,6 +130,8 @@ export default function OrderDetailsClient({ order }: OrderDetailsClientProps) {
       alert("Failed to upload proof");
     } finally {
       setUploading(false);
+      // Reset file input so the same file can be re-selected
+      e.target.value = "";
     }
   };
 
@@ -213,19 +215,17 @@ export default function OrderDetailsClient({ order }: OrderDetailsClientProps) {
                   className="relative flex items-start gap-4 mb-8 last:mb-0"
                 >
                   <div
-                    className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center border-2 ${
-                      step.active
+                    className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center border-2 ${step.active
                         ? "bg-indigo-600 border-indigo-600 text-white"
                         : "bg-white border-slate-200 text-slate-300"
-                    }`}
+                      }`}
                   >
                     <step.icon className="w-4 h-4" />
                   </div>
                   <div className="pt-1">
                     <p
-                      className={`font-medium ${
-                        step.active ? "text-slate-900" : "text-slate-400"
-                      }`}
+                      className={`font-medium ${step.active ? "text-slate-900" : "text-slate-400"
+                        }`}
                     >
                       {step.label}
                     </p>
@@ -347,11 +347,10 @@ export default function OrderDetailsClient({ order }: OrderDetailsClientProps) {
                   {order.payment_method.replace("_", " ")}
                 </span>
                 <span
-                  className={`ml-auto px-2.5 py-0.5 rounded-full text-xs font-bold capitalize ${
-                    order.payment_status === "paid"
+                  className={`ml-auto px-2.5 py-0.5 rounded-full text-xs font-bold capitalize ${order.payment_status === "paid"
                       ? "bg-green-100 text-green-700"
                       : "bg-amber-100 text-amber-700"
-                  }`}
+                    }`}
                 >
                   {order.payment_status}
                 </span>
