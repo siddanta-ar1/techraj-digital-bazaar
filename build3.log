@@ -1,0 +1,91 @@
+
+> techraj-digital-shop@0.1.0 build
+> next build
+
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /home/mac/package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /home/mac/techraj-digital-bazaar/package-lock.json
+
+   ▲ Next.js 16.0.8 (Turbopack)
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+ ✓ Compiled successfully in 27.3s
+   Running TypeScript ...
+   Collecting page data using 3 workers ...
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+   Generating static pages using 3 workers (0/36) ...
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+   Generating static pages using 3 workers (9/36) 
+   Generating static pages using 3 workers (18/36) 
+   Generating static pages using 3 workers (27/36) 
+ ✓ Generating static pages using 3 workers (36/36) in 1258.2ms
+   Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /admin
+├ ƒ /admin/categories
+├ ƒ /admin/options
+├ ƒ /admin/options/[id]
+├ ƒ /admin/options/new
+├ ƒ /admin/orders
+├ ƒ /admin/orders/[id]
+├ ƒ /admin/products
+├ ƒ /admin/products/[id]
+├ ƒ /admin/products/codes
+├ ƒ /admin/products/new
+├ ƒ /admin/promos
+├ ƒ /admin/settings
+├ ƒ /admin/users
+├ ƒ /admin/wallet
+├ ƒ /api/admin/orders
+├ ƒ /api/admin/wallet/topup-requests
+├ ƒ /api/categories
+├ ƒ /api/debug/db-check
+├ ƒ /api/orders/create
+├ ƒ /api/products
+├ ƒ /api/products/[slug]
+├ ƒ /api/promo/validate
+├ ƒ /api/settings/payment
+├ ƒ /api/upload/payment-screenshot
+├ ƒ /api/wallet/process-topup
+├ ƒ /api/wallet/topup
+├ ƒ /api/wallet/transactions
+├ ƒ /auth/callback
+├ ƒ /cart
+├ ƒ /checkout
+├ ƒ /checkout/success
+├ ƒ /dashboard
+├ ƒ /dashboard/orders
+├ ƒ /dashboard/orders/[id]
+├ ƒ /dashboard/settings
+├ ƒ /dashboard/wallet
+├ ƒ /dashboard/wallet/topup
+├ ƒ /dashboard/wallet/transactions
+├ ƒ /forgot-password
+├ ƒ /login
+├ ƒ /order-success
+├ ƒ /privacy
+├ ƒ /products
+├ ƒ /products/[slug]
+├ ƒ /refund
+├ ƒ /register
+├ ƒ /terms
+└ ƒ /update-password
+
+
+ƒ Proxy (Middleware)
+
+ƒ  (Dynamic)  server-rendered on demand
+
