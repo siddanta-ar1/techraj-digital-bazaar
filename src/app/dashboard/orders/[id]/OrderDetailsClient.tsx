@@ -36,6 +36,7 @@ interface OrderItem {
   total_price: number;
   status: string;
   delivered_code?: string;
+  option_selections?: Record<string, any>;
 }
 
 interface Order {
@@ -267,6 +268,21 @@ export default function OrderDetailsClient({ order }: OrderDetailsClientProps) {
                       <p className="text-sm text-slate-500 mb-2">
                         {item.variant.variant_name} × {item.quantity}
                       </p>
+
+                      {/* PPOM Option Selections */}
+                      {item.option_selections && Object.keys(item.option_selections).length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5 mb-2">
+                          {Object.entries(item.option_selections).map(([key, value]: [string, any]) => (
+                            <span
+                              key={key}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200"
+                            >
+                              <span className="text-indigo-500">{key}:</span>{" "}
+                              {Array.isArray(value) ? value.join(", ") : String(value)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
 
                       {/* Delivery Code Section */}
                       {item.delivered_code && (

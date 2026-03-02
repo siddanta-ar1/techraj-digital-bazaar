@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { OrderStatusManager } from "@/components/admin/OrderStatusManager";
 import Image from "next/image";
@@ -22,10 +22,10 @@ export default async function AdminOrderDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = await createClient();
+  const adminClient = createAdminClient();
 
-  // Fetch Order Details
-  const { data: order } = await supabase
+  // Fetch Order Details using Admin Client to bypass RLS on order_items
+  const { data: order } = await adminClient
     .from("orders")
     .select(
       `

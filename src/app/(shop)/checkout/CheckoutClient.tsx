@@ -184,6 +184,14 @@ export default function CheckoutClient() {
 
   // WhatsApp Notification
   const triggerWhatsappNotification = (orderNumber: string) => {
+    // Format items list
+    const itemsList = items
+      .map(
+        (item) =>
+          `• ${item.productName} (${item.variantName}) x${item.quantity} - Rs. ${item.price * item.quantity}`
+      )
+      .join("\n  ");
+
     // FIX: Use Env Variable
     const message = `
   *New Order Placed!* 🛍️
@@ -192,6 +200,15 @@ export default function CheckoutClient() {
   *Total:* Rs. ${finalTotal.toFixed(2)} (Disc: Rs. ${discount})
   *Payment:* ${finalTotal === 0 ? "FULL DISCOUNT" : paymentMethod.toUpperCase()}
   *Txn ID:* ${transactionId || "N/A"}
+
+  *Customer Details:*
+  *UID:* ${user?.id || "Guest"}
+  *Name:* ${user?.full_name || "N/A"}
+  *Email:* ${deliveryDetails.contactEmail}
+  *Phone:* ${deliveryDetails.contactPhone}
+
+  *Order Items:*
+  ${itemsList}
 
   I have placed an order. Please verify.
       `.trim();

@@ -27,3 +27,11 @@ export async function createClient() {
     }
   )
 }
+
+export function createAdminClient() {
+  const { createClient: createClientSupabase } = require('@supabase/supabase-js');
+  return createClientSupabase(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
