@@ -9,19 +9,20 @@ export async function GET(request: Request) {
 
     // Check if user is admin
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) {
+      data: { user: authUser },
+      error: authError,
+    } = await supabase.auth.getUser();
+    if (authError || !authUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: user } = await supabase
+    const { data: dbUser } = await supabase
       .from("users")
       .select("role")
-      .eq("id", session.user.id)
+      .eq("id", authUser.id)
       .single();
 
-    if (user?.role !== "admin") {
+    if (dbUser?.role !== "admin") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -72,19 +73,20 @@ export async function POST(request: Request) {
 
     // Check if user is admin
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) {
+      data: { user: authUser },
+      error: authError,
+    } = await supabase.auth.getUser();
+    if (authError || !authUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: user } = await supabase
+    const { data: dbUser } = await supabase
       .from("users")
       .select("role")
-      .eq("id", session.user.id)
+      .eq("id", authUser.id)
       .single();
 
-    if (user?.role !== "admin") {
+    if (dbUser?.role !== "admin") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -140,7 +142,8 @@ export async function POST(request: Request) {
         .update({ wallet_balance: newBalance })
         .eq("id", topupRequest.user_id);
 
-      // Update wallet transaction
+      // We ONLY update the existing pending request (created when user submitted topup)
+      // and DO NOT insert a duplicate new completed transaction.
       await supabase
         .from("wallet_transactions")
         .update({
@@ -149,20 +152,6 @@ export async function POST(request: Request) {
         })
         .eq("reference_id", requestId)
         .eq("transaction_type", "topup");
-
-      // Create completed transaction
-      await supabase.from("wallet_transactions").insert([
-        {
-          user_id: topupRequest.user_id,
-          amount: topupRequest.amount,
-          type: "credit",
-          transaction_type: "topup",
-          reference_id: requestId,
-          description: `Top-up approved via ${topupRequest.payment_method}`,
-          balance_after: newBalance,
-          status: "completed",
-        },
-      ]);
 
       // SEND EMAIL TO USER
       if (topupRequest.user?.email) {

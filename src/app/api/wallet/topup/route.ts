@@ -6,11 +6,12 @@ export async function POST(request: Request) {
   try {
     const supabase = await createClient();
 
-    // Get user session
+    // Get user
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+    if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
     const { data: pendingRequests } = await supabase
       .from("topup_requests")
       .select("id")
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
       .eq("status", "pending")
       .limit(1);
 
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
       .from("topup_requests")
       .insert([
         {
-          user_id: session.user.id,
+          user_id: user.id,
           amount,
           payment_method: paymentMethod,
           transaction_id: transactionId,
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
       .from("wallet_transactions")
       .insert([
         {
-          user_id: session.user.id,
+          user_id: user.id,
           amount,
           type: "credit",
           transaction_type: "topup",
@@ -100,9 +101,10 @@ export async function GET(request: Request) {
     const supabase = await createClient();
 
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+    if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -114,7 +116,7 @@ export async function GET(request: Request) {
     const { data: topupRequests, error } = await supabase
       .from("topup_requests")
       .select("*")
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -123,7 +125,7 @@ export async function GET(request: Request) {
     const { count } = await supabase
       .from("topup_requests")
       .select("*", { count: "exact", head: true })
-      .eq("user_id", session.user.id);
+      .eq("user_id", user.id);
 
     return NextResponse.json({
       topupRequests,

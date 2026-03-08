@@ -5,9 +5,9 @@ import { NextResponse } from 'next/server'
 export async function GET(request: Request) {
   try {
     const supabase = await createClient()
-    
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     let query = supabase
       .from('wallet_transactions')
       .select('*', { count: 'exact' })
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 

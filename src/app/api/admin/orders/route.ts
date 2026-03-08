@@ -9,17 +9,18 @@ export async function GET(request: Request) {
 
     // Auth Check
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session)
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+    if (authError || !user)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { data: user } = await supabase
+    const { data: dbUser } = await supabase
       .from("users")
       .select("role")
-      .eq("id", session.user.id)
+      .eq("id", user.id)
       .single();
-    if (user?.role !== "admin")
+    if (dbUser?.role !== "admin")
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     // Parameters

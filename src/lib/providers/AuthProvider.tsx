@@ -112,43 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [fetchUserProfile],
   );
 
-  // Initialize auth - runs only once
-  useEffect(() => {
-    if (isInitialized.current) return;
-
-    let mounted = true;
-    isInitialized.current = true;
-
-    const initAuth = async () => {
-      try {
-        // Get initial session
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (mounted) {
-          if (session?.user) {
-            await syncProfile(session.user);
-          } else {
-            setUser(null);
-          }
-          setIsLoading(false);
-        }
-      } catch (error) {
-        console.error("Auth initialization error:", error);
-        if (mounted) {
-          setUser(null);
-          setIsLoading(false);
-        }
-      }
-    };
-
-    initAuth();
-
-    return () => {
-      mounted = false;
-    };
-  }, []); // Empty dependency array - runs only once
+  // Removed redundant initAuth effect to fix race condition with INITIAL_SESSION.
 
   // Listen for auth changes - separate from initialization
   useEffect(() => {
@@ -161,6 +125,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (event === "INITIAL_SESSION") {
         if (session?.user && !user) {
           await syncProfile(session.user);
+        } else if (!session?.user) {
+          setUser(null);
         }
         setIsLoading(false);
         return;
