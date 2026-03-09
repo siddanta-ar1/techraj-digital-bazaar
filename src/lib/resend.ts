@@ -41,19 +41,29 @@ export const sendOrderEmail = async (
                   Variant: ${item.variantName || item.variant?.variant_name || "Standard"} | Qty: ${item.quantity}
                 </div>
 
-                ${item.optionSelections && Object.keys(item.optionSelections).length > 0
-                ? `
-                  <div style="margin-top: 8px; background: #f5f3ff; padding: 10px; border-radius: 6px; border: 1px solid #e9d5ff;">
-                    <div style="font-size: 11px; text-transform: uppercase; color: #7c3aed; margin-bottom: 4px; font-weight: bold;">Customizations</div>
-                    ${Object.entries(item.optionSelections).map(([key, value]: [string, any]) =>
-                  `<div style="font-size: 13px; color: #6d28d9; margin-top: 2px;">
-                        <strong>${key}:</strong> ${Array.isArray(value) ? value.join(", ") : String(value)}
-                      </div>`
-                ).join("")}
-                  </div>
-                `
-                : ""
-              }
+                ${(() => {
+                let parsedSelections: Record<string, any> = {};
+                try {
+                  parsedSelections = typeof item.optionSelections === 'string'
+                    ? JSON.parse(item.optionSelections)
+                    : (item.optionSelections || {});
+                } catch (e) {
+                  parsedSelections = {};
+                }
+                if (Object.keys(parsedSelections).length > 0) {
+                  return `
+                      <div style="margin-top: 8px; background: #f5f3ff; padding: 10px; border-radius: 6px; border: 1px solid #e9d5ff;">
+                        <div style="font-size: 11px; text-transform: uppercase; color: #7c3aed; margin-bottom: 4px; font-weight: bold;">Customizations</div>
+                        ${Object.entries(parsedSelections).map(([key, value]: [string, any]) =>
+                    `<div style="font-size: 13px; color: #6d28d9; margin-top: 2px;">
+                            <strong>${key}:</strong> ${Array.isArray(value) ? value.join(", ") : String(value)}
+                          </div>`
+                  ).join("")}
+                      </div>
+                    `;
+                }
+                return "";
+              })()}
 
                 ${item.delivered_code
                 ? `

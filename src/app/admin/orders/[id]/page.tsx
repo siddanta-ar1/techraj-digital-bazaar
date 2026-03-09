@@ -134,19 +134,30 @@ export default async function AdminOrderDetailPage({
                         <span>x {item.quantity}</span>
                       </div>
                       {/* PPOM Option Selections */}
-                      {item.option_selections && Object.keys(item.option_selections).length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {Object.entries(item.option_selections).map(([key, value]: [string, any]) => (
-                            <span
-                              key={key}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200"
-                            >
-                              <span className="text-purple-500">{key}:</span>{" "}
-                              {Array.isArray(value) ? value.join(", ") : String(value)}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      {(() => {
+                        let parsedSelections = {};
+                        try {
+                          parsedSelections = typeof item.option_selections === 'string'
+                            ? JSON.parse(item.option_selections)
+                            : (item.option_selections || {});
+                        } catch (e) {
+                          parsedSelections = {};
+                        }
+
+                        return Object.keys(parsedSelections).length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {Object.entries(parsedSelections).map(([key, value]: [string, any]) => (
+                              <span
+                                key={key}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200"
+                              >
+                                <span className="text-purple-500">{key}:</span>{" "}
+                                {Array.isArray(value) ? value.join(", ") : String(value)}
+                              </span>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div className="text-right">
                       <p className="font-bold text-slate-900 text-lg">

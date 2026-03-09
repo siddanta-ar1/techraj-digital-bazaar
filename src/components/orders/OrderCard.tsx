@@ -18,6 +18,7 @@ interface OrderItem {
   total_price: number
   status: string
   delivered_code?: string
+  option_selections?: any
 }
 
 interface Order {
@@ -90,14 +91,13 @@ export default function OrderCard({ order }: OrderCardProps) {
             <div className="flex items-center gap-2">
               {getPaymentIcon()}
               <span className="text-sm text-slate-600">
-                {order.payment_method === 'wallet' ? 'Wallet' : 
-                 order.payment_method === 'esewa' ? 'Esewa' : 'Bank Transfer'}
+                {order.payment_method === 'wallet' ? 'Wallet' :
+                  order.payment_method === 'esewa' ? 'Esewa' : 'Bank Transfer'}
               </span>
-              <span className={`text-xs px-2 py-1 rounded ${
-                order.payment_status === 'paid' 
+              <span className={`text-xs px-2 py-1 rounded ${order.payment_status === 'paid'
                   ? 'bg-green-100 text-green-800'
                   : 'bg-amber-100 text-amber-800'
-              }`}>
+                }`}>
                 {order.payment_status}
               </span>
             </div>
@@ -106,7 +106,7 @@ export default function OrderCard({ order }: OrderCardProps) {
           <h3 className="font-semibold text-slate-900 mb-2">
             Order #{order.order_number}
           </h3>
-          
+
           <div className="text-sm text-slate-600 space-y-1">
             <p>Placed on {format(new Date(order.created_at), 'MMM dd, yyyy h:mm a')}</p>
             <p>{itemCount} item{itemCount !== 1 ? 's' : ''} • Total: Rs. {order.final_amount.toFixed(2)}</p>
@@ -121,14 +121,30 @@ export default function OrderCard({ order }: OrderCardProps) {
 
           {/* Items Preview */}
           <div className="mt-4 flex flex-wrap gap-2">
-            {order.order_items.slice(0, 3).map(item => (
-              <div
-                key={item.id}
-                className="px-3 py-1 bg-slate-100 rounded text-sm text-slate-700"
-              >
-                {item.variant.product.name} × {item.quantity}
-              </div>
-            ))}
+            {order.order_items.slice(0, 3).map(item => {
+              let parsedSelections: Record<string, any> = {};
+              try {
+                parsedSelections = typeof item.option_selections === 'string'
+                  ? JSON.parse(item.option_selections)
+                  : (item.option_selections || {});
+              } catch (e) { }
+
+              const hasOptions = Object.keys(parsedSelections).length > 0;
+
+              return (
+                <div
+                  key={item.id}
+                  className="px-3 py-1 bg-slate-100 rounded text-sm text-slate-700 flex flex-col gap-1"
+                >
+                  <span className="font-medium">{item.variant.product.name} × {item.quantity}</span>
+                  {hasOptions && (
+                    <span className="text-xs text-slate-500 max-w-[200px] truncate" title={Object.entries(parsedSelections).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ')}>
+                      {Object.entries(parsedSelections).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ')}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
             {order.order_items.length > 3 && (
               <div className="px-3 py-1 bg-slate-200 rounded text-sm text-slate-600">
                 +{order.order_items.length - 3} more
@@ -146,13 +162,13 @@ export default function OrderCard({ order }: OrderCardProps) {
             <Eye className="h-4 w-4" />
             View Details
           </Link>
-          
+
           {order.status === 'pending' && order.payment_method === 'bank_transfer' && (
             <button className="inline-flex items-center justify-center gap-2 bg-white text-slate-700 px-4 py-2 rounded-lg font-medium border border-slate-300 hover:bg-slate-50 transition-colors">
               Upload Payment
             </button>
           )}
-          
+
           {order.status === 'completed' && (
             <button className="inline-flex items-center justify-center gap-2 bg-white text-green-700 px-4 py-2 rounded-lg font-medium border border-green-300 hover:bg-green-50 transition-colors">
               Download Invoice

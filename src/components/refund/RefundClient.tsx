@@ -27,6 +27,7 @@ interface Order {
         name: string;
       };
     };
+    option_selections?: any;
   }>;
 }
 
@@ -51,12 +52,23 @@ export function RefundClient({ user, initialOrders }: RefundClientProps) {
     const item = order?.order_items.find((i) => i.id === selectedItem);
     if (!order || !item) return;
 
+    let parsedSelections: Record<string, any> = {};
+    try {
+      parsedSelections = typeof item.option_selections === 'string'
+        ? JSON.parse(item.option_selections)
+        : (item.option_selections || {});
+    } catch (e) { }
+
+    const ppomString = Object.keys(parsedSelections).length > 0
+      ? `\n*Options:* ${Object.entries(parsedSelections).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ')}`
+      : "";
+
     const message = `
 *Refund / Support Request*
 -------------------
 *User:* ${user.email}
 *Order No:* ${order.order_number}
-*Product:* ${item.variant.product.name} (${item.variant.variant_name})
+*Product:* ${item.variant.product.name} (${item.variant.variant_name})${ppomString}
 *Issue:* ${issueType}
 
 *Details:*
@@ -126,11 +138,10 @@ ${description || "No extra details provided."}
                         setSelectedOrder(order.id);
                         setSelectedItem("");
                       }}
-                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                        selectedOrder === order.id
+                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedOrder === order.id
                           ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500/10"
                           : "border-slate-200 hover:border-indigo-300"
-                      }`}
+                        }`}
                     >
                       <div className="flex justify-between items-center mb-2">
                         <span className="font-mono font-bold text-slate-900">
@@ -154,18 +165,16 @@ ${description || "No extra details provided."}
                                 e.stopPropagation();
                                 setSelectedItem(item.id);
                               }}
-                              className={`flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer ${
-                                selectedItem === item.id
+                              className={`flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer ${selectedItem === item.id
                                   ? "bg-white ring-2 ring-indigo-500 shadow-sm"
                                   : "hover:bg-slate-50"
-                              }`}
+                                }`}
                             >
                               <div
-                                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                                  selectedItem === item.id
+                                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedItem === item.id
                                     ? "bg-indigo-600 border-indigo-600"
                                     : "border-slate-300"
-                                }`}
+                                  }`}
                               >
                                 {selectedItem === item.id && (
                                   <CheckCircle2 className="w-3.5 h-3.5 text-white" />
@@ -175,8 +184,25 @@ ${description || "No extra details provided."}
                                 <p className="text-sm font-semibold text-slate-800">
                                   {item.variant.product.name}
                                 </p>
-                                <p className="text-xs text-slate-500">
-                                  {item.variant.variant_name}
+                                <p className="text-xs text-slate-500 flex flex-col gap-0.5">
+                                  <span>{item.variant.variant_name}</span>
+                                  {(() => {
+                                    let selections: Record<string, any> = {};
+                                    try {
+                                      selections = typeof item.option_selections === 'string'
+                                        ? JSON.parse(item.option_selections)
+                                        : (item.option_selections || {});
+                                    } catch (e) { }
+                                    if (Object.keys(selections).length > 0) {
+                                      const optionsText = Object.entries(selections).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ');
+                                      return (
+                                        <span className="text-[10px] text-slate-400 max-w-[200px] truncate" title={optionsText}>
+                                          {optionsText}
+                                        </span>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
                                 </p>
                               </div>
                             </div>
@@ -189,11 +215,10 @@ ${description || "No extra details provided."}
 
                 {/* Issue Section */}
                 <div
-                  className={`space-y-4 ${
-                    !selectedItem
+                  className={`space-y-4 ${!selectedItem
                       ? "opacity-50 pointer-events-none"
                       : "opacity-100"
-                  }`}
+                    }`}
                 >
                   <hr className="border-slate-200 my-6" />
 
