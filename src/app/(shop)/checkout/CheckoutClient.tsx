@@ -192,7 +192,11 @@ export default function CheckoutClient() {
         // Add PPOM customizations if available
         if (item.optionSelections && Object.keys(item.optionSelections).length > 0) {
           const customizations = Object.entries(item.optionSelections)
-            .map(([key, value]) => `${key}: ${value}`)
+            .map(([groupId, value]) => {
+              // Use group name if available, otherwise use group ID
+              const groupName = item.optionGroupNames?.[groupId] || groupId;
+              return `${groupName}: ${value}`;
+            })
             .join(" | ");
           itemText += `\n    ✓ ${customizations}`;
         }

@@ -81,6 +81,12 @@ export function PurchaseSection({
           .filter(Boolean)
           .join(" + ");
 
+        // Create mapping of group IDs to group names
+        const optionGroupNames: Record<string, string> = {};
+        optionGroups.forEach((pg: any) => {
+          optionGroupNames[pg.group_id] = pg.option_group?.name || pg.group_id;
+        });
+
         addItem({
           productId: product.id,
           productName: product.name,
@@ -90,6 +96,7 @@ export function PurchaseSection({
           imageUrl: product.featured_image,
           combinationId: ppomCombinationId,
           optionSelections: ppomSelections,
+          optionGroupNames: optionGroupNames,
         });
       } else if (activeVariant) {
         // Legacy variant mode

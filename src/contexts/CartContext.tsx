@@ -20,6 +20,7 @@ interface CartItem {
   // PPOM fields
   combinationId?: string;
   optionSelections?: Record<string, string | string[]>;
+  optionGroupNames?: Record<string, string>; // Maps group ID to group name
 }
 
 interface CartContextType {
