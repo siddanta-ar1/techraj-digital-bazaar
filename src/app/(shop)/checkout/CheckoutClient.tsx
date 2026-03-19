@@ -184,12 +184,21 @@ export default function CheckoutClient() {
 
   // WhatsApp Notification
   const triggerWhatsappNotification = (orderNumber: string) => {
-    // Format items list
+    // Format items list with PPOM customizations
     const itemsList = items
-      .map(
-        (item) =>
-          `• ${item.productName} (${item.variantName}) x${item.quantity} - Rs. ${item.price * item.quantity}`
-      )
+      .map((item) => {
+        let itemText = `• ${item.productName} (${item.variantName}) x${item.quantity} - Rs. ${item.price * item.quantity}`;
+        
+        // Add PPOM customizations if available
+        if (item.optionSelections && Object.keys(item.optionSelections).length > 0) {
+          const customizations = Object.entries(item.optionSelections)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(" | ");
+          itemText += `\n    ✓ ${customizations}`;
+        }
+        
+        return itemText;
+      })
       .join("\n  ");
 
     // FIX: Use Env Variable

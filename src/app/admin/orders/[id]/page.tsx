@@ -40,6 +40,41 @@ export default async function AdminOrderDetailPage({
     .eq("id", id)
     .single();
 
+  // Fetch option group names for display
+  let optionGroupNames: Record<string, string> = {};
+  if (order?.order_items) {
+    const uniqueGroupIds = new Set<string>();
+    order.order_items.forEach((item: any) => {
+      if (item.option_selections && typeof item.option_selections === "string") {
+        try {
+          const selections = JSON.parse(item.option_selections);
+          Object.keys(selections).forEach((groupId) => {
+            uniqueGroupIds.add(groupId);
+          });
+        } catch (e) {
+          // Ignore parsing errors
+        }
+      } else if (item.option_selections && typeof item.option_selections === "object") {
+        Object.keys(item.option_selections).forEach((groupId) => {
+          uniqueGroupIds.add(groupId);
+        });
+      }
+    });
+
+    if (uniqueGroupIds.size > 0) {
+      const { data: groups } = await adminClient
+        .from("option_groups")
+        .select("id, name")
+        .in("id", Array.from(uniqueGroupIds));
+
+      if (groups) {
+        optionGroupNames = Object.fromEntries(
+          groups.map((g: any) => [g.id, g.name])
+        );
+      }
+    }
+  }
+
   if (!order) notFound();
 
   return (
@@ -146,15 +181,18 @@ export default async function AdminOrderDetailPage({
 
                         return Object.keys(parsedSelections).length > 0 && (
                           <div className="mt-2 flex flex-wrap gap-1.5">
-                            {Object.entries(parsedSelections).map(([key, value]: [string, any]) => (
-                              <span
-                                key={key}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200"
-                              >
-                                <span className="text-purple-500">{key}:</span>{" "}
-                                {Array.isArray(value) ? value.join(", ") : String(value)}
-                              </span>
-                            ))}
+                            {Object.entries(parsedSelections).map(([groupId, value]: [string, any]) => {
+                              const groupName = optionGroupNames[groupId] || groupId;
+                              return (
+                                <span
+                                  key={groupId}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200"
+                                >
+                                  <span className="text-purple-500">{groupName}:</span>{" "}
+                                  {Array.isArray(value) ? value.join(", ") : String(value)}
+                                </span>
+                              );
+                            })}
                           </div>
                         );
                       })()}
