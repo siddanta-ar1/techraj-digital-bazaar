@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "BROWSERSLIST_IGNORE_OLD_DATA=true BASELINE_BROWSER_MAPPING_IGNORE_OLD_DATA=true next build",
-    "start": "next start"
+    "start": "next start",
+    "migrate:ppom": "node apply-ppom-simple.js",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
