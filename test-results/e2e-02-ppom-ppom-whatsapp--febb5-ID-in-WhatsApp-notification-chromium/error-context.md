@@ -1,0 +1,369 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e5]:
+      - img [ref=e6]
+      - paragraph [ref=e9]: Welcome to our new digital store! 🚀
+    - generic [ref=e10]:
+      - navigation [ref=e11]:
+        - generic [ref=e13]:
+          - link "TECH RAJ .NP" [ref=e14] [cursor=pointer]:
+            - /url: /
+            - generic [ref=e15]: TECH
+            - generic [ref=e16]: RAJ
+            - generic [ref=e17]: .NP
+          - generic [ref=e20]:
+            - generic:
+              - img
+            - textbox "Search products (e.g. Netflix, Pubg...)" [ref=e21]
+          - generic [ref=e22]:
+            - link "Shop" [ref=e24] [cursor=pointer]:
+              - /url: /products
+            - link "1" [ref=e25] [cursor=pointer]:
+              - /url: /cart
+              - img [ref=e26]
+              - generic [ref=e30]: "1"
+            - link "Login" [ref=e31] [cursor=pointer]:
+              - /url: /login
+              - img [ref=e32]
+              - generic [ref=e35]: Login
+      - generic [ref=e38]:
+        - generic [ref=e39]:
+          - link "+977-9846908072" [ref=e40] [cursor=pointer]:
+            - /url: tel:+9779846908072
+            - img [ref=e41]
+            - generic [ref=e43]: +977-9846908072
+          - link "support@tronlinebazar.com" [ref=e44] [cursor=pointer]:
+            - /url: mailto:support@tronlinebazar.com
+            - img [ref=e45]
+            - generic [ref=e48]: support@tronlinebazar.com
+          - generic [ref=e49]:
+            - img [ref=e50]
+            - generic [ref=e53]: Bharatpur, Nepal
+        - link "WhatsApp Support" [ref=e55] [cursor=pointer]:
+          - /url: https://wa.me/9779846908072
+          - img [ref=e56]
+          - generic [ref=e58]: WhatsApp Support
+    - generic [ref=e62]:
+      - generic [ref=e65]: "Trending Categories:"
+      - generic [ref=e68]:
+        - link "Software & Tools" [ref=e69] [cursor=pointer]:
+          - /url: /products?category=11111111-1111-1111-1111-111111111111
+          - img [ref=e71]
+          - generic [ref=e73]: Software & Tools
+        - link "Gift Cards" [ref=e74] [cursor=pointer]:
+          - /url: /products?category=22222222-2222-2222-2222-222222222222
+          - img [ref=e76]
+          - generic [ref=e80]: Gift Cards
+        - link "Virtual Visa Cards" [ref=e81] [cursor=pointer]:
+          - /url: /products?category=33333333-3333-3333-3333-333333333333
+          - img [ref=e83]
+          - generic [ref=e85]: Virtual Visa Cards
+        - link "Discord Nitro" [ref=e86] [cursor=pointer]:
+          - /url: /products?category=44444444-4444-4444-4444-444444444444
+          - img [ref=e88]
+          - generic [ref=e90]: Discord Nitro
+        - link "Games & Topup" [ref=e91] [cursor=pointer]:
+          - /url: /products?category=55555555-5555-5555-5555-555555555555
+          - img [ref=e93]
+          - generic [ref=e95]: Games & Topup
+        - link "OTT Subscription" [ref=e96] [cursor=pointer]:
+          - /url: /products?category=66666666-6666-6666-6666-666666666666
+          - img [ref=e98]
+          - generic [ref=e100]: OTT Subscription
+        - link "Payoneer" [ref=e101] [cursor=pointer]:
+          - /url: /products?category=77777777-7777-7777-7777-777777777777
+          - img [ref=e103]
+          - generic [ref=e106]: Payoneer
+        - link "Play Point" [ref=e107] [cursor=pointer]:
+          - /url: /products?category=88888888-8888-8888-8888-888888888888
+          - img [ref=e109]
+          - generic [ref=e111]: Play Point
+        - link "TikTok" [ref=e112] [cursor=pointer]:
+          - /url: /products?category=99999999-9999-9999-9999-999999999999
+          - img [ref=e114]
+          - generic [ref=e118]: TikTok
+        - link "PayPal" [ref=e119] [cursor=pointer]:
+          - /url: /products?category=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+          - img [ref=e121]
+          - generic [ref=e125]: PayPal
+        - link "Clothing" [ref=e126] [cursor=pointer]:
+          - /url: /products?category=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb
+          - img [ref=e128]
+          - generic [ref=e132]: Clothing
+        - link "Software & Tools" [ref=e133] [cursor=pointer]:
+          - /url: /products?category=11111111-1111-1111-1111-111111111111
+          - img [ref=e135]
+          - generic [ref=e137]: Software & Tools
+        - link "Gift Cards" [ref=e138] [cursor=pointer]:
+          - /url: /products?category=22222222-2222-2222-2222-222222222222
+          - img [ref=e140]
+          - generic [ref=e144]: Gift Cards
+        - link "Virtual Visa Cards" [ref=e145] [cursor=pointer]:
+          - /url: /products?category=33333333-3333-3333-3333-333333333333
+          - img [ref=e147]
+          - generic [ref=e149]: Virtual Visa Cards
+        - link "Discord Nitro" [ref=e150] [cursor=pointer]:
+          - /url: /products?category=44444444-4444-4444-4444-444444444444
+          - img [ref=e152]
+          - generic [ref=e154]: Discord Nitro
+        - link "Games & Topup" [ref=e155] [cursor=pointer]:
+          - /url: /products?category=55555555-5555-5555-5555-555555555555
+          - img [ref=e157]
+          - generic [ref=e159]: Games & Topup
+        - link "OTT Subscription" [ref=e160] [cursor=pointer]:
+          - /url: /products?category=66666666-6666-6666-6666-666666666666
+          - img [ref=e162]
+          - generic [ref=e164]: OTT Subscription
+        - link "Payoneer" [ref=e165] [cursor=pointer]:
+          - /url: /products?category=77777777-7777-7777-7777-777777777777
+          - img [ref=e167]
+          - generic [ref=e170]: Payoneer
+        - link "Play Point" [ref=e171] [cursor=pointer]:
+          - /url: /products?category=88888888-8888-8888-8888-888888888888
+          - img [ref=e173]
+          - generic [ref=e175]: Play Point
+        - link "TikTok" [ref=e176] [cursor=pointer]:
+          - /url: /products?category=99999999-9999-9999-9999-999999999999
+          - img [ref=e178]
+          - generic [ref=e182]: TikTok
+        - link "PayPal" [ref=e183] [cursor=pointer]:
+          - /url: /products?category=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+          - img [ref=e185]
+          - generic [ref=e189]: PayPal
+        - link "Clothing" [ref=e190] [cursor=pointer]:
+          - /url: /products?category=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb
+          - img [ref=e192]
+          - generic [ref=e196]: Clothing
+        - link "Software & Tools" [ref=e197] [cursor=pointer]:
+          - /url: /products?category=11111111-1111-1111-1111-111111111111
+          - img [ref=e199]
+          - generic [ref=e201]: Software & Tools
+        - link "Gift Cards" [ref=e202] [cursor=pointer]:
+          - /url: /products?category=22222222-2222-2222-2222-222222222222
+          - img [ref=e204]
+          - generic [ref=e208]: Gift Cards
+        - link "Virtual Visa Cards" [ref=e209] [cursor=pointer]:
+          - /url: /products?category=33333333-3333-3333-3333-333333333333
+          - img [ref=e211]
+          - generic [ref=e213]: Virtual Visa Cards
+        - link "Discord Nitro" [ref=e214] [cursor=pointer]:
+          - /url: /products?category=44444444-4444-4444-4444-444444444444
+          - img [ref=e216]
+          - generic [ref=e218]: Discord Nitro
+        - link "Games & Topup" [ref=e219] [cursor=pointer]:
+          - /url: /products?category=55555555-5555-5555-5555-555555555555
+          - img [ref=e221]
+          - generic [ref=e223]: Games & Topup
+        - link "OTT Subscription" [ref=e224] [cursor=pointer]:
+          - /url: /products?category=66666666-6666-6666-6666-666666666666
+          - img [ref=e226]
+          - generic [ref=e228]: OTT Subscription
+        - link "Payoneer" [ref=e229] [cursor=pointer]:
+          - /url: /products?category=77777777-7777-7777-7777-777777777777
+          - img [ref=e231]
+          - generic [ref=e234]: Payoneer
+        - link "Play Point" [ref=e235] [cursor=pointer]:
+          - /url: /products?category=88888888-8888-8888-8888-888888888888
+          - img [ref=e237]
+          - generic [ref=e239]: Play Point
+        - link "TikTok" [ref=e240] [cursor=pointer]:
+          - /url: /products?category=99999999-9999-9999-9999-999999999999
+          - img [ref=e242]
+          - generic [ref=e246]: TikTok
+        - link "PayPal" [ref=e247] [cursor=pointer]:
+          - /url: /products?category=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+          - img [ref=e249]
+          - generic [ref=e253]: PayPal
+        - link "Clothing" [ref=e254] [cursor=pointer]:
+          - /url: /products?category=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb
+          - img [ref=e256]
+          - generic [ref=e260]: Clothing
+        - link "Software & Tools" [ref=e261] [cursor=pointer]:
+          - /url: /products?category=11111111-1111-1111-1111-111111111111
+          - img [ref=e263]
+          - generic [ref=e265]: Software & Tools
+        - link "Gift Cards" [ref=e266] [cursor=pointer]:
+          - /url: /products?category=22222222-2222-2222-2222-222222222222
+          - img [ref=e268]
+          - generic [ref=e272]: Gift Cards
+        - link "Virtual Visa Cards" [ref=e273] [cursor=pointer]:
+          - /url: /products?category=33333333-3333-3333-3333-333333333333
+          - img [ref=e275]
+          - generic [ref=e277]: Virtual Visa Cards
+        - link "Discord Nitro" [ref=e278] [cursor=pointer]:
+          - /url: /products?category=44444444-4444-4444-4444-444444444444
+          - img [ref=e280]
+          - generic [ref=e282]: Discord Nitro
+        - link "Games & Topup" [ref=e283] [cursor=pointer]:
+          - /url: /products?category=55555555-5555-5555-5555-555555555555
+          - img [ref=e285]
+          - generic [ref=e287]: Games & Topup
+        - link "OTT Subscription" [ref=e288] [cursor=pointer]:
+          - /url: /products?category=66666666-6666-6666-6666-666666666666
+          - img [ref=e290]
+          - generic [ref=e292]: OTT Subscription
+        - link "Payoneer" [ref=e293] [cursor=pointer]:
+          - /url: /products?category=77777777-7777-7777-7777-777777777777
+          - img [ref=e295]
+          - generic [ref=e298]: Payoneer
+        - link "Play Point" [ref=e299] [cursor=pointer]:
+          - /url: /products?category=88888888-8888-8888-8888-888888888888
+          - img [ref=e301]
+          - generic [ref=e303]: Play Point
+        - link "TikTok" [ref=e304] [cursor=pointer]:
+          - /url: /products?category=99999999-9999-9999-9999-999999999999
+          - img [ref=e306]
+          - generic [ref=e310]: TikTok
+        - link "PayPal" [ref=e311] [cursor=pointer]:
+          - /url: /products?category=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+          - img [ref=e313]
+          - generic [ref=e317]: PayPal
+        - link "Clothing" [ref=e318] [cursor=pointer]:
+          - /url: /products?category=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb
+          - img [ref=e320]
+          - generic [ref=e324]: Clothing
+    - main [ref=e325]:
+      - generic [ref=e327]:
+        - generic [ref=e328]:
+          - generic [ref=e329]:
+            - img [ref=e330]
+            - generic [ref=e334]: Secure SSL Checkout
+          - heading "Complete Your Order" [level=1] [ref=e335]
+          - paragraph [ref=e336]: Please enter your payment & delivery details below.
+        - generic [ref=e338]:
+          - generic [ref=e339]:
+            - generic [ref=e340]:
+              - heading "1 Contact Information" [level=3] [ref=e342]:
+                - generic [ref=e343]: "1"
+                - text: Contact Information
+              - generic [ref=e344]:
+                - generic [ref=e345]:
+                  - generic [ref=e346]: Email Address *
+                  - textbox "name@example.com" [ref=e347]
+                - generic [ref=e348]:
+                  - generic [ref=e349]: Phone / WhatsApp *
+                  - textbox "+977 98..." [ref=e350]
+            - generic [ref=e351]:
+              - heading "2 Select Payment Method" [level=3] [ref=e353]:
+                - generic [ref=e354]: "2"
+                - text: Select Payment Method
+              - generic [ref=e355]:
+                - generic [ref=e356] [cursor=pointer]:
+                  - generic [ref=e357]:
+                    - img [ref=e359]
+                    - generic [ref=e362]:
+                      - generic [ref=e363]: My Wallet Balance
+                      - generic [ref=e364]: "Available: Rs. 0.00"
+                  - img [ref=e365]
+                - generic [ref=e369] [cursor=pointer]:
+                  - img [ref=e371]
+                  - generic [ref=e373]:
+                    - generic [ref=e374]: Esewa
+                    - generic [ref=e375]: Scan QR code & upload screenshot
+                - generic [ref=e377] [cursor=pointer]:
+                  - img [ref=e379]
+                  - generic [ref=e382]:
+                    - generic [ref=e383]: Khalti
+                    - generic [ref=e384]: Scan QR code & upload screenshot
+          - generic [ref=e386]:
+            - generic [ref=e387]:
+              - heading "Promo Code" [level=3] [ref=e388]:
+                - img [ref=e389]
+                - text: Promo Code
+              - generic [ref=e392]:
+                - textbox "Enter code" [ref=e393]
+                - button "Apply" [disabled] [ref=e394]
+            - generic [ref=e395]:
+              - heading "Order Summary" [level=3] [ref=e396]
+              - generic [ref=e397]:
+                - generic [ref=e398]:
+                  - generic [ref=e399]: Subtotal
+                  - generic [ref=e400]: Rs. 25.00
+                - generic [ref=e402]:
+                  - generic [ref=e403]: Total
+                  - generic [ref=e404]: Rs. 25.00
+              - button "Pay Rs. 25.00" [disabled] [ref=e405]:
+                - text: Pay Rs. 25.00
+                - img [ref=e406]
+            - generic [ref=e408]:
+              - img [ref=e409]
+              - text: 100% Secure Encrypted Payment
+    - contentinfo [ref=e411]:
+      - generic [ref=e412]:
+        - generic [ref=e413]:
+          - generic [ref=e414]:
+            - generic [ref=e415]:
+              - generic [ref=e416]: TECH
+              - generic [ref=e417]: RAJ
+              - generic [ref=e418]: .NP
+            - paragraph [ref=e419]: Your premier digital platform for instant game top-ups, gift cards, virtual payments, and digital marketing services in Nepal.
+            - generic [ref=e420]:
+              - link [ref=e421] [cursor=pointer]:
+                - /url: https://facebook.com/profile.php?id=61569895337580
+                - img [ref=e422]
+              - link [ref=e424] [cursor=pointer]:
+                - /url: https://youtube.com/@techraj687
+                - img [ref=e425]
+              - link [ref=e428] [cursor=pointer]:
+                - /url: https://tronlinebazar.com
+                - img [ref=e429]
+          - generic [ref=e432]:
+            - heading "Contact Us" [level=4] [ref=e433]
+            - list [ref=e434]:
+              - listitem [ref=e435]:
+                - img [ref=e436]
+                - generic [ref=e439]: Bharatpur, Chitwan, Nepal
+              - listitem [ref=e440]:
+                - img [ref=e441]
+                - generic [ref=e443]: +977-9846908072
+              - listitem [ref=e444]:
+                - img [ref=e445]
+                - link "support@tronlinebazar.com" [ref=e448] [cursor=pointer]:
+                  - /url: mailto:support@tronlinebazar.com
+              - listitem [ref=e449]:
+                - generic [ref=e450]: Manager
+                - link "Raju Kandel" [ref=e451] [cursor=pointer]:
+                  - /url: https://www.facebook.com/kandelr687
+          - generic [ref=e452]:
+            - heading "Quick Links" [level=4] [ref=e453]
+            - list [ref=e454]:
+              - listitem [ref=e455]:
+                - link "Browse Shop" [ref=e456] [cursor=pointer]:
+                  - /url: /products
+              - listitem [ref=e457]:
+                - link "Game Codes" [ref=e458] [cursor=pointer]:
+                  - /url: /products?category=55555555-5555-5555-5555-555555555555
+              - listitem [ref=e459]:
+                - link "Gift Cards" [ref=e460] [cursor=pointer]:
+                  - /url: /products?category=22222222-2222-2222-2222-222222222222
+              - listitem [ref=e461]:
+                - link "My Dashboard" [ref=e462] [cursor=pointer]:
+                  - /url: /dashboard
+          - generic [ref=e463]:
+            - heading "Legal" [level=4] [ref=e464]
+            - list [ref=e465]:
+              - listitem [ref=e466]:
+                - link "Terms of Service" [ref=e467] [cursor=pointer]:
+                  - /url: /terms
+              - listitem [ref=e468]:
+                - link "Privacy Policy" [ref=e469] [cursor=pointer]:
+                  - /url: /privacy
+              - listitem [ref=e470]:
+                - link "Refund Policy / Request" [ref=e471] [cursor=pointer]:
+                  - /url: /refund
+              - listitem [ref=e472]:
+                - link "Follow on TikTok" [ref=e473] [cursor=pointer]:
+                  - /url: https://tiktok.com/@techraj687
+        - generic [ref=e474]:
+          - paragraph [ref=e475]: © 2026 Techraj Digital Bazar. All rights reserved.
+          - generic [ref=e476]:
+            - generic [ref=e477]: Secure Payment
+            - generic [ref=e478]: Instant Delivery
+            - generic [ref=e479]: 24/7 Support
+  - button "Open Next.js Dev Tools" [ref=e485] [cursor=pointer]:
+    - img [ref=e486]
+  - alert [ref=e489]: Secure Checkout - Tronline Bazar
+```

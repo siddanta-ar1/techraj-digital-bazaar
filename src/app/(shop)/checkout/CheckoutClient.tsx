@@ -67,6 +67,9 @@ export default function CheckoutClient() {
   const [paymentSettings, setPaymentSettings] = useState<any>(null);
   const [paymentSettingsLoading, setPaymentSettingsLoading] = useState(true);
 
+  // Option Group Names for PPOM display
+  const [optionGroupNames, setOptionGroupNames] = useState<Record<string, string>>({});
+
   // Fetch Payment Settings
   useEffect(() => {
     const fetchSettings = async () => {
@@ -88,6 +91,52 @@ export default function CheckoutClient() {
 
     fetchSettings();
   }, []);
+
+  // Fetch option group names for PPOM products
+  useEffect(() => {
+    const fetchOptionGroupNames = async () => {
+      try {
+        // Get all unique group IDs from cart items
+        const groupIds = new Set<string>();
+        items.forEach((item) => {
+          if (item.optionSelections) {
+            Object.keys(item.optionSelections).forEach((groupId) => {
+              groupIds.add(groupId);
+            });
+          }
+        });
+
+        if (groupIds.size === 0) {
+          setOptionGroupNames({});
+          return;
+        }
+
+        const groupIdsArray = Array.from(groupIds);
+        const { data, error } = await supabase
+          .from("option_groups")
+          .select("id, group_name")
+          .in("id", groupIdsArray);
+
+        if (error) {
+          console.error("Supabase query error:", error);
+          throw error;
+        }
+
+        const mapping: Record<string, string> = {};
+        if (data && Array.isArray(data)) {
+          data.forEach((group: any) => {
+            mapping[group.id] = group.group_name;
+          });
+        }
+        setOptionGroupNames(mapping);
+      } catch (err) {
+        console.error("Failed to fetch option group names:", err);
+        setOptionGroupNames({});
+      }
+    };
+
+    fetchOptionGroupNames();
+  }, [items, supabase]);
 
   // Check empty cart
   useEffect(() => {
@@ -184,6 +233,17 @@ export default function CheckoutClient() {
 
   // WhatsApp Notification
   const triggerWhatsappNotification = (orderNumber: string) => {
+    console.log("📱 WhatsApp - Items in cart:", items);
+    console.log("📱 WhatsApp - Option group names:", optionGroupNames);
+    console.log("📱 WhatsApp - Item details:");
+    items.forEach((item, idx) => {
+      console.log(`  Item ${idx}:`, {
+        productName: item.productName,
+        optionSelections: item.optionSelections,
+        hasOptionalSelections: !!item.optionSelections && Object.keys(item.optionSelections).length > 0,
+      });
+    });
+
     // Format items list with PPOM customizations
     const itemsList = items
       .map((item) => {
@@ -193,37 +253,39 @@ export default function CheckoutClient() {
         if (item.optionSelections && Object.keys(item.optionSelections).length > 0) {
           const customizations = Object.entries(item.optionSelections)
             .map(([groupId, value]) => {
-              // Use group name if available, otherwise use group ID
-              const groupName = item.optionGroupNames?.[groupId] || groupId;
+              const groupName = optionGroupNames[groupId] || groupId;
               return `${groupName}: ${value}`;
             })
             .join(" | ");
-          itemText += `\n    ✓ ${customizations}`;
+          itemText += `\n    🎯 ${customizations}`;
         }
         
         return itemText;
       })
-      .join("\n  ");
+      .join("\n");
 
     // FIX: Use Env Variable
     const message = `
-  *New Order Placed!* 🛍️
-  ------------------
-  *Order No:* ${orderNumber}
-  *Total:* Rs. ${finalTotal.toFixed(2)} (Disc: Rs. ${discount})
-  *Payment:* ${finalTotal === 0 ? "FULL DISCOUNT" : paymentMethod.toUpperCase()}
-  *Txn ID:* ${transactionId || "N/A"}
+*New Order Placed!* 🛍️
+━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  *Customer Details:*
-  *UID:* ${user?.id || "Guest"}
-  *Name:* ${user?.full_name || "N/A"}
-  *Email:* ${deliveryDetails.contactEmail}
-  *Phone:* ${deliveryDetails.contactPhone}
+*Order Details:*
+📋 Order No: ${orderNumber}
+💰 Total: Rs. ${finalTotal.toFixed(2)} (Discount: Rs. ${discount})
+💳 Payment: ${finalTotal === 0 ? "✅ FULL DISCOUNT" : "🔄 " + paymentMethod.toUpperCase()}
+🔐 Txn ID: ${transactionId || "N/A"}
 
-  *Order Items:*
-  ${itemsList}
+*Customer Information:*
+👤 Name: ${user?.full_name || "N/A"}
+📧 Email: ${deliveryDetails.contactEmail}
+📱 Phone: ${deliveryDetails.contactPhone}
+🆔 User ID: ${user?.id || "Guest"}
 
-  I have placed an order. Please verify.
+*Order Items:*
+${itemsList}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Customer says: I have placed an order. Please verify.
       `.trim();
 
     const whatsappUrl = `https://wa.me/${ADMIN_PHONE_CLEAN}?text=${encodeURIComponent(

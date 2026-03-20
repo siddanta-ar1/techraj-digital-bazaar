@@ -68,6 +68,11 @@ export function PurchaseSection({
     setIsBuying(true);
 
     try {
+      // Always include PPOM selections if they exist, regardless of mode
+      const ppomData = ppomSelections && Object.keys(ppomSelections).length > 0 
+        ? { optionSelections: ppomSelections }
+        : {};
+
       if (isPPOMEnabled && !isLegacyEnabled) {
         // PPOM-only mode
         const variantName = Object.entries(ppomSelections)
@@ -81,12 +86,6 @@ export function PurchaseSection({
           .filter(Boolean)
           .join(" + ");
 
-        // Create mapping of group IDs to group names
-        const optionGroupNames: Record<string, string> = {};
-        optionGroups.forEach((pg: any) => {
-          optionGroupNames[pg.group_id] = pg.option_group?.name || pg.group_id;
-        });
-
         addItem({
           productId: product.id,
           productName: product.name,
@@ -95,11 +94,10 @@ export function PurchaseSection({
           price: ppomPrice,
           imageUrl: product.featured_image,
           combinationId: ppomCombinationId,
-          optionSelections: ppomSelections,
-          optionGroupNames: optionGroupNames,
+          ...ppomData,
         });
       } else if (activeVariant) {
-        // Legacy variant mode
+        // Legacy variant mode OR mixed mode with PPOM
         addItem({
           productId: product.id,
           productName: product.name,
@@ -107,6 +105,7 @@ export function PurchaseSection({
           variantName: activeVariant.variant_name || activeVariant.name,
           price: activeVariant.price,
           imageUrl: product.featured_image,
+          ...ppomData,  // Include PPOM data if it exists
         });
       } else {
         alert("Please select a package.");

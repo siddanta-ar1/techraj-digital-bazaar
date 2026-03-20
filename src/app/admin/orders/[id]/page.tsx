@@ -179,20 +179,26 @@ export default async function AdminOrderDetailPage({
                           parsedSelections = {};
                         }
 
-                        return Object.keys(parsedSelections).length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {Object.entries(parsedSelections).map(([groupId, value]: [string, any]) => {
-                              const groupName = optionGroupNames[groupId] || groupId;
-                              return (
-                                <span
-                                  key={groupId}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200"
-                                >
-                                  <span className="text-purple-500">{groupName}:</span>{" "}
-                                  {Array.isArray(value) ? value.join(", ") : String(value)}
-                                </span>
-                              );
-                            })}
+                        if (Object.keys(parsedSelections).length === 0) return null;
+
+                        return (
+                          <div className="mt-3 space-y-2">
+                            <p className="text-xs font-semibold text-indigo-600 uppercase tracking-widest">📋 Customer Customizations:</p>
+                            <div className="space-y-1.5">
+                              {Object.entries(parsedSelections).map(([groupId, value]: [string, any]) => {
+                                const groupName = optionGroupNames[groupId] || groupId;
+                                const displayValue = Array.isArray(value) ? value.join(", ") : String(value);
+                                return (
+                                  <div
+                                    key={groupId}
+                                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-blue-50 text-blue-900 border border-blue-200"
+                                  >
+                                    <span className="font-bold text-blue-700">{groupName}:</span>
+                                    <span className="text-blue-800">{displayValue}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         );
                       })()}

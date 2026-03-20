@@ -1,0 +1,156 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e5]:
+      - img [ref=e6]
+      - paragraph [ref=e9]: Welcome to our new digital store! 🚀
+    - generic [ref=e10]:
+      - navigation [ref=e11]:
+        - generic [ref=e13]:
+          - link "TECH RAJ .NP" [ref=e14] [cursor=pointer]:
+            - /url: /
+            - generic [ref=e15]: TECH
+            - generic [ref=e16]: RAJ
+            - generic [ref=e17]: .NP
+          - generic [ref=e20]:
+            - generic:
+              - img
+            - textbox "Search products (e.g. Netflix, Pubg...)" [ref=e21]
+          - generic [ref=e22]:
+            - link "Shop" [ref=e24] [cursor=pointer]:
+              - /url: /products
+            - link [ref=e25] [cursor=pointer]:
+              - /url: /cart
+              - img [ref=e26]
+            - link "Login" [ref=e30] [cursor=pointer]:
+              - /url: /login
+              - img [ref=e31]
+              - generic [ref=e34]: Login
+      - generic [ref=e37]:
+        - generic [ref=e38]:
+          - link "+977-9846908072" [ref=e39] [cursor=pointer]:
+            - /url: tel:+9779846908072
+            - img [ref=e40]
+            - generic [ref=e42]: +977-9846908072
+          - link "support@tronlinebazar.com" [ref=e43] [cursor=pointer]:
+            - /url: mailto:support@tronlinebazar.com
+            - img [ref=e44]
+            - generic [ref=e47]: support@tronlinebazar.com
+          - generic [ref=e48]:
+            - img [ref=e49]
+            - generic [ref=e52]: Bharatpur, Nepal
+        - link "WhatsApp Support" [ref=e54] [cursor=pointer]:
+          - /url: https://wa.me/9779846908072
+          - img [ref=e55]
+          - generic [ref=e57]: WhatsApp Support
+    - main [ref=e59]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - img [ref=e65]
+          - heading "Welcome Back" [level=2] [ref=e68]
+          - paragraph [ref=e69]: Sign in to Techraj
+        - generic [ref=e70]:
+          - generic [ref=e71]:
+            - generic [ref=e72]: Email Address
+            - generic [ref=e73]:
+              - img [ref=e74]
+              - textbox "Email Address" [ref=e77]:
+                - /placeholder: you@example.com
+          - generic [ref=e78]:
+            - generic [ref=e79]:
+              - generic [ref=e80]: Password
+              - link "Forgot password?" [ref=e81] [cursor=pointer]:
+                - /url: /forgot-password
+            - generic [ref=e82]:
+              - img [ref=e83]
+              - textbox "Password" [ref=e86]:
+                - /placeholder: ••••••••
+          - button "Sign in" [ref=e87]:
+            - text: Sign in
+            - img [ref=e88]
+          - generic [ref=e94]: Or continue with
+          - button "Continue with Google" [ref=e95]:
+            - img [ref=e96]
+            - generic [ref=e101]: Continue with Google
+          - generic [ref=e102]:
+            - text: Don't have an account?
+            - link "Create account" [ref=e103] [cursor=pointer]:
+              - /url: /register
+    - contentinfo [ref=e104]:
+      - generic [ref=e105]:
+        - generic [ref=e106]:
+          - generic [ref=e107]:
+            - generic [ref=e108]:
+              - generic [ref=e109]: TECH
+              - generic [ref=e110]: RAJ
+              - generic [ref=e111]: .NP
+            - paragraph [ref=e112]: Your premier digital platform for instant game top-ups, gift cards, virtual payments, and digital marketing services in Nepal.
+            - generic [ref=e113]:
+              - link [ref=e114] [cursor=pointer]:
+                - /url: https://facebook.com/profile.php?id=61569895337580
+                - img [ref=e115]
+              - link [ref=e117] [cursor=pointer]:
+                - /url: https://youtube.com/@techraj687
+                - img [ref=e118]
+              - link [ref=e121] [cursor=pointer]:
+                - /url: https://tronlinebazar.com
+                - img [ref=e122]
+          - generic [ref=e125]:
+            - heading "Contact Us" [level=4] [ref=e126]
+            - list [ref=e127]:
+              - listitem [ref=e128]:
+                - img [ref=e129]
+                - generic [ref=e132]: Bharatpur, Chitwan, Nepal
+              - listitem [ref=e133]:
+                - img [ref=e134]
+                - generic [ref=e136]: +977-9846908072
+              - listitem [ref=e137]:
+                - img [ref=e138]
+                - link "support@tronlinebazar.com" [ref=e141] [cursor=pointer]:
+                  - /url: mailto:support@tronlinebazar.com
+              - listitem [ref=e142]:
+                - generic [ref=e143]: Manager
+                - link "Raju Kandel" [ref=e144] [cursor=pointer]:
+                  - /url: https://www.facebook.com/kandelr687
+          - generic [ref=e145]:
+            - heading "Quick Links" [level=4] [ref=e146]
+            - list [ref=e147]:
+              - listitem [ref=e148]:
+                - link "Browse Shop" [ref=e149] [cursor=pointer]:
+                  - /url: /products
+              - listitem [ref=e150]:
+                - link "Game Codes" [ref=e151] [cursor=pointer]:
+                  - /url: /products?category=55555555-5555-5555-5555-555555555555
+              - listitem [ref=e152]:
+                - link "Gift Cards" [ref=e153] [cursor=pointer]:
+                  - /url: /products?category=22222222-2222-2222-2222-222222222222
+              - listitem [ref=e154]:
+                - link "My Dashboard" [ref=e155] [cursor=pointer]:
+                  - /url: /dashboard
+          - generic [ref=e156]:
+            - heading "Legal" [level=4] [ref=e157]
+            - list [ref=e158]:
+              - listitem [ref=e159]:
+                - link "Terms of Service" [ref=e160] [cursor=pointer]:
+                  - /url: /terms
+              - listitem [ref=e161]:
+                - link "Privacy Policy" [ref=e162] [cursor=pointer]:
+                  - /url: /privacy
+              - listitem [ref=e163]:
+                - link "Refund Policy / Request" [ref=e164] [cursor=pointer]:
+                  - /url: /refund
+              - listitem [ref=e165]:
+                - link "Follow on TikTok" [ref=e166] [cursor=pointer]:
+                  - /url: https://tiktok.com/@techraj687
+        - generic [ref=e167]:
+          - paragraph [ref=e168]: © 2026 Techraj Digital Bazar. All rights reserved.
+          - generic [ref=e169]:
+            - generic [ref=e170]: Secure Payment
+            - generic [ref=e171]: Instant Delivery
+            - generic [ref=e172]: 24/7 Support
+  - button "Open Next.js Dev Tools" [ref=e178] [cursor=pointer]:
+    - img [ref=e179]
+  - alert [ref=e182]
+```

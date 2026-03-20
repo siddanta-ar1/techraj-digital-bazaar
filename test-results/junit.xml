@@ -1,0 +1,81 @@
+<testsuites id="" name="" tests="3" failures="2" skipped="0" errors="0" time="31.714449000000002">
+<testsuite name="e2e/02-ppom/ppom-whatsapp.spec.ts" timestamp="2026-03-19T17:41:19.389Z" hostname="chromium" tests="3" failures="2" skipped="0" time="22.164" errors="0">
+<testcase name="PPOM WhatsApp Integration › Should display FreeFire UID in WhatsApp notification" classname="e2e/02-ppom/ppom-whatsapp.spec.ts" time="14.631">
+<failure message="ppom-whatsapp.spec.ts:15:7 Should display FreeFire UID in WhatsApp notification" type="FAILURE">
+<![CDATA[  [chromium] › e2e/02-ppom/ppom-whatsapp.spec.ts:15:7 › PPOM WhatsApp Integration › Should display FreeFire UID in WhatsApp notification 
+
+    Error: expect(received).toBeDefined()
+
+    Received: undefined
+
+      59 |     const cartItems = checkoutCartData as any[];
+      60 |     expect(cartItems.length).toBeGreaterThan(0);
+    > 61 |     expect(cartItems[0].optionSelections).toBeDefined();
+         |                                           ^
+      62 |     expect(cartItems[0].optionGroupNames).toBeDefined();
+      63 |
+      64 |     // Step 6: Fill checkout form
+        at /home/mac/techraj-digital-bazaar/tests/e2e/02-ppom/ppom-whatsapp.spec.ts:61:43
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/e2e-02-ppom-ppom-whatsapp--febb5-ID-in-WhatsApp-notification-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/e2e-02-ppom-ppom-whatsapp--febb5-ID-in-WhatsApp-notification-chromium/error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[Cart after adding UID: null
+Cart in checkout: [
+  {
+    "productId": "eeeeeeee-eeee-eeee-eeee-eeeeeeeeee02",
+    "productName": "Freefire Diamond (Direct UID Top-up)",
+    "variantId": "6badc133-b247-4879-9b4f-8f4cd0da2e6b",
+    "variantName": "💎 25",
+    "price": 25,
+    "imageUrl": "https://bayreevaezoccjcjxtex.supabase.co/storage/v1/object/public/products/product-images/1769309734327-hxwljnubcxf.png",
+    "id": "1773942095992_v9dxsbabe",
+    "quantity": 1
+  }
+]
+
+[[ATTACHMENT|e2e-02-ppom-ppom-whatsapp--febb5-ID-in-WhatsApp-notification-chromium/test-failed-1.png]]
+
+[[ATTACHMENT|e2e-02-ppom-ppom-whatsapp--febb5-ID-in-WhatsApp-notification-chromium/error-context.md]]
+]]>
+</system-out>
+</testcase>
+<testcase name="PPOM WhatsApp Integration › Should display multiple PPOM fields in WhatsApp" classname="e2e/02-ppom/ppom-whatsapp.spec.ts" time="4.331">
+</testcase>
+<testcase name="PPOM WhatsApp Integration › Admin panel should show PPOM customizations" classname="e2e/02-ppom/ppom-whatsapp.spec.ts" time="3.202">
+<failure message="ppom-whatsapp.spec.ts:190:7 Admin panel should show PPOM customizations" type="FAILURE">
+<![CDATA[  [chromium] › e2e/02-ppom/ppom-whatsapp.spec.ts:190:7 › PPOM WhatsApp Integration › Admin panel should show PPOM customizations 
+
+    Error: locator.count: Unexpected token "=" while parsing css selector "[class*='purple'], text=/\w+\s*:\s*\w+/". Did you mean to CSS.escape it?
+
+      201 |     const customizationBadges = await page.locator(
+      202 |       "[class*='purple'], text=/\\w+\\s*:\\s*\\w+/"
+    > 203 |     ).count();
+          |       ^
+      204 |
+      205 |     // Just verify page loads
+      206 |     const hasContent = await page.locator("body").isVisible();
+        at /home/mac/techraj-digital-bazaar/tests/e2e/02-ppom/ppom-whatsapp.spec.ts:203:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/e2e-02-ppom-ppom-whatsapp--4c936-ld-show-PPOM-customizations-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/e2e-02-ppom-ppom-whatsapp--4c936-ld-show-PPOM-customizations-chromium/error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|e2e-02-ppom-ppom-whatsapp--4c936-ld-show-PPOM-customizations-chromium/test-failed-1.png]]
+
+[[ATTACHMENT|e2e-02-ppom-ppom-whatsapp--4c936-ld-show-PPOM-customizations-chromium/error-context.md]]
+]]>
+</system-out>
+</testcase>
+</testsuite>
+</testsuites>
