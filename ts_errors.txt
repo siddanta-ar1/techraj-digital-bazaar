@@ -1,0 +1,25 @@
+src/app/(shop)/refund/page.tsx(14,27): error TS2339: Property 'getSession' does not exist on type 'SupabaseAuthClient'.
+src/app/admin/layout.tsx(16,27): error TS2339: Property 'getUser' does not exist on type 'SupabaseAuthClient'.
+src/app/admin/orders/page.tsx(25,27): error TS2339: Property 'getSession' does not exist on type 'SupabaseAuthClient'.
+src/app/admin/page.tsx(23,27): error TS2339: Property 'getSession' does not exist on type 'SupabaseAuthClient'.
+src/app/api/admin/orders/route.ts(14,29): error TS2339: Property 'getUser' does not exist on type 'SupabaseAuthClient'.
+src/app/api/admin/orders/route.ts(78,29): error TS2339: Property 'getUser' does not exist on type 'SupabaseAuthClient'.
+src/app/api/admin/wallet/topup-requests/route.ts(14,29): error TS2339: Property 'getUser' does not exist on type 'SupabaseAuthClient'.
+src/app/api/admin/wallet/topup-requests/route.ts(78,29): error TS2339: Property 'getUser' does not exist on type 'SupabaseAuthClient'.
+src/app/api/orders/create/route.ts(13,29): error TS2339: Property 'getUser' does not exist on type 'SupabaseAuthClient'.
+src/app/api/promo/validate/route.ts(12,29): error TS2339: Property 'getUser' does not exist on type 'SupabaseAuthClient'.
+src/app/api/wallet/topup/route.ts(13,29): error TS2339: Property 'getUser' does not exist on type 'SupabaseAuthClient'.
+src/app/api/wallet/topup/route.ts(106,29): error TS2339: Property 'getUser' does not exist on type 'SupabaseAuthClient'.
+src/app/api/wallet/transactions/route.ts(9,70): error TS2339: Property 'getUser' does not exist on type 'SupabaseAuthClient'.
+src/app/auth/callback/route.ts(21,27): error TS2339: Property 'exchangeCodeForSession' does not exist on type 'SupabaseAuthClient'.
+src/app/dashboard/layout.tsx(18,27): error TS2339: Property 'getSession' does not exist on type 'SupabaseAuthClient'.
+src/app/dashboard/orders/page.tsx(24,27): error TS2339: Property 'getSession' does not exist on type 'SupabaseAuthClient'.
+src/app/dashboard/page.tsx(22,27): error TS2339: Property 'getSession' does not exist on type 'SupabaseAuthClient'.
+src/app/dashboard/wallet/page.tsx(20,27): error TS2339: Property 'getSession' does not exist on type 'SupabaseAuthClient'.
+src/app/dashboard/wallet/topup/page.tsx(17,53): error TS2339: Property 'getSession' does not exist on type 'SupabaseAuthClient'.
+src/app/dashboard/wallet/transactions/page.tsx(17,27): error TS2339: Property 'getUser' does not exist on type 'SupabaseAuthClient'.
+src/components/dashboard/DashboardClientLayout.tsx(5,10): error TS2305: Module '"@supabase/supabase-js"' has no exported member 'Session'.
+src/components/dashboard/DashboardNav.tsx(18,15): error TS2305: Module '"@supabase/supabase-js"' has no exported member 'Session'.
+src/lib/providers/AuthProvider.tsx(4,15): error TS2305: Module '"@supabase/supabase-js"' has no exported member 'AuthChangeEvent'.
+src/lib/providers/AuthProvider.tsx(4,32): error TS2305: Module '"@supabase/supabase-js"' has no exported member 'Session'.
+src/proxy.ts(36,27): error TS2339: Property 'getSession' does not exist on type 'SupabaseAuthClient'.

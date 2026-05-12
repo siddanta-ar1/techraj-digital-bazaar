@@ -16,6 +16,8 @@ export function ProductCard({ product }: ProductCardProps) {
   const [addingToCart, setAddingToCart] = useState(false);
 
   const mainVariant = product.variants?.[0];
+  const isOutOfStock =
+    mainVariant?.stock_type === "limited" && mainVariant.stock_quantity <= 0;
   const hasDiscount =
     mainVariant?.original_price &&
     mainVariant.original_price > mainVariant.price;
@@ -119,11 +121,15 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
 
           <button
-            onClick={handleAddToCart}
-            disabled={
-              addingToCart || !mainVariant || mainVariant.stock_quantity === 0
-            }
-            className="bg-indigo-600 text-white p-2 md:p-2.5 rounded-lg md:rounded-xl hover:bg-indigo-700 disabled:bg-slate-300 transition-colors shadow-sm shadow-indigo-100 flex-shrink-0"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (isOutOfStock) return;
+              handleAddToCart(e);
+            }}
+            disabled={addingToCart || !mainVariant || isOutOfStock}
+            className="bg-indigo-600 text-white p-2 md:p-2.5 rounded-lg md:rounded-xl hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm shadow-indigo-100 flex-shrink-0 relative z-10"
+            aria-label={isOutOfStock ? "Out of stock" : "Add to cart"}
           >
             {addingToCart ? (
               <div className="w-4 h-4 md:w-5 md:h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

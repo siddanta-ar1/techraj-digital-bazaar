@@ -68,6 +68,10 @@ export function ProductDetail({ product }: ProductDetailProps) {
       )
     : 0;
 
+  const isOutOfStock =
+    selectedVariant?.stock_type === "limited" &&
+    selectedVariant.stock_quantity <= 0;
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
       {/* Left Column - Images */}
@@ -204,19 +208,19 @@ export function ProductDetail({ product }: ProductDetailProps) {
             </div>
             <button
               onClick={handleAddToCart}
-              disabled={!selectedVariant}
-              className="flex-1 bg-white border-2 border-slate-900 text-slate-900 font-bold rounded-xl py-3 hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
+              disabled={!selectedVariant || isOutOfStock}
+              className="flex-1 bg-white border-2 border-slate-900 text-slate-900 font-bold rounded-xl py-3 hover:bg-slate-50 disabled:border-slate-300 disabled:text-slate-400 disabled:bg-slate-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
             >
-              <ShoppingCart className="w-5 h-5" /> Add
+              <ShoppingCart className="w-5 h-5" /> {isOutOfStock ? "Out of Stock" : "Add"}
             </button>
           </div>
 
           <button
             onClick={handleBuyNow}
-            disabled={!selectedVariant}
-            className="w-full bg-indigo-600 text-white font-bold rounded-xl py-4 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
+            disabled={!selectedVariant || isOutOfStock}
+            className="w-full bg-indigo-600 text-white font-bold rounded-xl py-4 hover:bg-indigo-700 disabled:bg-slate-400 disabled:shadow-none disabled:cursor-not-allowed transition-all shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
           >
-            <Zap className="w-5 h-5" /> BUY NOW
+            <Zap className="w-5 h-5" /> {isOutOfStock ? "OUT OF STOCK" : "BUY NOW"}
           </button>
         </div>
 
