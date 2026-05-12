@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
 import { Loader2, ShoppingCart, Zap, AlertCircle } from "lucide-react";
 import { PPOMSelector } from "./PPOMSelector";
+import Modal from "@/components/ui/Modal";
 import type { OptionSelections } from "@/types/ppom";
 
 interface PurchaseSectionProps {
@@ -34,6 +35,7 @@ export function PurchaseSection({
   const [ppomReady, setPpomReady] = useState(false);
 
   const [isBuying, setIsBuying] = useState(false);
+  const [showOutOfStockModal, setShowOutOfStockModal] = useState(false);
 
   // Determine which mode to use
   const isPPOMEnabled = product.ppom_enabled && optionGroups.length > 0;
@@ -53,6 +55,15 @@ export function PurchaseSection({
   const activeVariant =
     variants.find((v: any) => v.id === selectedVariant) || variants[0];
 
+  // Helper function to check if variant is out of stock
+  const isVariantOutOfStock = (variant: any): boolean => {
+    if (!variant) return false;
+    return variant.stock_type === "limited" && variant.stock_quantity <= 0;
+  };
+
+  // Check if active variant is out of stock
+  const isActiveVariantOutOfStock = isVariantOutOfStock(activeVariant);
+
   const handlePPOMSelectionChange = (
     selections: OptionSelections,
     price: number,
@@ -65,6 +76,12 @@ export function PurchaseSection({
   };
 
   const handleBuyNow = async () => {
+    // Check for 0 stock before processing
+    if (isLegacyEnabled && hasVariants && isActiveVariantOutOfStock) {
+      setShowOutOfStockModal(true);
+      return;
+    }
+
     setIsBuying(true);
 
     try {
@@ -123,7 +140,7 @@ export function PurchaseSection({
 
   const hasVariants = variants && variants.length > 0;
   // PPOM is ready to buy if we have option groups (selections will be validated at buy time)
-  const canBuy = isPPOMEnabled ? (ppomReady || Object.keys(ppomSelections).length > 0) : hasVariants;
+  const canBuy = isPPOMEnabled ? (ppomReady || Object.keys(ppomSelections).length > 0) : (hasVariants && !isActiveVariantOutOfStock);
   const displayPrice = isPPOMEnabled && !isLegacyEnabled ? ppomPrice : activeVariant?.price;
 
   return (
@@ -171,14 +188,20 @@ export function PurchaseSection({
             </p>
 
             <div className="grid grid-cols-1 gap-3">
-              {variants.map((variant: any) => (
+              {variants.map((variant: any) => {
+                const variantOutOfStock = isVariantOutOfStock(variant);
+                return (
                 <button
                   key={variant.id}
-                  onClick={() => setSelectedVariant(variant.id)}
-                  className={`flex justify-between items-center p-4 rounded-xl border-2 transition-all text-left group ${selectedVariant === variant.id
-                    ? "border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-600"
-                    : "border-slate-100 hover:border-slate-300 bg-slate-50/30"
-                    }`}
+                  onClick={() => !variantOutOfStock && setSelectedVariant(variant.id)}
+                  disabled={variantOutOfStock}
+                  className={`flex justify-between items-center p-4 rounded-xl border-2 transition-all text-left group ${
+                    variantOutOfStock 
+                      ? "border-slate-200 bg-slate-100/50 opacity-50 cursor-not-allowed"
+                      : selectedVariant === variant.id
+                      ? "border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-600"
+                      : "border-slate-100 hover:border-slate-300 bg-slate-50/30"
+                  }`}
                 >
                   <div>
                     <span className="block font-bold text-slate-900 text-lg">
@@ -186,9 +209,12 @@ export function PurchaseSection({
                     </span>
                     <span className="text-xs font-medium text-slate-500">
                       {variant.variant_name || variant.name}
+                      {variantOutOfStock && (
+                        <span className="ml-2 text-red-600 font-semibold">OUT OF STOCK</span>
+                      )}
                     </span>
                   </div>
-                  {selectedVariant === variant.id ? (
+                  {!variantOutOfStock && selectedVariant === variant.id ? (
                     <div className="h-6 w-6 bg-indigo-600 rounded-full flex items-center justify-center text-white text-sm shadow-md shadow-indigo-200">
                       ✓
                     </div>
@@ -196,7 +222,8 @@ export function PurchaseSection({
                     <div className="h-6 w-6 rounded-full border-2 border-slate-200 group-hover:border-slate-300"></div>
                   )}
                 </button>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -229,6 +256,20 @@ export function PurchaseSection({
           Secure checkout powered by TechRaj
         </p>
       </div>
+
+      {/* Out of Stock Modal */}
+      <Modal
+        isOpen={showOutOfStockModal}
+        onClose={() => setShowOutOfStockModal(false)}
+        type="warning"
+        title="Out of Stock"
+        message="This product is currently out of stock and is not available for purchase."
+        confirmText="OK"
+        showConfirmButton={true}
+        onConfirm={() => setShowOutOfStockModal(false)}
+        autoClose={true}
+        autoCloseDelay={4000}
+      />
     </div>
   );
 }
