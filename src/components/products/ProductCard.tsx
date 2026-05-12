@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Product } from "@/types/product";
 import { useCart } from "@/contexts/CartContext";
 import { useState } from "react";
+import Modal from "@/components/ui/Modal";
 
 interface ProductCardProps {
   product: Product;
@@ -14,6 +15,7 @@ interface ProductCardProps {
 export function ProductCard({ product }: ProductCardProps) {
   const { addItem } = useCart();
   const [addingToCart, setAddingToCart] = useState(false);
+  const [showOutOfStockModal, setShowOutOfStockModal] = useState(false);
 
   const mainVariant = product.variants?.[0];
   const isOutOfStock =
@@ -34,6 +36,12 @@ export function ProductCard({ product }: ProductCardProps) {
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent navigation when clicking button
     if (!mainVariant) return;
+
+    // Check for 0 stock
+    if (isOutOfStock) {
+      setShowOutOfStockModal(true);
+      return;
+    }
 
     setAddingToCart(true);
     try {
@@ -139,6 +147,20 @@ export function ProductCard({ product }: ProductCardProps) {
           </button>
         </div>
       </div>
+
+      {/* Out of Stock Modal */}
+      <Modal
+        isOpen={showOutOfStockModal}
+        onClose={() => setShowOutOfStockModal(false)}
+        type="warning"
+        title="Out of Stock"
+        message="This product is currently out of stock and is not available for purchase."
+        confirmText="OK"
+        showConfirmButton={true}
+        onConfirm={() => setShowOutOfStockModal(false)}
+        autoClose={true}
+        autoCloseDelay={4000}
+      />
     </Link>
   );
 }

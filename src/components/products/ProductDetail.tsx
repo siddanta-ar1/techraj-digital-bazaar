@@ -13,6 +13,7 @@ import {
 import { Product } from "@/types/product";
 import { useCart } from "@/contexts/CartContext";
 import { ProductVariantSelector } from "./ProductVariantSelector";
+import Modal from "@/components/ui/Modal";
 
 interface ProductDetailProps {
   product: Product & {
@@ -35,6 +36,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
   const [selectedVariant, setSelectedVariant] = useState(product.variants?.[0]);
   const [quantity, setQuantity] = useState(1);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [showOutOfStockModal, setShowOutOfStockModal] = useState(false);
   const { addItem } = useCart();
   const router = useRouter();
 
@@ -45,6 +47,13 @@ export function ProductDetail({ product }: ProductDetailProps) {
 
   const handleAddToCart = () => {
     if (!selectedVariant) return;
+    
+    // Check for 0 stock
+    if (isOutOfStock) {
+      setShowOutOfStockModal(true);
+      return;
+    }
+    
     addItem({
       productId: product.id,
       productName: product.name,
@@ -56,6 +65,14 @@ export function ProductDetail({ product }: ProductDetailProps) {
   };
 
   const handleBuyNow = () => {
+    if (!selectedVariant) return;
+    
+    // Check for 0 stock
+    if (isOutOfStock) {
+      setShowOutOfStockModal(true);
+      return;
+    }
+    
     handleAddToCart();
     router.push("/checkout");
   };
@@ -233,6 +250,20 @@ export function ProductDetail({ product }: ProductDetailProps) {
           </div>
         </div>
       </div>
+
+      {/* Out of Stock Modal */}
+      <Modal
+        isOpen={showOutOfStockModal}
+        onClose={() => setShowOutOfStockModal(false)}
+        type="warning"
+        title="Out of Stock"
+        message="This product is currently out of stock and is not available for purchase."
+        confirmText="OK"
+        showConfirmButton={true}
+        onConfirm={() => setShowOutOfStockModal(false)}
+        autoClose={true}
+        autoCloseDelay={4000}
+      />
     </div>
   );
 }
