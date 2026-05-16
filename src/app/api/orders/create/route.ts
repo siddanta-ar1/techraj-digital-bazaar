@@ -16,86 +16,209 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 2. PARSE REQUEST
+    // 2. PARSE REQUEST — amounts are NOT accepted from the client; computed server-side below
     const orderData = await request.json();
     const {
       items,
       paymentMethod,
-      totalAmount,
-      discountAmount = 0,
-      finalAmount,
       deliveryDetails,
       paymentScreenshotUrl,
       paymentMeta,
       promoCode,
     } = orderData;
 
-    // 3. VALIDATE FINAL AMOUNTS (promo validation already done on frontend)
-    const calculatedFinalAmount = Math.max(
-      0,
-      Number(totalAmount) - Number(discountAmount),
-    );
-
-    // Security check: ensure frontend calculations match
-    if (Math.abs(calculatedFinalAmount - Number(finalAmount)) > 0.01) {
-      return NextResponse.json(
-        { error: "Invalid calculation detected" },
-        { status: 400 },
-      );
+    if (!Array.isArray(items) || items.length === 0) {
+      return NextResponse.json({ error: "Order must contain items" }, { status: 400 });
     }
 
-    // ---------------------------------------------------------
-    // 3.5 PROMO CODE & PRICE VALIDATION
-    // ---------------------------------------------------------
-    // We validate promo availability AND increment usage *before* creating the order.
-    // This reduces race conditions where multiple users use the last promo code at the same time.
+    if (!paymentMethod) {
+      return NextResponse.json({ error: "Payment method is required" }, { status: 400 });
+    }
 
-    let promoId = null;
-    let promoDiscount = 0;
+    // 3. FETCH AUTHORITATIVE PRICES FROM DB (never trust client-supplied price)
+    const variantIds: string[] = [...new Set(
+      items.map((i: any) => i.variantId).filter(Boolean),
+    )];
+    const combinationIds: string[] = [...new Set(
+      items.map((i: any) => i.combinationId).filter(Boolean),
+    )];
+
+    const [variantResult, combinationResult] = await Promise.all([
+      variantIds.length > 0
+        ? supabase
+            .from("product_variants")
+            .select("id, price, is_active, product_id")
+            .in("id", variantIds)
+        : Promise.resolve({ data: [] as any[], error: null }),
+      combinationIds.length > 0
+        ? supabase
+            .from("option_combinations")
+            .select("id, calculated_price, is_active, product_id")
+            .in("id", combinationIds)
+        : Promise.resolve({ data: [] as any[], error: null }),
+    ]);
+
+    if (variantResult.error) {
+      return NextResponse.json({ error: "Failed to verify product prices" }, { status: 500 });
+    }
+
+    const variantPriceMap = new Map(
+      (variantResult.data ?? []).map((v) => [v.id, v]),
+    );
+    const combinationPriceMap = new Map(
+      (combinationResult.data ?? []).map((c) => [c.id, c]),
+    );
+
+    // Resolve server-authoritative unit price for each item
+    type ResolvedItem = {
+      variantId: string;
+      combinationId: string | null;
+      quantity: number;
+      unitPrice: number;
+      productName: string;
+      variantName: string;
+      optionSelections: Record<string, string | string[]> | null;
+    };
+
+    const MAX_OPTION_SELECTIONS_BYTES = 2048;
+
+    const resolvedItems: ResolvedItem[] = [];
+    for (const item of items) {
+      if (!item.variantId || !Number.isInteger(item.quantity) || item.quantity < 1) {
+        return NextResponse.json(
+          { error: "Invalid item: missing variantId or quantity" },
+          { status: 400 },
+        );
+      }
+
+      const variant = variantPriceMap.get(item.variantId);
+      if (!variant || !variant.is_active) {
+        return NextResponse.json(
+          { error: "One or more products are unavailable" },
+          { status: 400 },
+        );
+      }
+
+      let combination = null;
+      if (item.combinationId) {
+        combination = combinationPriceMap.get(item.combinationId);
+        if (!combination) {
+          return NextResponse.json(
+            { error: "Invalid product configuration" },
+            { status: 400 },
+          );
+        }
+        // Verify the combination belongs to the same product as the variant.
+        // Without this, a user could pass a cheap combination from a different product.
+        if (combination.product_id !== variant.product_id) {
+          return NextResponse.json(
+            { error: "Invalid product configuration" },
+            { status: 400 },
+          );
+        }
+      }
+
+      // Validate optionSelections: must be a plain object, capped at 2 KB
+      let safeOptionSelections: Record<string, string | string[]> | null = null;
+      if (item.optionSelections != null) {
+        if (
+          typeof item.optionSelections !== "object" ||
+          Array.isArray(item.optionSelections)
+        ) {
+          return NextResponse.json({ error: "Invalid option selections" }, { status: 400 });
+        }
+        const serialized = JSON.stringify(item.optionSelections);
+        if (serialized.length > MAX_OPTION_SELECTIONS_BYTES) {
+          return NextResponse.json({ error: "Option selections too large" }, { status: 400 });
+        }
+        safeOptionSelections = item.optionSelections as Record<string, string | string[]>;
+      }
+
+      // combination price takes precedence; falls back to variant base price
+      const unitPrice = combination?.calculated_price ?? variant.price;
+
+      resolvedItems.push({
+        variantId: item.variantId,
+        combinationId: item.combinationId || null,
+        quantity: item.quantity,
+        unitPrice,
+        productName: typeof item.productName === "string" ? item.productName.slice(0, 200) : "Product",
+        variantName: typeof item.variantName === "string" ? item.variantName.slice(0, 200) : "Standard",
+        optionSelections: safeOptionSelections,
+      });
+    }
+
+    // Compute server-side total
+    const serverTotalAmount = resolvedItems.reduce(
+      (sum, i) => sum + i.unitPrice * i.quantity,
+      0,
+    );
+
+    // ---------------------------------------------------------
+    // 4. PROMO CODE — validate AND recompute discount server-side
+    // ---------------------------------------------------------
+    let promoId: string | null = null;
+    let serverDiscountAmount = 0;
 
     if (promoCode) {
-      // Fetch promo details
       const { data: promo, error: promoError } = await supabase
         .from("promo_codes")
-        .select("*")
-        .eq("code", promoCode.toUpperCase())
+        .select(
+          "id, discount_type, discount_value, min_order_amount, max_discount_amount, max_uses, current_uses, expires_at, is_active",
+        )
+        .eq("code", (promoCode as string).toUpperCase())
         .eq("is_active", true)
         .maybeSingle();
 
       if (promoError || !promo) {
-        // If user claimed a promo but it's invalid/inactive, we should fail or strip custom
         return NextResponse.json({ error: "Invalid or expired promo code" }, { status: 400 });
       }
-
-      // Check usage limits if applicable
+      if (promo.expires_at && new Date(promo.expires_at) < new Date()) {
+        return NextResponse.json({ error: "Promo code has expired" }, { status: 400 });
+      }
+      if (serverTotalAmount < (promo.min_order_amount || 0)) {
+        return NextResponse.json(
+          { error: `Minimum order of Rs. ${promo.min_order_amount} required` },
+          { status: 400 },
+        );
+      }
       if (promo.max_uses && promo.current_uses >= promo.max_uses) {
         return NextResponse.json({ error: "Promo code usage limit reached" }, { status: 400 });
       }
 
+      // Recompute discount server-side — never trust client value
+      if (promo.discount_type === "percentage") {
+        serverDiscountAmount = (serverTotalAmount * promo.discount_value) / 100;
+        if (promo.max_discount_amount) {
+          serverDiscountAmount = Math.min(serverDiscountAmount, promo.max_discount_amount);
+        }
+      } else {
+        serverDiscountAmount = promo.discount_value;
+      }
+      serverDiscountAmount = Math.min(serverDiscountAmount, serverTotalAmount);
+
       promoId = promo.id;
 
-      // OPTIONAL: Recalculate discount here for security (skipping for now to match strict instruction scope, but recommended)
-
-      // Increment Usage NOW
-      const { error: incrementError } = await supabase.rpc("increment_promo_usage", { promo_id: promoId });
+      // Increment usage before order creation to reduce race conditions
+      const { error: incrementError } = await supabase.rpc("increment_promo_usage", {
+        promo_id: promoId,
+      });
       if (incrementError) {
         return NextResponse.json({ error: "Failed to apply promo code" }, { status: 400 });
       }
     }
 
-    // Handle "Full Discount" (Zero Payment)
-    const isFullDiscount = Number(finalAmount) === 0;
+    const serverFinalAmount = Math.max(0, serverTotalAmount - serverDiscountAmount);
+
+    // 5. DERIVE PAYMENT STATE
+    const isFullDiscount = serverFinalAmount === 0;
     const effectivePaymentMethod = isFullDiscount ? "wallet" : paymentMethod;
 
-    // 4. GENERATE ORDER ID
-    const orderNumber = `TR-${Date.now()}-${Math.random()
-      .toString(36)
-      .substr(2, 4)
-      .toUpperCase()}`;
+    // 6. GENERATE ORDER ID
+    const orderNumber = `TR-${crypto.randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`;
     const orderId = crypto.randomUUID();
 
-
-    // 5. HANDLE INVENTORY CODE USAGE (if applicable)
+    // 7. HANDLE INVENTORY CODE USAGE (gift card applied as payment)
     if (paymentMeta?.usedProductCodeId) {
       const { error: markUsedError } = await supabase
         .from("product_codes")
@@ -108,55 +231,42 @@ export async function POST(request: Request) {
         .eq("is_used", false);
 
       if (markUsedError) {
-        // Rollback Promo
-        if (promoId) await supabase.rpc("decrement_promo_usage", { promo_id: promoId });
-
-        return NextResponse.json(
-          { error: "Gift card has already been used" },
-          { status: 400 },
-        );
+        if (promoId) {
+          const { error: rbPromo } = await supabase.rpc("decrement_promo_usage", { promo_id: promoId });
+          if (rbPromo) console.error("[rollback] decrement_promo_usage failed:", rbPromo.message);
+        }
+        return NextResponse.json({ error: "Gift card has already been used" }, { status: 400 });
       }
     }
 
-    // 6. WALLET PAYMENT DEDUCTION (If applicable)
+    // 8. WALLET PAYMENT DEDUCTION
     if (effectivePaymentMethod === "wallet" && !isFullDiscount) {
-      const { error: deductionError } = await supabase.rpc(
-        "deduct_wallet_balance",
-        {
-          user_id: user.id,
-          amount: Number(finalAmount),
-        },
-      );
+      const { error: deductionError } = await supabase.rpc("deduct_wallet_balance", {
+        user_id: user.id,
+        amount: serverFinalAmount,
+      });
 
       if (deductionError) {
-        // Rollback inventory code
         if (paymentMeta?.usedProductCodeId) {
-          await supabase
+          const { error: rbGift } = await supabase
             .from("product_codes")
-            .update({
-              is_used: false,
-              order_id: null,
-              used_at: null,
-            })
+            .update({ is_used: false, order_id: null, used_at: null })
             .eq("id", paymentMeta.usedProductCodeId);
+          if (rbGift) console.error("[rollback] gift card unmark failed:", rbGift.message);
         }
-        // Rollback Promo
-        if (promoId) await supabase.rpc("decrement_promo_usage", { promo_id: promoId });
-
+        if (promoId) {
+          const { error: rbPromo } = await supabase.rpc("decrement_promo_usage", { promo_id: promoId });
+          if (rbPromo) console.error("[rollback] decrement_promo_usage failed:", rbPromo.message);
+        }
         return NextResponse.json(
-          {
-            error:
-              deductionError.message ||
-              "Insufficient balance or payment failed",
-          },
+          { error: "Insufficient balance or payment failed" },
           { status: 400 },
         );
       }
 
-      // ... Wallet Transaction Insert ...
       await supabase.from("wallet_transactions").insert({
         user_id: user.id,
-        amount: Number(finalAmount),
+        amount: serverFinalAmount,
         type: "debit",
         transaction_type: "purchase",
         reference_id: orderId,
@@ -166,24 +276,18 @@ export async function POST(request: Request) {
     }
 
     // ---------------------------------------------------------
-    // ⚡ 7. ATOMIC DIGITAL DELIVERY SYSTEM
+    // 9. ATOMIC DIGITAL DELIVERY
     // ---------------------------------------------------------
-    // Only attempt auto-delivery if payment is confirmed (Wallet/Full Discount)
     const isInstantPayment = effectivePaymentMethod === "wallet";
+    const processedItems: any[] = [];
+    const emailItems: any[] = [];
 
-    // We will build a list of processed items to insert into DB
-    const processedItems = [];
-    // We will build a list of items WITH codes to send via Email
-    const emailItems = [];
-
-    for (const item of items) {
-      let assignedCode = null;
+    for (const item of resolvedItems) {
+      let assignedCode: string | null = null;
       let itemStatus = "pending";
 
-      // Try to find and atomically assign codes for this variant
       if (isInstantPayment) {
         try {
-          // Use a PostgreSQL function to atomically claim codes
           const { data: claimedCodes, error: claimError } = await supabase.rpc(
             "claim_product_codes_atomic",
             {
@@ -192,120 +296,98 @@ export async function POST(request: Request) {
               p_order_id: orderId,
             },
           );
-
-          if (
-            !claimError &&
-            claimedCodes &&
-            claimedCodes.length === item.quantity
-          ) {
+          if (!claimError && claimedCodes && claimedCodes.length === item.quantity) {
             assignedCode = claimedCodes.join(", ");
             itemStatus = "completed";
           }
-        } catch (error) {
-          console.error(
-            "Error claiming codes for variant",
-            item.variantId,
-            error,
-          );
-          // Continue with pending status if code assignment fails
+        } catch {
+          // Non-fatal: order proceeds with pending delivery
         }
       }
 
-      // Prepare item for DB
       processedItems.push({
         order_id: orderId,
         variant_id: item.variantId,
         quantity: item.quantity,
-        unit_price: item.price,
-        total_price: item.price * item.quantity,
+        unit_price: item.unitPrice,
+        total_price: item.unitPrice * item.quantity,
         status: itemStatus,
-        delivered_code: assignedCode, // Save code in history
-        // PPOM fields
-        combination_id: item.combinationId || null,
-        option_selections: item.optionSelections || null,
+        delivered_code: assignedCode,
+        combination_id: item.combinationId,
+        option_selections: item.optionSelections,
       });
 
-      // Prepare item for Email
       emailItems.push({
-        productName: item.productName || "Product",
-        variantName: item.variantName || "Standard",
+        productName: item.productName,
+        variantName: item.variantName,
         quantity: item.quantity,
-        delivered_code: assignedCode, // Email template checks this
-        optionSelections: item.optionSelections || null, // PPOM customizations
+        delivered_code: assignedCode,
+        optionSelections: item.optionSelections,
       });
     }
 
-    // Check if ALL items were delivered instantly
     const allDelivered = processedItems.every((i) => i.status === "completed");
+    const orderStatus = isInstantPayment && allDelivered ? "completed" : "pending";
 
-    // If Wallet payment AND all items delivered -> Order is Completed
-    // If Bank Transfer OR some items missing codes -> Order is Pending
-    const orderStatus =
-      isInstantPayment && allDelivered ? "completed" : "pending";
-
-    // 8. CREATE ORDER — use .select() to read back the DB-generated order_number
-    // (A database trigger may rewrite order_number to a different format)
-    const { data: createdOrder, error: orderError } = await supabase.from("orders").insert([
-      {
-        id: orderId,
-        order_number: orderNumber,
-        user_id: user.id,
-        total_amount: Number(totalAmount),
-        discount_amount: Number(discountAmount),
-        final_amount: Number(finalAmount),
-        promo_code: promoCode || null,
-        status: orderStatus,
-        payment_method: effectivePaymentMethod,
-        payment_status: isInstantPayment ? "paid" : "pending",
-        payment_screenshot_url: paymentScreenshotUrl,
-        delivery_details: {
-          ...deliveryDetails,
-          transaction_id: paymentMeta?.transactionId,
-          amount_paid: paymentMeta?.amountPaid,
+    // 10. CREATE ORDER
+    const { data: createdOrder, error: orderError } = await supabase
+      .from("orders")
+      .insert([
+        {
+          id: orderId,
+          order_number: orderNumber,
+          user_id: user.id,
+          total_amount: serverTotalAmount,
+          discount_amount: serverDiscountAmount,
+          final_amount: serverFinalAmount,
+          promo_code: promoCode || null,
+          status: orderStatus,
+          payment_method: effectivePaymentMethod,
+          payment_status: isInstantPayment ? "paid" : "pending",
+          payment_screenshot_url: paymentScreenshotUrl,
+          delivery_details: {
+            ...deliveryDetails,
+            transaction_id: paymentMeta?.transactionId,
+            amount_paid: paymentMeta?.amountPaid,
+          },
         },
-      },
-    ])
+      ])
       .select("order_number")
       .single();
 
-    // Rollback on order creation failure
     if (orderError) {
-      // Rollback wallet deduction
+      console.error("[order] insert failed:", orderError.message, "orderId:", orderId);
+      // Rollback wallet
       if (effectivePaymentMethod === "wallet" && !isFullDiscount) {
-        await supabase.rpc("increment_wallet", {
+        const { error: rbWallet } = await supabase.rpc("increment_wallet", {
           p_user_id: user.id,
-          p_amount: Number(finalAmount),
+          p_amount: serverFinalAmount,
         });
+        if (rbWallet) console.error("[rollback] increment_wallet failed — MANUAL RECOVERY NEEDED orderId:", orderId, rbWallet.message);
       }
-
-      // Rollback inventory code usage
+      // Rollback gift card
       if (paymentMeta?.usedProductCodeId) {
-        await supabase
+        const { error: rbGift } = await supabase
           .from("product_codes")
-          .update({
-            is_used: false,
-            order_id: null,
-            used_at: null,
-          })
+          .update({ is_used: false, order_id: null, used_at: null })
           .eq("id", paymentMeta.usedProductCodeId);
+        if (rbGift) console.error("[rollback] gift card unmark failed:", rbGift.message);
       }
-
-      // Rollback claimed product codes
-      await supabase
+      // Rollback claimed codes
+      const { error: rbCodes } = await supabase
         .from("product_codes")
-        .update({
-          is_used: false,
-          order_id: null,
-        })
+        .update({ is_used: false, order_id: null })
         .eq("order_id", orderId);
-
-      // Rollback Promo
-      if (promoId) await supabase.rpc("decrement_promo_usage", { promo_id: promoId });
-
-      throw new Error(orderError.message);
+      if (rbCodes) console.error("[rollback] product_codes unmark failed:", rbCodes.message);
+      // Rollback promo
+      if (promoId) {
+        const { error: rbPromo } = await supabase.rpc("decrement_promo_usage", { promo_id: promoId });
+        if (rbPromo) console.error("[rollback] decrement_promo_usage failed:", rbPromo.message);
+      }
+      throw new Error("Failed to create order");
     }
 
-    // 9. INSERT ORDER ITEMS
+    // 11. INSERT ORDER ITEMS
     const { error: itemsError } = await supabase
       .from("order_items")
       .insert(processedItems);
@@ -314,31 +396,24 @@ export async function POST(request: Request) {
       throw new Error("Failed to create order items");
     }
 
-    // 10. PROMO USAGE ALREADY HANDLED AT STEP 3.5
-
-    // Use the DB-generated order_number (may differ from the JS-generated one due to DB trigger)
     const finalOrderNumber = createdOrder?.order_number || orderNumber;
 
-    // 11. SEND EMAIL (Now with codes!)
+    // 12. SEND EMAIL
     if (user.email) {
-      // We pass 'emailItems' which contains 'delivered_code'
-      await sendOrderEmail(user.email, finalOrderNumber, finalAmount, emailItems);
+      await sendOrderEmail(user.email, finalOrderNumber, serverFinalAmount, emailItems);
     }
 
     return NextResponse.json({
       success: true,
       orderId,
       orderNumber: finalOrderNumber,
-      finalAmount: Number(finalAmount),
-      discountAmount: Number(discountAmount),
+      finalAmount: serverFinalAmount,
+      discountAmount: serverDiscountAmount,
       paymentStatus: isInstantPayment ? "paid" : "pending",
-      orderStatus: orderStatus,
+      orderStatus,
     });
   } catch (error: any) {
     console.error("Order creation error:", error);
-    return NextResponse.json(
-      { error: error.message || "Failed to create order" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
   }
 }

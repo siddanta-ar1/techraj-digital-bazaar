@@ -87,11 +87,8 @@ export async function POST(request: Request) {
       message: "Top-up request submitted successfully",
     });
   } catch (error: any) {
-    console.error("Top-up request error:", error);
-    return NextResponse.json(
-      { error: error.message || "Failed to create top-up request" },
-      { status: 500 },
-    );
+    console.error("[wallet/topup] POST error:", error.message);
+    return NextResponse.json({ error: "Failed to create top-up request" }, { status: 500 });
   }
 }
 
@@ -135,9 +132,7 @@ export async function GET(request: Request) {
       totalPages: Math.ceil((count || 0) / limit),
     });
   } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || "Failed to fetch top-up requests" },
-      { status: 500 },
-    );
+    console.error("[wallet/topup] GET error:", error.message);
+    return NextResponse.json({ error: "Failed to fetch top-up requests" }, { status: 500 });
   }
 }

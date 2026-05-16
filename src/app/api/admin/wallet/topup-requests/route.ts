@@ -12,19 +12,10 @@ export async function GET(request: Request) {
       data: { user: authUser },
       error: authError,
     } = await supabase.auth.getUser();
-    if (authError || !authUser) {
+    if (authError || !authUser)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { data: dbUser } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", authUser.id)
-      .single();
-
-    if (dbUser?.role !== "admin") {
+    if (authUser.app_metadata?.role !== "admin")
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
@@ -60,10 +51,8 @@ export async function GET(request: Request) {
       totalPages: Math.ceil((count || 0) / limit),
     });
   } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || "Failed to fetch top-up requests" },
-      { status: 500 },
-    );
+    console.error("[admin/wallet/topup] GET error:", error.message);
+    return NextResponse.json({ error: "Failed to fetch top-up requests" }, { status: 500 });
   }
 }
 
@@ -76,19 +65,10 @@ export async function POST(request: Request) {
       data: { user: authUser },
       error: authError,
     } = await supabase.auth.getUser();
-    if (authError || !authUser) {
+    if (authError || !authUser)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { data: dbUser } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", authUser.id)
-      .single();
-
-    if (dbUser?.role !== "admin") {
+    if (authUser.app_metadata?.role !== "admin")
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
 
     const { requestId, action, adminNotes } = await request.json();
 
@@ -168,10 +148,7 @@ export async function POST(request: Request) {
       message: `Top-up request ${action}d successfully`,
     });
   } catch (error: any) {
-    console.error("Top-up action error:", error);
-    return NextResponse.json(
-      { error: error.message || "Failed to process top-up request" },
-      { status: 500 },
-    );
+    console.error("[admin/wallet/topup] POST error:", error.message);
+    return NextResponse.json({ error: "Failed to process top-up request" }, { status: 500 });
   }
 }

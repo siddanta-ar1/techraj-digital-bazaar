@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# build & debug artifacts
+*.log
+ts_errors.txt
+test-results/
+playwright-report/
+
+# ad-hoc scripts (should never be committed)
+check_db.js
+run-*.js

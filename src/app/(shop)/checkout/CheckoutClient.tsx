@@ -331,18 +331,14 @@ ${itemsList}
 
       const orderPayload = {
         items: items.map((item) => ({
-          productId: item.productId,
           variantId: item.variantId,
-          price: item.price,
           quantity: item.quantity,
-          // PPOM fields
           combinationId: item.combinationId || null,
           optionSelections: item.optionSelections || null,
+          productName: item.productName,
           variantName: item.variantName,
         })),
         paymentMethod: finalTotal === 0 ? "wallet" : paymentMethod,
-        totalAmount: totalPrice,
-        discountAmount: discount,
         promoCode: isPromoApplied ? promoCode : null,
         finalAmount: finalTotal,
         deliveryDetails: {

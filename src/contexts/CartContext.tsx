@@ -40,17 +40,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   // Load cart from localStorage on mount
   useEffect(() => {
-    const savedCart = localStorage.getItem("tronlinebazar_cart");
+    const CART_KEY = "techraj_cart";
+    const LEGACY_KEY = "tronlinebazar_cart";
+
+    // Migrate from old brand key if present
+    const legacy = localStorage.getItem(LEGACY_KEY);
+    if (legacy) {
+      localStorage.setItem(CART_KEY, legacy);
+      localStorage.removeItem(LEGACY_KEY);
+    }
+
+    const savedCart = localStorage.getItem(CART_KEY);
     if (savedCart) {
       try {
         const parsedItems = JSON.parse(savedCart);
         if (Array.isArray(parsedItems)) {
           setItems(parsedItems);
         }
-      } catch (error) {
-        console.error("Failed to load cart from localStorage:", error);
-        // Clear corrupted data
-        localStorage.removeItem("tronlinebazar_cart");
+      } catch {
+        localStorage.removeItem(CART_KEY);
       }
     }
     setIsInitialized(true);
@@ -60,7 +68,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const saveToStorage = (newItems: CartItem[]) => {
     if (typeof window !== "undefined" && isInitialized) {
       try {
-        localStorage.setItem("tronlinebazar_cart", JSON.stringify(newItems));
+        localStorage.setItem("techraj_cart", JSON.stringify(newItems));
       } catch (error) {
         console.error("Failed to save cart to localStorage:", error);
       }

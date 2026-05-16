@@ -1,68 +1,67 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient as createServerClient } from "@/lib/supabase/server";
+import { createClient as createAdminSupabase } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
+const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+
 export async function POST(request: Request) {
-    try {
-        const formData = await request.formData();
-        const file = formData.get("file") as File;
-        const path = formData.get("path") as string; // Expecting 'payment-screenshots/filename' or just filename
+  try {
+    // Auth check — must be logged in to upload
+    const supabaseUser = await createServerClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseUser.auth.getUser();
 
-        if (!file) {
-            return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
-        }
-
-        // Use Service Role to bypass RLS for uploads
-        // This is critical because the "new row violates row-level security policy" indicates the user cannot upload directly.
-
-        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-        if (!serviceRoleKey) {
-            // Fallback to auth-user client, but this is likely what failed on frontend.
-            // We will try anyway, but log warning.
-            console.warn("SUPABASE_SERVICE_ROLE_KEY not found, using user session client");
-        }
-
-        let supabase;
-        if (serviceRoleKey) {
-            const { createClient: createClientSupabase } = require("@supabase/supabase-js");
-            supabase = createClientSupabase(
-                process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                serviceRoleKey
-            );
-        } else {
-            supabase = await createClient();
-        }
-
-        const fileExt = file.name.split(".").pop();
-        const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
-        // We upload to "payment-screenshots" bucket.
-        // The path argument from frontend is not trusted blindly, we construct a safe path.
-        // But we can let the frontend verify the bucket? Best to hardcode bucket here.
-        const bucket = "payment-screenshots";
-        const filePath = fileName;
-
-        const fileBuffer = await file.arrayBuffer();
-
-        const { data, error } = await supabase.storage
-            .from(bucket)
-            .upload(filePath, fileBuffer, {
-                contentType: file.type,
-                upsert: false
-            });
-
-        if (error) {
-            throw error;
-        }
-
-        const { data: { publicUrl } } = supabase.storage
-            .from(bucket)
-            .getPublicUrl(filePath);
-
-        return NextResponse.json({ url: publicUrl });
-    } catch (error: any) {
-        console.error("Upload error:", error);
-        return NextResponse.json(
-            { error: error.message || "Failed to upload file" },
-            { status: 500 }
-        );
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const formData = await request.formData();
+    const file = formData.get("file") as File | null;
+
+    if (!file) {
+      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+    }
+    if (!ALLOWED_MIME_TYPES.has(file.type)) {
+      return NextResponse.json({ error: "Only JPEG, PNG, WebP and GIF are allowed" }, { status: 400 });
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json({ error: "File exceeds 5 MB limit" }, { status: 400 });
+    }
+
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!serviceRoleKey) {
+      console.error("[upload] SUPABASE_SERVICE_ROLE_KEY is not set");
+      return NextResponse.json({ error: "Upload service unavailable" }, { status: 500 });
+    }
+
+    const supabase = createAdminSupabase(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      serviceRoleKey,
+    );
+
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+    const filePath = `${user.id}/${crypto.randomUUID()}.${ext}`;
+    const fileBuffer = await file.arrayBuffer();
+
+    const { error: uploadError } = await supabase.storage
+      .from("payment-screenshots")
+      .upload(filePath, fileBuffer, { contentType: file.type, upsert: false });
+
+    if (uploadError) {
+      console.error("[upload] storage error:", uploadError.message);
+      return NextResponse.json({ error: "Failed to upload file" }, { status: 500 });
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("payment-screenshots").getPublicUrl(filePath);
+
+    return NextResponse.json({ url: publicUrl });
+  } catch (error: any) {
+    console.error("[upload] unexpected error:", error.message);
+    return NextResponse.json({ error: "Failed to upload file" }, { status: 500 });
+  }
 }

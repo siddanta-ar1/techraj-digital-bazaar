@@ -14,13 +14,7 @@ export async function GET(request: Request) {
     } = await supabase.auth.getUser();
     if (authError || !user)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const { data: dbUser } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-    if (dbUser?.role !== "admin")
+    if (user.app_metadata?.role !== "admin")
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     // Parameters
@@ -49,7 +43,8 @@ export async function GET(request: Request) {
 
     // Note: Complex OR searches across joined tables require a specific syntax in Supabase
     if (search) {
-      query = query.or(`order_number.ilike.%${search}%`);
+      const safeSearch = String(search).slice(0, 100);
+      query = query.or(`order_number.ilike.%${safeSearch}%`);
     }
 
     const { data: orders, error, count } = await query;
@@ -63,7 +58,8 @@ export async function GET(request: Request) {
       totalPages: Math.ceil((count || 0) / limit),
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/orders] GET error:", error.message);
+    return NextResponse.json({ error: "Failed to fetch orders" }, { status: 500 });
   }
 }
 
@@ -77,20 +73,10 @@ export async function PATCH(request: Request) {
       error: authError,
     } = await supabase.auth.getUser();
 
-    if (authError || !authUser) {
+    if (authError || !authUser)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Check admin role
-    const { data: userData } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", authUser.id)
-      .single();
-
-    if (userData?.role !== "admin") {
+    if (authUser.app_metadata?.role !== "admin")
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
 
     const { orderId, updates } = await request.json();
 
@@ -159,10 +145,7 @@ export async function PATCH(request: Request) {
       message: "Order updated successfully",
     });
   } catch (error: any) {
-    console.error("Order update error:", error);
-    return NextResponse.json(
-      { error: error.message || "Failed to update order" },
-      { status: 500 },
-    );
+    console.error("[admin/orders] PATCH error:", error.message);
+    return NextResponse.json({ error: "Failed to update order" }, { status: 500 });
   }
 }

@@ -25,9 +25,7 @@ export async function GET() {
 
     return NextResponse.json({ categories: categoriesWithCount })
   } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch categories' },
-      { status: 500 }
-    )
+    console.error("[categories] GET error:", error.message);
+    return NextResponse.json({ error: "Failed to fetch categories" }, { status: 500 });
   }
 }

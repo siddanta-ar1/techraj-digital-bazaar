@@ -46,8 +46,9 @@ export async function GET(request: Request) {
     })
 
   } catch (error: any) {
+    console.error("[wallet/transactions] GET error:", error.message);
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch transactions' },
+      { error: "Failed to fetch transactions" },
       { status: 500 }
     )
   }

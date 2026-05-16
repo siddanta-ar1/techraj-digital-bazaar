@@ -15,20 +15,8 @@ export default async function AdminLayout({
     error,
   } = await supabase.auth.getUser();
 
-  if (error || !user) {
-    redirect("/login");
-  }
-
-  // Check role
-  const { data: dbUser } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (dbUser?.role !== "admin") {
-    redirect("/dashboard");
-  }
+  if (error || !user) redirect("/login");
+  if (user.app_metadata?.role !== "admin") redirect("/dashboard");
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
