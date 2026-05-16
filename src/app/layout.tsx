@@ -31,6 +31,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
+        suppressHydrationWarning
         className={`${inter.variable} ${poppins.variable} font-sans min-h-screen bg-slate-50 text-slate-900`}
       >
         {/* Wrap the entire app content in the Providers component */}
