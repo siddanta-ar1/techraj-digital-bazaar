@@ -2,6 +2,54 @@ import { createClient } from "@/lib/supabase/server"; // <--- FIXED IMPORT
 import { ProductGrid } from "@/components/products/ProductGrid";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: {
+    absolute: "Techraj Digital Shop – Buy Digital Products in Nepal",
+  },
+  description:
+    "Techraj Digital Shop (techrajshop.com) – Nepal's trusted marketplace for PUBG UC, Freefire Diamonds, Netflix, Steam Gift Cards and 100+ instant digital products.",
+  alternates: { canonical: "https://techrajshop.com" },
+  openGraph: {
+    title: "Techraj Digital Shop – Buy Digital Products in Nepal",
+    description:
+      "Nepal's trusted marketplace for PUBG UC, Freefire Diamonds, Netflix, Steam Gift Cards and 100+ instant digital products.",
+    url: "https://techrajshop.com",
+  },
+};
+
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://techrajshop.com/#organization",
+      name: "Techraj Digital Shop",
+      alternateName: "Techraj",
+      url: "https://techrajshop.com",
+      description:
+        "Nepal's trusted digital products store offering PUBG UC, Freefire Diamonds, Netflix, Steam Gift Cards and 100+ instant digital products.",
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://techrajshop.com/#website",
+      url: "https://techrajshop.com",
+      name: "Techraj Digital Shop",
+      alternateName: "Techraj",
+      publisher: { "@id": "https://techrajshop.com/#organization" },
+      potentialAction: {
+        "@type": "SearchAction",
+        target: {
+          "@type": "EntryPoint",
+          urlTemplate:
+            "https://techrajshop.com/products?search={search_term_string}",
+        },
+        "query-input": "required name=search_term_string",
+      },
+    },
+  ],
+};
 
 export default async function HomePage() {
   // 1. Initialize the Supabase client for this request
@@ -46,7 +94,39 @@ export default async function HomePage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Minimal Hero Section */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+      />
+
+      {/* Brand hero — H1 for SEO */}
+      <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 text-white py-12 md:py-16">
+        <div className="container mx-auto px-4 text-center">
+          <h1 className="text-3xl md:text-5xl font-extrabold mb-3 tracking-tight">
+            Techraj Digital Shop
+          </h1>
+          <p className="text-slate-300 text-base md:text-lg max-w-2xl mx-auto mb-6">
+            Nepal&apos;s trusted marketplace for PUBG UC, Freefire Diamonds,
+            Netflix, Steam Gift Cards &amp; 100+ instant digital products
+          </p>
+          <div className="flex justify-center gap-3 flex-wrap">
+            <Link
+              href="/products"
+              className="px-7 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition-colors text-sm"
+            >
+              Shop Now
+            </Link>
+            <Link
+              href="#featured"
+              className="px-7 py-2.5 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-lg transition-colors border border-white/20 text-sm"
+            >
+              Featured Products
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Original Minimal Hero Section (kept for reference) */}
       {/* <section className="relative bg-gradient-to-br from-slate-900 to-indigo-900 text-white py-16">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">

@@ -2,6 +2,20 @@ import { ProductGrid } from "@/components/products/ProductGrid";
 import { createClient } from "@/lib/supabase/server";
 import { CategoryFilter } from "@/components/products/CategoryFilter";
 import { Search, ShieldCheck, Zap, Globe } from "lucide-react";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "All Digital Products",
+  description:
+    "Browse 100+ digital products at Techraj Digital Shop – PUBG UC, Freefire Diamonds, Netflix, Steam Gift Cards, game vouchers and more. Instant delivery in Nepal.",
+  alternates: { canonical: "https://techrajshop.com/products" },
+  openGraph: {
+    title: "All Digital Products | Techraj Digital Shop",
+    description:
+      "Browse 100+ instant digital products – game top-ups, gift cards, streaming subscriptions and more at techrajshop.com.",
+    url: "https://techrajshop.com/products",
+  },
+};
 
 export default async function ProductsPage({
   searchParams,

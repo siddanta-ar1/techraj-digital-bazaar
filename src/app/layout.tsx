@@ -18,9 +18,55 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Techraj Digital Bazar - Digital Products & Services",
+  metadataBase: new URL("https://techrajshop.com"),
+  title: {
+    default: "Techraj Digital Shop – Buy Digital Products in Nepal",
+    template: "%s | Techraj",
+  },
   description:
-    "Your trusted platform for digital products, game codes, and online services in Nepal.",
+    "Techraj Digital Shop (techrajshop.com) – Nepal's trusted store for PUBG UC, Freefire Diamonds, Netflix, Steam Gift Cards and 100+ instant digital products. Fast delivery, secure payment.",
+  keywords: [
+    "techraj",
+    "techrajshop",
+    "techraj digital shop",
+    "techrajshop.com",
+    "digital products nepal",
+    "pubg uc nepal",
+    "freefire diamonds nepal",
+    "game top up nepal",
+    "steam gift card nepal",
+    "netflix nepal",
+    "instant digital delivery nepal",
+    "buy digital products nepal",
+  ],
+  authors: [{ name: "Techraj Digital Shop", url: "https://techrajshop.com" }],
+  creator: "Techraj Digital Shop",
+  publisher: "Techraj Digital Shop",
+  robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
+  openGraph: {
+    type: "website",
+    locale: "en_NP",
+    url: "https://techrajshop.com",
+    siteName: "Techraj Digital Shop",
+    title: "Techraj Digital Shop – Buy Digital Products in Nepal",
+    description:
+      "Nepal's trusted store for PUBG UC, Freefire Diamonds, Netflix, Steam Gift Cards and 100+ instant digital products. Instant delivery.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Techraj Digital Shop – Nepal's Digital Products Store",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Techraj Digital Shop – Digital Products Nepal",
+    description:
+      "Nepal's trusted store for PUBG UC, Freefire Diamonds, Netflix & 100+ instant digital products.",
+    images: ["/og-image.png"],
+  },
 };
 
 export default function RootLayout({
@@ -34,6 +80,8 @@ export default function RootLayout({
         suppressHydrationWarning
         className={`${inter.variable} ${poppins.variable} font-sans min-h-screen bg-slate-50 text-slate-900`}
       >
+        {/* Strip browser-extension attributes (e.g. bis_skin_checked) before React hydrates */}
+        <script dangerouslySetInnerHTML={{__html: `(function(){var o=new MutationObserver(function(m){m.forEach(function(r){if(r.attributeName&&r.attributeName.startsWith('bis_'))r.target.removeAttribute(r.attributeName)})});o.observe(document.documentElement,{attributes:true,subtree:true,attributeFilter:['bis_skin_checked','bis_register']});document.querySelectorAll('[bis_skin_checked],[bis_register]').forEach(function(el){el.removeAttribute('bis_skin_checked');el.removeAttribute('bis_register')})})()`}} />
         {/* Wrap the entire app content in the Providers component */}
         <Providers>
           <div className="flex min-h-screen flex-col">

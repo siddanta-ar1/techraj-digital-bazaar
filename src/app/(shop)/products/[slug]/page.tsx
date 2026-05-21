@@ -13,14 +13,35 @@ export async function generateMetadata({
   const supabase = await createClient();
   const { data: product } = await supabase
     .from("products")
-    .select("name, description")
+    .select("name, description, featured_image, slug")
     .eq("slug", slug)
     .eq("is_active", true)
     .single();
   if (!product) return { title: "Product Not Found" };
+
+  const description =
+    product.description?.substring(0, 155) ??
+    `Buy ${product.name} in Nepal with instant delivery at Techraj Digital Shop.`;
+
   return {
-    title: `${product.name} - Techraj Digital Bazar`,
-    description: product.description?.substring(0, 160),
+    title: product.name,
+    description,
+    alternates: { canonical: `https://techrajshop.com/products/${slug}` },
+    openGraph: {
+      title: `${product.name} | Techraj Digital Shop`,
+      description,
+      url: `https://techrajshop.com/products/${slug}`,
+      images: product.featured_image
+        ? [{ url: product.featured_image, alt: product.name }]
+        : [
+            {
+              url: "/og-image.png",
+              width: 1200,
+              height: 630,
+              alt: `${product.name} – Techraj Digital Shop`,
+            },
+          ],
+    },
   };
 }
 
@@ -85,8 +106,37 @@ export default async function ProductPage({
   const sortedVariants =
     product.variants?.sort((a: any, b: any) => a.price - b.price) || [];
 
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    description: product.description || product.name,
+    image: product.featured_image,
+    url: `https://techrajshop.com/products/${product.slug}`,
+    brand: {
+      "@type": "Brand",
+      name: "Techraj Digital Shop",
+    },
+    offers: {
+      "@type": "AggregateOffer",
+      priceCurrency: "NPR",
+      lowPrice: sortedVariants[0]?.price,
+      offerCount: sortedVariants.length,
+      availability: "https://schema.org/InStock",
+      seller: {
+        "@type": "Organization",
+        name: "Techraj Digital Shop",
+        url: "https://techrajshop.com",
+      },
+    },
+  };
+
   return (
     <div className="min-h-screen bg-[#f8fafc]">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+      />
       <div className="max-w-7xl mx-auto p-4 lg:p-8">
         <div className="mb-8">
           <Breadcrumb category={product.category} product={product} />
