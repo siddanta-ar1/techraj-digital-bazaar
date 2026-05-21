@@ -16,6 +16,7 @@ export type User = {
   id: string;
   email: string;
   full_name?: string;
+  avatar_url?: string;
   wallet_balance: number;
   role: "user" | "admin";
   phone?: string;
@@ -91,12 +92,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await supabase.auth.signOut();
           setUser(null);
         } else {
+          // Use JWT app_metadata.role as primary source — it matches what middleware
+          // enforces, so the nav only shows the admin link when the middleware allows it.
+          const jwtRole = authUser.app_metadata?.role as "user" | "admin" | undefined;
           setUser({
             id: data.id,
             email: data.email,
             full_name: data.full_name || authUser.user_metadata?.full_name || authUser.email?.split("@")[0],
+            avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || undefined,
             wallet_balance: data.wallet_balance ?? 0,
-            role: data.role || "user",
+            role: jwtRole || data.role || "user",
             phone: data.phone,
             is_synced: true,
           });
@@ -119,8 +124,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
-      console.log("Auth event:", event);
-
       // Handle INITIAL_SESSION for new tabs with existing sessions
       if (event === "INITIAL_SESSION") {
         if (session?.user && !user) {

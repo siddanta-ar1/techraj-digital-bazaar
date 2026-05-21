@@ -10,6 +10,7 @@ import {
   User,
   LogOut,
   ChevronRight,
+  LayoutDashboard,
 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/lib/providers/AuthProvider";
@@ -97,9 +98,18 @@ export function MobileHeader() {
             {user ? (
               <div className="p-5 bg-indigo-50/50 border-b border-indigo-100">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md shadow-indigo-200">
-                    {user.full_name?.charAt(0) ||
-                      user.email.charAt(0).toUpperCase()}
+                  <div className="w-12 h-12 bg-indigo-600 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-lg shadow-md shadow-indigo-200">
+                    {user.avatar_url ? (
+                      <img
+                        src={user.avatar_url}
+                        alt={user.full_name || user.email}
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      user.full_name?.charAt(0) ||
+                      user.email.charAt(0).toUpperCase()
+                    )}
                   </div>
                   <div className="overflow-hidden">
                     <p className="font-bold text-slate-900 truncate">
@@ -152,6 +162,26 @@ export function MobileHeader() {
             )}
 
             <div className="p-4 space-y-1">
+              {user?.role === "admin" && (
+                <>
+                  <p className="px-4 py-2 text-xs font-bold text-indigo-400 uppercase tracking-wider">
+                    Admin
+                  </p>
+                  <Link
+                    href="/admin"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center justify-between px-4 py-3 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors font-semibold"
+                  >
+                    <span className="flex items-center gap-2">
+                      <LayoutDashboard className="w-4 h-4" />
+                      Admin Panel
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-indigo-400" />
+                  </Link>
+                  <div className="h-px bg-slate-100 my-2" />
+                </>
+              )}
+
               <p className="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
                 Browse
               </p>

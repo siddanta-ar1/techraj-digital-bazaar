@@ -89,9 +89,18 @@ export function MainNav() {
                   onClick={() => setUserDropdown(!userDropdown)}
                   className="flex items-center gap-2 hover:bg-slate-50 py-1 pr-2 pl-1 rounded-full border border-transparent hover:border-slate-200 transition-all"
                 >
-                  <div className="w-8 h-8 md:w-9 md:h-9 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-bold border-2 border-indigo-50">
-                    {user.full_name?.charAt(0) ||
-                      user.email.charAt(0).toUpperCase()}
+                  <div className="w-8 h-8 md:w-9 md:h-9 bg-indigo-100 rounded-full overflow-hidden flex items-center justify-center text-indigo-700 font-bold border-2 border-indigo-50">
+                    {user.avatar_url ? (
+                      <img
+                        src={user.avatar_url}
+                        alt={user.full_name || user.email}
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      user.full_name?.charAt(0) ||
+                      user.email.charAt(0).toUpperCase()
+                    )}
                   </div>
                   <ChevronDown
                     className={`hidden md:block w-4 h-4 text-slate-400 transition-transform ${userDropdown ? "rotate-180" : ""}`}

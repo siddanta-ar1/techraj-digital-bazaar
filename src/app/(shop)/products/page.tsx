@@ -20,9 +20,9 @@ export const metadata: Metadata = {
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string }>;
+  searchParams: Promise<{ category?: string; search?: string }>;
 }) {
-  const { category } = await searchParams; // Get the category ID from the URL
+  const { category, search } = await searchParams;
   const supabase = await createClient();
 
   // 1. Fetch Categories for the sidebar
@@ -44,24 +44,44 @@ export default async function ProductsPage({
     )
     .eq("is_active", true);
 
-  // Apply the filter if a category is selected in the URL
   if (category) {
     query = query.eq("category_id", category);
+  }
+
+  if (search?.trim()) {
+    query = query.ilike("name", `%${search.trim()}%`);
   }
 
   const { data: products } = await query.order("created_at", {
     ascending: false,
   });
+
+  const searchTrimmed = search?.trim();
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="bg-white border-b border-slate-200">
         <div className="container mx-auto px-4 py-8 md:py-12">
-          <h1 className="text-2xl md:text-4xl font-extrabold text-slate-900 mb-2">
-            Digital Marketplace
-          </h1>
-          <p className="text-slate-500 text-sm md:text-base max-w-xl">
-            Instant delivery for game cards and top-ups.
-          </p>
+          {searchTrimmed ? (
+            <>
+              <h1 className="text-2xl md:text-4xl font-extrabold text-slate-900 mb-2">
+                Results for &ldquo;{searchTrimmed}&rdquo;
+              </h1>
+              <p className="text-slate-500 text-sm md:text-base">
+                {products?.length ?? 0} product
+                {(products?.length ?? 0) !== 1 ? "s" : ""} found
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-2xl md:text-4xl font-extrabold text-slate-900 mb-2">
+                Digital Marketplace
+              </h1>
+              <p className="text-slate-500 text-sm md:text-base max-w-xl">
+                Instant delivery for game cards and top-ups.
+              </p>
+            </>
+          )}
         </div>
       </div>
 
