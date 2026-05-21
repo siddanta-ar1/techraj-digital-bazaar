@@ -39,7 +39,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [supabase] = useState(() => createClient());
-  const isInitialized = useRef(false);
   const syncingRef = useRef(false);
 
   // Fetch user profile with retry logic
@@ -117,44 +116,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [fetchUserProfile],
   );
 
-  // Removed redundant initAuth effect to fix race condition with INITIAL_SESSION.
-
-  // Listen for auth changes - separate from initialization
   useEffect(() => {
+    let mounted = true;
+
+    // Eagerly resolve the current session — this is what makes new tabs
+    // auto-login instantly instead of waiting for the async auth event.
+    (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!mounted) return;
+      if (session?.user) {
+        await syncProfile(session.user);
+        if (mounted) setIsLoading(false);
+      } else {
+        setUser(null);
+        setIsLoading(false);
+      }
+    })();
+
+    // Subscribe for real-time cross-tab events (login/logout from other tabs).
+    // INITIAL_SESSION is intentionally skipped — getSession() above handles it.
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
-      // Handle INITIAL_SESSION for new tabs with existing sessions
-      if (event === "INITIAL_SESSION") {
-        if (session?.user && !user) {
+    } = supabase.auth.onAuthStateChange(
+      async (event: AuthChangeEvent, session: Session | null) => {
+        if (!mounted) return;
+
+        if (event === "SIGNED_IN" && session?.user) {
           await syncProfile(session.user);
-        } else if (!session?.user) {
+          if (mounted) setIsLoading(false);
+        } else if (event === "SIGNED_OUT") {
           setUser(null);
+          syncingRef.current = false;
+          if (mounted) setIsLoading(false);
+        } else if (event === "TOKEN_REFRESHED") {
+          if (mounted) setIsLoading(false);
         }
-        setIsLoading(false);
-        return;
-      }
+      },
+    );
 
-      if (event === "SIGNED_IN" && session?.user) {
-        await syncProfile(session.user);
-        setIsLoading(false);
-      } else if (event === "SIGNED_OUT") {
-        setUser(null);
-        syncingRef.current = false;
-        setIsLoading(false);
-      } else if (event === "TOKEN_REFRESHED" && session?.user) {
-        // Only sync if we don't have user data or user changed
-        const needsSync =
-          !user || user.id !== session.user.id || !user.is_synced;
-        if (needsSync) {
-          await syncProfile(session.user);
-        }
-        setIsLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [supabase.auth, syncProfile, user?.id, user?.is_synced]);
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [syncProfile, supabase.auth]);
 
   const signOut = useCallback(async () => {
     try {

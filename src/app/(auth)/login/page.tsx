@@ -13,7 +13,7 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
 
   // Handle URL error parameters
   useEffect(() => {
@@ -57,9 +57,6 @@ function LoginForm() {
       // Get redirect target from URL params
       const redirectTo = searchParams.get("redirect") || "/dashboard";
 
-      console.log("✅ Login successful, redirecting to:", redirectTo);
-
-      // Use replace to prevent back button issues
       router.replace(redirectTo);
     } catch (error: any) {
       setError(error.message || "Failed to sign in");

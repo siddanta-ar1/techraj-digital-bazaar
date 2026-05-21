@@ -26,7 +26,7 @@ export default function RegisterPage() {
   });
 
   const router = useRouter();
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({

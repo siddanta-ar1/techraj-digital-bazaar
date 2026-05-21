@@ -15,7 +15,7 @@ export default function ProductListClient({
   const [products, setProducts] = useState(initialProducts);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
   const router = useRouter();
 
   const handleDelete = async (id: string) => {
@@ -34,7 +34,7 @@ export default function ProductListClient({
   };
 
   const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase()),
+    (p.name || "").toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
