@@ -235,3 +235,35 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Failed to update order" }, { status: 500 });
   }
 }
+
+export async function DELETE() {
+  try {
+    const supabase = await createClient();
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (user.app_metadata?.role !== "admin")
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    // Delete order items first (foreign key constraint), then orders
+    const { error: itemsError } = await supabase
+      .from("order_items")
+      .delete()
+      .neq("id", "00000000-0000-0000-0000-000000000000"); // delete all rows
+
+    if (itemsError) throw itemsError;
+
+    const { error: ordersError } = await supabase
+      .from("orders")
+      .delete()
+      .neq("id", "00000000-0000-0000-0000-000000000000");
+
+    if (ordersError) throw ordersError;
+
+    return NextResponse.json({ success: true, message: "All orders cleared" });
+  } catch (error: any) {
+    console.error("[admin/orders] DELETE error:", error.message);
+    return NextResponse.json({ error: "Failed to clear orders" }, { status: 500 });
+  }
+}
