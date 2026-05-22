@@ -138,6 +138,57 @@ export const sendTopupApprovedEmail = async (
   }
 };
 
+export const sendCodesDeliveredEmail = async (
+  email: string,
+  orderNumber: string,
+  amount: number,
+  items: { productName: string; variantName: string; quantity: number; delivered_code: string | null }[],
+) => {
+  if (!email) return;
+  try {
+    await resend.emails.send({
+      from: EMAIL_FROM,
+      to: email,
+      subject: `✅ Your digital codes are ready — Order ${orderNumber}`,
+      html: `
+        <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #d1fae5; border-radius: 12px; padding: 20px;">
+          <h1 style="color: #10b981; text-align: center; margin-bottom: 8px;">Your Order is Complete!</h1>
+          <p style="text-align: center; color: #666; margin-bottom: 20px;">Order <strong>${orderNumber}</strong> — Rs. ${amount.toFixed(2)}</p>
+
+          ${items.map((item) => `
+            <div style="border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; margin-bottom: 16px;">
+              <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">${item.productName}</div>
+              <div style="color: #6b7280; font-size: 13px; margin-bottom: 12px;">${item.variantName} &times; ${item.quantity}</div>
+              ${item.delivered_code ? `
+                <div style="background: #ecfdf5; border: 1px dashed #10b981; border-radius: 8px; padding: 14px; text-align: center;">
+                  <div style="font-size: 11px; text-transform: uppercase; color: #047857; margin-bottom: 6px; font-weight: bold;">Your Digital Code</div>
+                  <div style="font-family: monospace; font-size: 22px; letter-spacing: 3px; font-weight: bold; color: #065f46; background: white; padding: 10px; border-radius: 6px;">
+                    ${item.delivered_code}
+                  </div>
+                  <div style="font-size: 11px; color: #059669; margin-top: 8px;">Redeem this code on the respective platform.</div>
+                </div>
+              ` : `
+                <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 12px; text-align: center; color: #c2410c; font-size: 13px;">
+                  Code will be delivered manually. Please contact support if not received within 24 hours.
+                </div>
+              `}
+            </div>
+          `).join("")}
+
+          <div style="text-align: center; margin-top: 24px;">
+            <a href="https://www.techrajshop.com/dashboard/orders" style="background: #111827; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px;">View Order Details</a>
+          </div>
+          <p style="margin-top: 24px; font-size: 12px; color: #9ca3af; text-align: center;">
+            Questions? Contact us at support@techrajshop.com
+          </p>
+        </div>
+      `,
+    });
+  } catch (error) {
+    console.error("Codes Delivered Email Error:", error);
+  }
+};
+
 export const sendOrderStatusEmail = async (
   email: string,
   orderNumber: string,

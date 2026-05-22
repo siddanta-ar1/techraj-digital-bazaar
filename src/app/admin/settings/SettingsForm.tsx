@@ -27,7 +27,7 @@ export function SettingsForm({
   const [activeTab, setActiveTab] = useState<"general" | "payment" | "danger">(
     "general",
   );
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
   const router = useRouter();
 
   // Modal Hooks
@@ -77,10 +77,19 @@ export function SettingsForm({
         : "Your store will be visible to the public again.",
       async () => {
         updateNestedState("maintenance", "active", newState);
-        await handleSave("maintenance", {
-          ...settings.maintenance,
-          active: newState,
+        // Call dedicated maintenance API — it persists to DB and sets the
+        // cookie that middleware reads for zero-latency enforcement.
+        await fetch("/api/admin/maintenance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ active: newState }),
         });
+        showSuccess(
+          newState ? "Maintenance Mode Enabled" : "Maintenance Mode Disabled",
+          newState
+            ? "The public storefront is now offline. Admins can still access /admin."
+            : "Your store is now live again.",
+        );
       },
     );
   };

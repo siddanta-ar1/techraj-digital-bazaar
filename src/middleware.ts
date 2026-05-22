@@ -34,6 +34,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isAdminPage = pathname.startsWith("/admin");
+  const isMaintenancePage = pathname === "/maintenance";
   const isProtectedPage =
     pathname.startsWith("/dashboard") || pathname.startsWith("/refund");
   const isAuthPage =
@@ -42,6 +43,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/update-password") ||
     pathname === "/auth/callback";
+  const isApiRoute = pathname.startsWith("/api");
 
   const redirect = (path: string) => {
     const url = request.nextUrl.clone();
@@ -56,14 +58,27 @@ export async function middleware(request: NextRequest) {
     return res;
   };
 
+  // Maintenance mode — cookie set by /api/admin/maintenance, no DB query needed.
+  // Admins, API routes, auth pages, and /maintenance itself bypass the gate.
+  const isUnderMaintenance =
+    request.cookies.get("__maintenance")?.value === "1";
+  const role = user?.app_metadata?.role as string | undefined;
+
+  if (
+    isUnderMaintenance &&
+    !isAdminPage &&
+    !isApiRoute &&
+    !isAuthPage &&
+    !isMaintenancePage &&
+    role !== "admin"
+  ) {
+    return redirect("/maintenance");
+  }
+
   if (!user) {
     if (isAdminPage || isProtectedPage) return redirect("/login");
     return supabaseResponse;
   }
-
-  // Role from JWT app_metadata — no DB query needed.
-  // Run the backfill SQL below once to populate existing admins.
-  const role = user.app_metadata?.role as string | undefined;
 
   if (isAdminPage && role !== "admin") return redirect("/dashboard");
 

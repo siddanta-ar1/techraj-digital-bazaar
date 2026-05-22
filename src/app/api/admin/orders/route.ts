@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-import { sendOrderStatusEmail } from "@/lib/resend";
+import { sendOrderStatusEmail, sendCodesDeliveredEmail } from "@/lib/resend";
 
 export async function GET(request: Request) {
   try {
@@ -107,17 +107,104 @@ export async function PATCH(request: Request) {
       );
     }
 
-    // Logic for completing manual delivery items
+    // When completing an order, claim digital codes for all pending items
+    // and mark payment as paid (for manual payment methods like eSewa/bank)
     if (updates.status === "completed") {
+      // Mark payment as paid
       await supabase
+        .from("orders")
+        .update({ payment_status: "paid" })
+        .eq("id", orderId);
+
+      // Fetch pending items that haven't had codes delivered yet
+      const { data: pendingItems } = await supabase
         .from("order_items")
-        .update({ status: "delivered" })
+        .select("id, variant_id, quantity, delivered_code")
         .eq("order_id", orderId)
         .eq("status", "pending");
+
+      const deliveredItems: {
+        productName: string;
+        variantName: string;
+        quantity: number;
+        delivered_code: string | null;
+      }[] = [];
+
+      if (pendingItems && pendingItems.length > 0) {
+        // Fetch product names for the email
+        const variantIds = pendingItems.map((i: any) => i.variant_id);
+        const { data: variantData } = await supabase
+          .from("product_variants")
+          .select("id, variant_name, product:products(name)")
+          .in("id", variantIds);
+
+        const variantMap = new Map(
+          (variantData ?? []).map((v: any) => [v.id, v]),
+        );
+
+        for (const item of pendingItems) {
+          let deliveredCode: string | null = null;
+
+          // Try to claim codes atomically
+          try {
+            const { data: claimedCodes, error: claimError } =
+              await supabase.rpc("claim_product_codes_atomic", {
+                p_variant_id: item.variant_id,
+                p_quantity: item.quantity,
+                p_order_id: orderId,
+              });
+
+            if (!claimError && claimedCodes && claimedCodes.length > 0) {
+              deliveredCode = claimedCodes.join(", ");
+            }
+          } catch {
+            // Non-fatal: item will be marked delivered without a code
+          }
+
+          // Update the order item
+          await supabase
+            .from("order_items")
+            .update({
+              status: "delivered",
+              delivered_code: deliveredCode,
+            })
+            .eq("id", item.id);
+
+          const variant = variantMap.get(item.variant_id) as any;
+          deliveredItems.push({
+            productName: variant?.product?.name ?? "Product",
+            variantName: variant?.variant_name ?? "Standard",
+            quantity: item.quantity,
+            delivered_code: deliveredCode,
+          });
+        }
+      }
+
+      // Send codes-delivered email (replaces the generic status email for completions)
+      try {
+        const { data: customer } = await supabase
+          .from("users")
+          .select("email")
+          .eq("id", order.user_id)
+          .single();
+
+        if (customer?.email) {
+          await sendCodesDeliveredEmail(
+            customer.email,
+            order.order_number,
+            order.final_amount,
+            deliveredItems,
+          );
+        }
+      } catch (emailError) {
+        console.error("Failed to send codes email:", emailError);
+      }
+
+      return NextResponse.json({ success: true, order, message: "Order completed and codes delivered" });
     }
 
-    // Send status update email to customer
-    if (updates.status && ["completed", "processing", "cancelled"].includes(updates.status)) {
+    // Send status update email for other status changes (processing, cancelled)
+    if (updates.status && ["processing", "cancelled"].includes(updates.status)) {
       try {
         const { data: customer } = await supabase
           .from("users")
@@ -134,7 +221,6 @@ export async function PATCH(request: Request) {
           );
         }
       } catch (emailError) {
-        // Don't fail the status update if email fails
         console.error("Failed to send status email:", emailError);
       }
     }
