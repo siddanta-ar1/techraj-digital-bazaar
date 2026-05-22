@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { sendOrderStatusEmail, sendCodesDeliveredEmail } from "@/lib/resend";
 
@@ -238,26 +238,29 @@ export async function PATCH(request: Request) {
 
 export async function DELETE() {
   try {
+    // Auth check uses user JWT — then actual deletes use service-role client
+    // to bypass RLS (which would otherwise block cross-user deletes)
     const supabase = await createClient();
-
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     if (user.app_metadata?.role !== "admin")
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    // Delete order items first (foreign key constraint), then orders
-    const { error: itemsError } = await supabase
+    const admin = createAdminClient();
+
+    // Delete order items first (foreign key), then orders
+    const { error: itemsError } = await admin
       .from("order_items")
       .delete()
-      .neq("id", "00000000-0000-0000-0000-000000000000"); // delete all rows
+      .gte("created_at", "2000-01-01"); // matches every row; avoids "no filter" rejection
 
     if (itemsError) throw itemsError;
 
-    const { error: ordersError } = await supabase
+    const { error: ordersError } = await admin
       .from("orders")
       .delete()
-      .neq("id", "00000000-0000-0000-0000-000000000000");
+      .gte("created_at", "2000-01-01");
 
     if (ordersError) throw ordersError;
 
