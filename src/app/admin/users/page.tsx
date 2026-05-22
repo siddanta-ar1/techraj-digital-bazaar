@@ -4,6 +4,8 @@ import { Users, ShieldCheck, UserCheck, Wallet, Search } from "lucide-react";
 import { Metadata } from "next";
 import UsersHeader from "./UsersHeader";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "User Management - Admin Panel",
 };

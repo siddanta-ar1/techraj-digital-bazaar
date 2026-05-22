@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { TopupRequestTable } from "@/components/admin/TopupRequestTable";
 import { Wallet, Clock, AlertCircle } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Wallet Management - Admin Panel",
 };

@@ -3,6 +3,8 @@ import { Plus, Package } from "lucide-react";
 import Link from "next/link";
 import ProductListClient from "./ProductListClient";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Products - Admin Panel",
 };

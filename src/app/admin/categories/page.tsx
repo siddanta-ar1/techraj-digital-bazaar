@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { CategoriesClient } from "./CategoriesClient";
 import { FolderOpen } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Categories - Admin Panel",
 };

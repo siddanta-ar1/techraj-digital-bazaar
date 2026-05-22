@@ -46,7 +46,7 @@ export function CategoriesClient({
     is_active: true,
   });
 
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
   const router = useRouter();
 
   // Modal Hooks

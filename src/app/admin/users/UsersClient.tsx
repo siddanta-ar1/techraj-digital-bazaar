@@ -23,7 +23,7 @@ export function UsersClient({ initialUsers }: { initialUsers: UserData[] }) {
   const [users, setUsers] = useState(initialUsers);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
   const router = useRouter();
 
   // Modal Hooks

@@ -10,29 +10,13 @@ import {
   Plus,
 } from "lucide-react";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
   const supabase = await createClient();
 
-  // 1. Verify Admin Access
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session) redirect("/login");
-
-  const { data: user } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", session.user.id)
-    .single();
-
-  if (user?.role !== "admin") redirect("/dashboard");
-
-  // 2. Fetch Dashboard Data in Parallel
+  // Layout already verified admin access — go straight to data fetching
   const [
     { count: totalUsers },
     { count: totalOrders },
