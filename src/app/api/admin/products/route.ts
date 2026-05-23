@@ -23,11 +23,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Missing slug" }, { status: 400 });
 
     const admin = createAdminClient();
-    const { data } = await admin
-      .from("products")
-      .select("id")
-      .eq("slug", slug)
-      .neq("id", excludeId);
+    let query = admin.from("products").select("id").eq("slug", slug);
+    if (excludeId) query = query.neq("id", excludeId);
+    const { data } = await query;
 
     return NextResponse.json({ exists: (data?.length ?? 0) > 0 });
   } catch (error: any) {

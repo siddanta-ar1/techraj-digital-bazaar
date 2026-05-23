@@ -51,7 +51,7 @@ export function UsersClient({ initialUsers }: { initialUsers: UserData[] }) {
       if (!res.ok) {
         showError("Update Failed", json.error || "Failed to update role");
       } else {
-        setUsers(users.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
+        setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
         showSuccess(
           "Role Updated",
           `User has been successfully ${newRole === "admin" ? "promoted" : "demoted"}.`,

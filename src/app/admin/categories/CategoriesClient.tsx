@@ -181,8 +181,8 @@ export function CategoriesClient({
                 <tbody className="divide-y divide-slate-100">
                   {categories.map((cat) => {
                     const count = Array.isArray(cat.products)
-                      ? cat.products[0]?.count
-                      : cat.products?.count || 0;
+                      ? (cat.products[0]?.count ?? 0)
+                      : (cat.products?.count ?? 0);
 
                     return (
                       <tr
