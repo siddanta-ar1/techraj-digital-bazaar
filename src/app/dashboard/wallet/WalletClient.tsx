@@ -36,7 +36,7 @@ export default function WalletClient({
   const [balance, setBalance] = useState(initialBalance);
   const [transactions, setTransactions] =
     useState<WalletTransaction[]>(initialTransactions);
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
 
   useEffect(() => {
     let channel: any;

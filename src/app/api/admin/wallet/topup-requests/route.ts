@@ -98,16 +98,45 @@ export async function POST(request: Request) {
 
       const newBalance = (Number(currentUser?.wallet_balance) || 0) + Number(topupRequest.amount);
 
-      await admin
+      const { error: balanceError } = await admin
         .from("users")
         .update({ wallet_balance: newBalance })
         .eq("id", topupRequest.user_id);
 
-      await admin
+      if (balanceError) {
+        // Rollback: revert topup_requests status back to pending
+        await admin
+          .from("topup_requests")
+          .update({ status: "pending", admin_notes: null, updated_at: new Date().toISOString() })
+          .eq("id", requestId);
+        throw balanceError;
+      }
+
+      // Update the pending transaction if it exists; insert one if it doesn't (older requests)
+      const { count } = await admin
         .from("wallet_transactions")
-        .update({ status: "completed", balance_after: newBalance })
+        .select("id", { count: "exact", head: true })
         .eq("reference_id", requestId)
         .eq("transaction_type", "topup");
+
+      if ((count ?? 0) > 0) {
+        await admin
+          .from("wallet_transactions")
+          .update({ status: "completed", balance_after: newBalance })
+          .eq("reference_id", requestId)
+          .eq("transaction_type", "topup");
+      } else {
+        await admin.from("wallet_transactions").insert({
+          user_id: topupRequest.user_id,
+          amount: topupRequest.amount,
+          type: "credit",
+          transaction_type: "topup",
+          reference_id: requestId,
+          description: `Top-up approved`,
+          balance_after: newBalance,
+          status: "completed",
+        });
+      }
 
       if (topupRequest.user?.email) {
         try {

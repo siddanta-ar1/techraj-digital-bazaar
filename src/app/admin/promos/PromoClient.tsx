@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Plus,
   Trash2,
@@ -70,8 +70,6 @@ export default function PromoClient({ initialData }: Props) {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  // Reset form
   const resetForm = () => {
     setFormData({
       code: "",
@@ -139,6 +137,12 @@ export default function PromoClient({ initialData }: Props) {
       setLoading(false);
     }
   };
+
+  // Sync usage_count on mount — initialData may be stale if client-side navigation served a cached render
+  useEffect(() => {
+    fetchPromos();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 2. Create/Update Promo
   const handleSubmit = async (e: React.FormEvent) => {

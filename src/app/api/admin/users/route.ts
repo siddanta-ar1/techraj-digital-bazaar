@@ -19,6 +19,16 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Missing user id" }, { status: 400 });
 
     const admin = createAdminClient();
+
+    // If updating role, sync Supabase Auth app_metadata so middleware/verifyAdmin checks work.
+    // Without this, the promoted user's JWT still carries the old role and admin access is denied.
+    if (updates.role !== undefined) {
+      const { error: authError } = await admin.auth.admin.updateUserById(id, {
+        app_metadata: { role: updates.role },
+      });
+      if (authError) throw authError;
+    }
+
     const { data, error } = await admin
       .from("users")
       .update(updates)

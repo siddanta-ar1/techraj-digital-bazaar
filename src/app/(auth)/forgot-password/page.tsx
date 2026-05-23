@@ -17,7 +17,7 @@ export default function ForgotPasswordPage() {
     "idle" | "loading" | "success" | "error"
   >("idle");
   const [message, setMessage] = useState("");
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();

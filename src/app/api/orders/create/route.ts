@@ -167,7 +167,7 @@ export async function POST(request: Request) {
       const { data: promo, error: promoError } = await admin
         .from("promo_codes")
         .select(
-          "id, discount_type, discount_value, min_order_amount, max_discount_amount, max_uses, current_uses, expires_at, is_active",
+          "id, discount_type, discount_value, min_order_amount, max_discount_amount, usage_limit, usage_count, expires_at, is_active",
         )
         .eq("code", (promoCode as string).toUpperCase())
         .eq("is_active", true)
@@ -185,7 +185,7 @@ export async function POST(request: Request) {
           { status: 400 },
         );
       }
-      if (promo.max_uses && promo.current_uses >= promo.max_uses) {
+      if (promo.usage_limit && promo.usage_count >= promo.usage_limit) {
         return NextResponse.json({ error: "Promo code usage limit reached" }, { status: 400 });
       }
 

@@ -95,12 +95,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check usage limit (if applicable)
-    // Note: using max_uses and current_uses to match existing schema
-    const maxUses = promo.usage_limit || promo.max_uses;
-    const currentUses = promo.usage_count || promo.current_uses || 0;
-
-    if (maxUses && currentUses >= maxUses) {
+    if (promo.usage_limit != null && promo.usage_count >= promo.usage_limit) {
       return NextResponse.json(
         { error: "Promo code usage limit exceeded" },
         { status: 400 },

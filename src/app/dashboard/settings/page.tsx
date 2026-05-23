@@ -20,7 +20,7 @@ import { useModal } from "@/hooks/useModal";
 
 export default function SettingsPage() {
   const { user, isLoading } = useAuth();
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
