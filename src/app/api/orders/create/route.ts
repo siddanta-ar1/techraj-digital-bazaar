@@ -244,7 +244,7 @@ export async function POST(request: Request) {
 
     // 8. WALLET PAYMENT DEDUCTION
     if (effectivePaymentMethod === "wallet" && !isFullDiscount) {
-      const { error: deductionError } = await supabase.rpc("deduct_wallet_balance", {
+      const { data: balanceAfterDeduction, error: deductionError } = await admin.rpc("deduct_wallet_balance", {
         user_id: user.id,
         amount: serverFinalAmount,
       });
@@ -267,12 +267,6 @@ export async function POST(request: Request) {
         );
       }
 
-      const { data: balanceRow } = await supabase
-        .from("users")
-        .select("wallet_balance")
-        .eq("id", user.id)
-        .single();
-
       await supabase.from("wallet_transactions").insert({
         user_id: user.id,
         amount: serverFinalAmount,
@@ -281,7 +275,7 @@ export async function POST(request: Request) {
         reference_id: orderId,
         description: `Order #${orderNumber}`,
         status: "completed",
-        balance_after: balanceRow?.wallet_balance ?? 0,
+        balance_after: balanceAfterDeduction ?? 0,
       });
     }
 
@@ -369,7 +363,7 @@ export async function POST(request: Request) {
       console.error("[order] insert failed:", orderError.message, "orderId:", orderId);
       // Rollback wallet
       if (effectivePaymentMethod === "wallet" && !isFullDiscount) {
-        const { error: rbWallet } = await supabase.rpc("increment_wallet", {
+        const { error: rbWallet } = await admin.rpc("increment_wallet", {
           p_user_id: user.id,
           p_amount: serverFinalAmount,
         });
