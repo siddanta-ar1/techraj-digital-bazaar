@@ -267,6 +267,12 @@ export async function POST(request: Request) {
         );
       }
 
+      const { data: balanceRow } = await supabase
+        .from("users")
+        .select("wallet_balance")
+        .eq("id", user.id)
+        .single();
+
       await supabase.from("wallet_transactions").insert({
         user_id: user.id,
         amount: serverFinalAmount,
@@ -275,6 +281,7 @@ export async function POST(request: Request) {
         reference_id: orderId,
         description: `Order #${orderNumber}`,
         status: "completed",
+        balance_after: balanceRow?.wallet_balance ?? 0,
       });
     }
 
