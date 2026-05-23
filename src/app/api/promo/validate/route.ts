@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -15,6 +15,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Admin client for RLS-protected tables
+    const admin = createAdminClient();
+
     // 2. PARSE REQUEST
     const { code, totalAmount } = await request.json();
 
@@ -29,7 +32,7 @@ export async function POST(request: Request) {
 
     // 3. ATOMIC CHECK FOR INVENTORY CODES (Gift Cards)
     // Use a transaction-like approach to check and temporarily reserve the code
-    const { data: inventoryCode, error: inventoryError } = await supabase
+    const { data: inventoryCode, error: inventoryError } = await admin
       .from("product_codes")
       .select("id, code, discount_amount, variant_id")
       .eq("code", codeToTest)
@@ -59,7 +62,7 @@ export async function POST(request: Request) {
     }
 
     // 4. CHECK STANDARD PROMO CODES
-    const { data: promo, error: promoError } = await supabase
+    const { data: promo, error: promoError } = await admin
       .from("promo_codes")
       .select("*")
       .eq("code", codeToTest.toUpperCase())

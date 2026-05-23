@@ -1,5 +1,4 @@
-import { createClient as createServerClient } from "@/lib/supabase/server";
-import { createClient as createAdminSupabase } from "@supabase/supabase-js";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
@@ -7,12 +6,11 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
 export async function POST(request: Request) {
   try {
-    // Auth check — must be logged in to upload
-    const supabaseUser = await createServerClient();
+    const supabase = await createClient();
     const {
       data: { user },
       error: authError,
-    } = await supabaseUser.auth.getUser();
+    } = await supabase.auth.getUser();
 
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -31,22 +29,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "File exceeds 5 MB limit" }, { status: 400 });
     }
 
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!serviceRoleKey) {
-      console.error("[upload] SUPABASE_SERVICE_ROLE_KEY is not set");
-      return NextResponse.json({ error: "Upload service unavailable" }, { status: 500 });
-    }
-
-    const supabase = createAdminSupabase(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey,
-    );
-
+    const admin = createAdminClient();
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
     const filePath = `${user.id}/${crypto.randomUUID()}.${ext}`;
     const fileBuffer = await file.arrayBuffer();
 
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await admin.storage
       .from("payment-screenshots")
       .upload(filePath, fileBuffer, { contentType: file.type, upsert: false });
 
@@ -57,7 +45,7 @@ export async function POST(request: Request) {
 
     const {
       data: { publicUrl },
-    } = supabase.storage.from("payment-screenshots").getPublicUrl(filePath);
+    } = admin.storage.from("payment-screenshots").getPublicUrl(filePath);
 
     return NextResponse.json({ url: publicUrl });
   } catch (error: any) {

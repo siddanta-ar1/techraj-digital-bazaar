@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { sendOrderEmail } from "@/lib/resend";
 
@@ -15,6 +15,9 @@ export async function POST(request: Request) {
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Admin client for tables protected by RLS (product_codes, promo_codes)
+    const admin = createAdminClient();
 
     // 2. PARSE REQUEST — amounts are NOT accepted from the client; computed server-side below
     const orderData = await request.json();
@@ -161,7 +164,7 @@ export async function POST(request: Request) {
     let serverDiscountAmount = 0;
 
     if (promoCode) {
-      const { data: promo, error: promoError } = await supabase
+      const { data: promo, error: promoError } = await admin
         .from("promo_codes")
         .select(
           "id, discount_type, discount_value, min_order_amount, max_discount_amount, max_uses, current_uses, expires_at, is_active",
@@ -200,7 +203,7 @@ export async function POST(request: Request) {
       promoId = promo.id;
 
       // Increment usage before order creation to reduce race conditions
-      const { error: incrementError } = await supabase.rpc("increment_promo_usage", {
+      const { error: incrementError } = await admin.rpc("increment_promo_usage", {
         promo_id: promoId,
       });
       if (incrementError) {
@@ -220,7 +223,7 @@ export async function POST(request: Request) {
 
     // 7. HANDLE INVENTORY CODE USAGE (gift card applied as payment)
     if (paymentMeta?.usedProductCodeId) {
-      const { error: markUsedError } = await supabase
+      const { error: markUsedError } = await admin
         .from("product_codes")
         .update({
           is_used: true,
@@ -232,7 +235,7 @@ export async function POST(request: Request) {
 
       if (markUsedError) {
         if (promoId) {
-          const { error: rbPromo } = await supabase.rpc("decrement_promo_usage", { promo_id: promoId });
+          const { error: rbPromo } = await admin.rpc("decrement_promo_usage", { promo_id: promoId });
           if (rbPromo) console.error("[rollback] decrement_promo_usage failed:", rbPromo.message);
         }
         return NextResponse.json({ error: "Gift card has already been used" }, { status: 400 });
@@ -248,14 +251,14 @@ export async function POST(request: Request) {
 
       if (deductionError) {
         if (paymentMeta?.usedProductCodeId) {
-          const { error: rbGift } = await supabase
+          const { error: rbGift } = await admin
             .from("product_codes")
             .update({ is_used: false, order_id: null, used_at: null })
             .eq("id", paymentMeta.usedProductCodeId);
           if (rbGift) console.error("[rollback] gift card unmark failed:", rbGift.message);
         }
         if (promoId) {
-          const { error: rbPromo } = await supabase.rpc("decrement_promo_usage", { promo_id: promoId });
+          const { error: rbPromo } = await admin.rpc("decrement_promo_usage", { promo_id: promoId });
           if (rbPromo) console.error("[rollback] decrement_promo_usage failed:", rbPromo.message);
         }
         return NextResponse.json(
@@ -288,7 +291,7 @@ export async function POST(request: Request) {
 
       if (isInstantPayment) {
         try {
-          const { data: claimedCodes, error: claimError } = await supabase.rpc(
+          const { data: claimedCodes, error: claimError } = await admin.rpc(
             "claim_product_codes_atomic",
             {
               p_variant_id: item.variantId,
@@ -367,21 +370,21 @@ export async function POST(request: Request) {
       }
       // Rollback gift card
       if (paymentMeta?.usedProductCodeId) {
-        const { error: rbGift } = await supabase
+        const { error: rbGift } = await admin
           .from("product_codes")
           .update({ is_used: false, order_id: null, used_at: null })
           .eq("id", paymentMeta.usedProductCodeId);
         if (rbGift) console.error("[rollback] gift card unmark failed:", rbGift.message);
       }
       // Rollback claimed codes
-      const { error: rbCodes } = await supabase
+      const { error: rbCodes } = await admin
         .from("product_codes")
         .update({ is_used: false, order_id: null })
         .eq("order_id", orderId);
       if (rbCodes) console.error("[rollback] product_codes unmark failed:", rbCodes.message);
       // Rollback promo
       if (promoId) {
-        const { error: rbPromo } = await supabase.rpc("decrement_promo_usage", { promo_id: promoId });
+        const { error: rbPromo } = await admin.rpc("decrement_promo_usage", { promo_id: promoId });
         if (rbPromo) console.error("[rollback] decrement_promo_usage failed:", rbPromo.message);
       }
       throw new Error("Failed to create order");
