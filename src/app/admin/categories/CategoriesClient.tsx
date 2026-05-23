@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import {
   Plus,
   Edit2,
@@ -46,7 +45,6 @@ export function CategoriesClient({
     is_active: true,
   });
 
-  const [supabase] = useState(() => createClient());
   const router = useRouter();
 
   // Modal Hooks
@@ -99,33 +97,25 @@ export function CategoriesClient({
 
     try {
       if (editingId) {
-        // Update
-        const { error, data } = await supabase
-          .from("categories")
-          .update(formData)
-          .eq("id", editingId)
-          .select("*, products(count)")
-          .single();
-
-        if (error) throw error;
-        setCategories((prev) =>
-          prev.map((c) => (c.id === editingId ? data : c)),
-        );
+        const res = await fetch("/api/admin/categories", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: editingId, ...formData }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "Update failed");
+        setCategories((prev) => prev.map((c) => (c.id === editingId ? json.category : c)));
         showSuccess("Category Updated", `"${formData.name}" has been updated.`);
       } else {
-        // Create
-        const { error, data } = await supabase
-          .from("categories")
-          .insert([formData])
-          .select("*, products(count)")
-          .single();
-
-        if (error) throw error;
-        setCategories((prev) => [...prev, data]);
-        showSuccess(
-          "Category Created",
-          `"${formData.name}" has been added to the list.`,
-        );
+        const res = await fetch("/api/admin/categories", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "Create failed");
+        setCategories((prev) => [...prev, json.category]);
+        showSuccess("Category Created", `"${formData.name}" has been added to the list.`);
       }
 
       resetForm();
@@ -150,12 +140,10 @@ export function CategoriesClient({
       "Delete Category",
       `Are you sure you want to delete "${name}"? This action cannot be undone.`,
       async () => {
-        const { error } = await supabase
-          .from("categories")
-          .delete()
-          .eq("id", id);
-        if (error) {
-          showError("Delete Failed", error.message);
+        const res = await fetch(`/api/admin/categories?id=${id}`, { method: "DELETE" });
+        const json = await res.json();
+        if (!res.ok) {
+          showError("Delete Failed", json.error || "Delete failed");
         } else {
           setCategories((prev) => prev.filter((c) => c.id !== id));
           showSuccess("Category Deleted", `"${name}" has been removed.`);

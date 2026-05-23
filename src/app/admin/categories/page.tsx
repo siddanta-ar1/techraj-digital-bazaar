@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import { CategoriesClient } from "./CategoriesClient";
 import { FolderOpen } from "lucide-react";
 
@@ -9,7 +9,7 @@ export const metadata = {
 };
 
 export default async function AdminCategoriesPage() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: categories } = await supabase
     .from("categories")

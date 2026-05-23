@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import { UsersClient } from "./UsersClient";
 import { Users, ShieldCheck, UserCheck, Wallet, Search } from "lucide-react";
 import { Metadata } from "next";
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminUsersPage() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: users } = await supabase
     .from("users")
@@ -48,14 +48,14 @@ export default async function AdminUsersPage() {
             },
             {
               label: "Admin Users",
-              value: users?.filter((u) => u.role === "admin").length || 0,
+              value: users?.filter((u: any) => u.role === "admin").length || 0,
               icon: ShieldCheck,
               iconColor: "text-purple-600",
               iconBg: "bg-purple-50",
             },
             {
               label: "Verified Users",
-              value: users?.filter((u) => u.email_verified).length || 0,
+              value: users?.filter((u: any) => u.email_verified).length || 0,
               icon: UserCheck,
               iconColor: "text-green-600",
               iconBg: "bg-green-50",
@@ -64,7 +64,7 @@ export default async function AdminUsersPage() {
               label: "Total Wallet Balance",
               value: `Rs. ${
                 users
-                  ?.reduce((sum, u) => sum + (u.wallet_balance || 0), 0)
+                  ?.reduce((sum: number, u: any) => sum + (u.wallet_balance || 0), 0)
                   .toLocaleString(undefined, { minimumFractionDigits: 2 }) ||
                 "0.00"
               }`,

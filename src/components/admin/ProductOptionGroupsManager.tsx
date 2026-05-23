@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import {
     Plus,
     Trash2,
@@ -28,7 +27,6 @@ export function ProductOptionGroupsManager({
     const [adding, setAdding] = useState(false);
     const [toggling, setToggling] = useState<Set<string>>(new Set());
     const [selectedGroupId, setSelectedGroupId] = useState("");
-    const supabase = createClient();
     const router = useRouter();
 
     useEffect(() => {
@@ -37,54 +35,33 @@ export function ProductOptionGroupsManager({
 
     const fetchData = async () => {
         setLoading(true);
-
-        // Fetch assigned groups
-        const { data: assigned, error: assignedError } = await supabase
-            .from("product_option_groups")
-            .select(`
-        *,
-        option_group:option_groups(*)
-      `)
-            .eq("product_id", productId)
-            .order("sort_order");
-
-        if (assignedError) {
-            console.error("Error fetching assigned groups:", assignedError);
-        } else {
-            setAssignedGroups(assigned || []);
+        try {
+            const res = await fetch(`/api/admin/products/option-groups?productId=${productId}`);
+            const data = await res.json();
+            setAssignedGroups(data.assigned || []);
+            setAvailableGroups(data.available || []);
+        } catch (err) {
+            console.error("Error fetching option groups:", err);
         }
-
-        // Fetch all global groups for dropdown
-        const { data: allGroups } = await supabase
-            .from("option_groups")
-            .select("*")
-            .eq("is_global", true)
-            .eq("is_active", true)
-            .order("name");
-
-        // Filter out already assigned
-        const assignedIds = new Set((assigned || []).map((a: any) => a.group_id));
-        setAvailableGroups((allGroups || []).filter((g: OptionGroup) => !assignedIds.has(g.id)));
-
         setLoading(false);
     };
 
     const handleAdd = async () => {
         if (!selectedGroupId) return;
-
         setAdding(true);
-        const { error } = await supabase.from("product_option_groups").insert([
-            {
+        const res = await fetch("/api/admin/products/option-groups", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
                 product_id: productId,
                 group_id: selectedGroupId,
                 is_required: true,
                 sort_order: assignedGroups.length,
-            },
-        ]);
-
-        if (error) {
-            console.error("Error adding option group:", error);
-            alert("Failed to add option group");
+            }),
+        });
+        if (!res.ok) {
+            const json = await res.json();
+            alert(json.error || "Failed to add option group");
         } else {
             setSelectedGroupId("");
             fetchData();
@@ -95,15 +72,10 @@ export function ProductOptionGroupsManager({
 
     const handleRemove = async (id: string) => {
         if (!confirm("Remove this option group from the product?")) return;
-
-        const { error } = await supabase
-            .from("product_option_groups")
-            .delete()
-            .eq("id", id);
-
-        if (error) {
-            console.error("Error removing option group:", error);
-            alert("Failed to remove option group");
+        const res = await fetch(`/api/admin/products/option-groups?id=${id}`, { method: "DELETE" });
+        if (!res.ok) {
+            const json = await res.json();
+            alert(json.error || "Failed to remove option group");
         } else {
             fetchData();
             router.refresh();
@@ -111,18 +83,16 @@ export function ProductOptionGroupsManager({
     };
 
     const handleToggleRequired = async (id: string, currentValue: boolean) => {
-        // Prevent rapid toggles on same item
         if (toggling.has(id)) return;
         setToggling(prev => new Set(prev).add(id));
 
-        const { error } = await supabase
-            .from("product_option_groups")
-            .update({ is_required: !currentValue })
-            .eq("id", id);
+        const res = await fetch("/api/admin/products/option-groups", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, is_required: !currentValue }),
+        });
 
-        if (error) {
-            console.error("Error updating:", error);
-        } else {
+        if (res.ok) {
             setAssignedGroups((prev) =>
                 prev.map((g) => (g.id === id ? { ...g, is_required: !currentValue } : g))
             );

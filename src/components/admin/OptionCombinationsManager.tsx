@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import {
     Loader2,
     RefreshCw,
@@ -30,7 +29,6 @@ export function OptionCombinationsManager({
     const [generating, setGenerating] = useState(false);
     const [saving, setSaving] = useState<Set<string>>(new Set());
     const [optionGroups, setOptionGroups] = useState<(ProductOptionGroup & { option_group: OptionGroup & { options: any[] } })[]>([]);
-    const supabase = createClient();
     const router = useRouter();
 
     useEffect(() => {
@@ -39,47 +37,24 @@ export function OptionCombinationsManager({
 
     const fetchData = async () => {
         setLoading(true);
+        try {
+            const res = await fetch(`/api/admin/products/combinations?productId=${productId}`);
+            const data = await res.json();
+            const groups = data.groups || [];
+            setOptionGroups(groups);
 
-        // Fetch option groups with options
-        const { data: groups } = await supabase
-            .from("product_option_groups")
-            .select(`
-        *,
-        option_group:option_groups(
-          *,
-          options:options(*)
-        )
-      `)
-            .eq("product_id", productId)
-            .order("sort_order");
+            const allOptions = groups.flatMap((g: any) => g.option_group?.options || []);
+            const optionMap = new Map(allOptions.map((o: any) => [o.id, o.name]));
 
-        setOptionGroups(groups || []);
-
-        // Fetch combinations
-        const { data: combos } = await supabase
-            .from("option_combinations")
-            .select("*")
-            .eq("product_id", productId)
-            .order("created_at");
-
-        // Parse combinations and add option names
-        const allOptions = (groups || []).flatMap((g: any) => g.option_group?.options || []);
-        const optionMap = new Map(allOptions.map((o: any) => [o.id, o.name]));
-
-        const displayCombos: CombinationDisplay[] = (combos || []).map((c: OptionCombination) => {
-            let optionIds: string[] = [];
-            try {
-                const parsed = JSON.parse(c.combination);
-                optionIds = Object.values(parsed) as string[];
-            } catch { }
-
-            return {
-                ...c,
-                optionNames: optionIds.map((id) => optionMap.get(id) || id),
-            };
-        });
-
-        setCombinations(displayCombos);
+            const displayCombos: CombinationDisplay[] = (data.combinations || []).map((c: OptionCombination) => {
+                let optionIds: string[] = [];
+                try { optionIds = Object.values(JSON.parse(c.combination)) as string[]; } catch { }
+                return { ...c, optionNames: optionIds.map((id) => (optionMap as any).get(id) || id) };
+            });
+            setCombinations(displayCombos);
+        } catch (err) {
+            console.error("Error fetching combinations:", err);
+        }
         setLoading(false);
     };
 
@@ -148,11 +123,15 @@ export function OptionCombinationsManager({
             is_active: true,
         }));
 
-        const { error } = await supabase.from("option_combinations").insert(toInsert);
+        const res = await fetch("/api/admin/products/combinations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ combinations: toInsert }),
+        });
 
-        if (error) {
-            console.error("Error generating combinations:", error);
-            alert("Failed to generate combinations");
+        if (!res.ok) {
+            const json = await res.json();
+            alert(json.error || "Failed to generate combinations");
         } else {
             fetchData();
             router.refresh();
@@ -162,42 +141,28 @@ export function OptionCombinationsManager({
     };
 
     const updateCombination = async (id: string, field: string, value: any) => {
-        // Prevent concurrent updates on the same row
         if (saving.has(id)) return;
         setSaving(prev => new Set(prev).add(id));
 
-        const { error } = await supabase
-            .from("option_combinations")
-            .update({ [field]: value, updated_at: new Date().toISOString() })
-            .eq("id", id);
+        const res = await fetch("/api/admin/products/combinations", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, field, value }),
+        });
 
-        if (error) {
-            console.error("Error updating:", error);
-        } else {
-            setCombinations((prev) =>
-                prev.map((c) => (c.id === id ? { ...c, [field]: value } : c))
-            );
+        if (res.ok) {
+            setCombinations((prev) => prev.map((c) => (c.id === id ? { ...c, [field]: value } : c)));
             router.refresh();
         }
 
-        setSaving(prev => {
-            const next = new Set(prev);
-            next.delete(id);
-            return next;
-        });
+        setSaving(prev => { const next = new Set(prev); next.delete(id); return next; });
     };
 
     const deleteCombination = async (id: string) => {
         if (!confirm("Delete this combination?")) return;
 
-        const { error } = await supabase
-            .from("option_combinations")
-            .delete()
-            .eq("id", id);
-
-        if (error) {
-            console.error("Error deleting:", error);
-        } else {
+        const res = await fetch(`/api/admin/products/combinations?id=${id}`, { method: "DELETE" });
+        if (res.ok) {
             setCombinations((prev) => prev.filter((c) => c.id !== id));
             router.refresh();
         }

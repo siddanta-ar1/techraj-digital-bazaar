@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { Search, Shield, User, Wallet, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -23,7 +22,6 @@ export function UsersClient({ initialUsers }: { initialUsers: UserData[] }) {
   const [users, setUsers] = useState(initialUsers);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
-  const [supabase] = useState(() => createClient());
   const router = useRouter();
 
   // Modal Hooks
@@ -42,19 +40,18 @@ export function UsersClient({ initialUsers }: { initialUsers: UserData[] }) {
 
     showConfirm(action, message, async () => {
       setLoading(userId);
-      const { error } = await supabase
-        .from("users")
-        .update({ role: newRole })
-        .eq("id", userId);
-
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: userId, role: newRole }),
+      });
+      const json = await res.json();
       setLoading(null);
 
-      if (error) {
-        showError("Update Failed", error.message);
+      if (!res.ok) {
+        showError("Update Failed", json.error || "Failed to update role");
       } else {
-        setUsers(
-          users.map((u) => (u.id === userId ? { ...u, role: newRole } : u)),
-        );
+        setUsers(users.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
         showSuccess(
           "Role Updated",
           `User has been successfully ${newRole === "admin" ? "promoted" : "demoted"}.`,

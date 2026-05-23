@@ -7,7 +7,7 @@ import {
   CheckCircle,
   TrendingUp,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import AdminOrdersClient from "./AdminOrdersClient";
 import OrdersHeader from "./OrdersHeader";
 
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminOrdersPage() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // Layout already verified admin access — fetch orders directly
   const { data: orders } = await supabase
@@ -75,7 +75,7 @@ export default async function AdminOrdersPage() {
             },
             {
               label: "Pending",
-              value: orders?.filter((o) => o.status === "pending").length || 0,
+              value: orders?.filter((o: any) => o.status === "pending").length || 0,
               color: "bg-amber-500",
               icon: Clock,
               iconColor: "text-amber-600",
@@ -84,7 +84,7 @@ export default async function AdminOrdersPage() {
             {
               label: "Processing",
               value:
-                orders?.filter((o) => o.status === "processing").length || 0,
+                orders?.filter((o: any) => o.status === "processing").length || 0,
               color: "bg-purple-500",
               icon: Package,
               iconColor: "text-purple-600",
@@ -93,7 +93,7 @@ export default async function AdminOrdersPage() {
             {
               label: "Completed",
               value:
-                orders?.filter((o) => o.status === "completed").length || 0,
+                orders?.filter((o: any) => o.status === "completed").length || 0,
               color: "bg-green-500",
               icon: CheckCircle,
               iconColor: "text-green-600",
@@ -103,7 +103,7 @@ export default async function AdminOrdersPage() {
               label: "Revenue",
               value: `Rs. ${
                 orders
-                  ?.reduce((sum, o) => sum + o.final_amount, 0)
+                  ?.reduce((sum: number, o: any) => sum + o.final_amount, 0)
                   .toLocaleString(undefined, {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 0,

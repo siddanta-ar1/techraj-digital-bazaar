@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import {
     ArrowLeft,
     Save,
@@ -66,7 +65,6 @@ interface OptionGroupFormProps {
 
 export function OptionGroupForm({ groupId }: OptionGroupFormProps) {
     const router = useRouter();
-    const supabase = createClient();
     const isEditing = !!groupId;
 
     const [loading, setLoading] = useState(isEditing);
@@ -97,17 +95,15 @@ export function OptionGroupForm({ groupId }: OptionGroupFormProps) {
 
     const fetchOptionGroup = async () => {
         setLoading(true);
-        const { data, error } = await supabase
-            .from("option_groups")
-            .select(`*, options:options(*)`)
-            .eq("id", groupId)
-            .single();
+        const res = await fetch(`/api/admin/options?groupId=${groupId}`);
+        const json = await res.json();
 
-        if (error || !data) {
-            console.error("Error fetching option group:", error);
+        if (!res.ok || !json.group) {
+            console.error("Error fetching option group:", json.error);
             router.push("/admin/options");
             return;
         }
+        const data = json.group;
 
         setFormData({
             name: data.name,
@@ -224,64 +220,36 @@ export function OptionGroupForm({ groupId }: OptionGroupFormProps) {
         setSaving(true);
 
         try {
-            let groupIdToUse = groupId;
+            const sanitizedOptions = options.map((opt) => ({
+                ...opt,
+                slug: opt.slug || generateSlug(opt.name),
+                description: opt.description || null,
+                display_value: opt.display_value || null,
+                color_code: opt.color_code || null,
+                image_url: opt.image_url || null,
+            }));
 
             if (isEditing) {
-                // Update group
-                const { error } = await supabase
-                    .from("option_groups")
-                    .update({
-                        ...formData,
-                        updated_at: new Date().toISOString(),
-                    })
-                    .eq("id", groupId);
-
-                if (error) throw error;
+                const res = await fetch("/api/admin/options", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        groupId,
+                        groupData: formData,
+                        options: sanitizedOptions,
+                        deletedOptionIds,
+                    }),
+                });
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.error || "Update failed");
             } else {
-                // Create group
-                const { data, error } = await supabase
-                    .from("option_groups")
-                    .insert([formData])
-                    .select()
-                    .single();
-
-                if (error) throw error;
-                groupIdToUse = data.id;
-            }
-
-            // Delete removed options
-            if (deletedOptionIds.length > 0) {
-                await supabase.from("options").delete().in("id", deletedOptionIds);
-            }
-
-            // Upsert options
-            for (let i = 0; i < options.length; i++) {
-                const opt = options[i];
-                const optionData = {
-                    group_id: groupIdToUse,
-                    name: opt.name,
-                    slug: opt.slug || generateSlug(opt.name),
-                    description: opt.description || null,
-                    display_value: opt.display_value || null,
-                    color_code: opt.color_code || null,
-                    image_url: opt.image_url || null,
-                    price_modifier: opt.price_modifier,
-                    price_modifier_type: opt.price_modifier_type,
-                    stock_type: opt.stock_type,
-                    stock_quantity: opt.stock_quantity,
-                    is_default: opt.is_default,
-                    is_active: opt.is_active,
-                    sort_order: i,
-                };
-
-                if (opt.id) {
-                    await supabase
-                        .from("options")
-                        .update({ ...optionData, updated_at: new Date().toISOString() })
-                        .eq("id", opt.id);
-                } else {
-                    await supabase.from("options").insert([optionData]);
-                }
+                const res = await fetch("/api/admin/options", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ groupData: formData, options: sanitizedOptions }),
+                });
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.error || "Create failed");
             }
 
             router.push("/admin/options");

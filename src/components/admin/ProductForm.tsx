@@ -2,7 +2,6 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { useSupabaseUpload } from "@/hooks/useSupabaseUpload";
 import {
   Upload,
@@ -27,7 +26,6 @@ interface ProductFormProps {
 
 export function ProductForm({ initialData, categories }: ProductFormProps) {
   const router = useRouter();
-  const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { modalState, closeModal, showSuccess, showError, showWarning } =
@@ -161,64 +159,40 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
     setLoading(true);
 
     try {
-      // Check for duplicate slug
-      const { data: existingProduct } = await supabase
-        .from("products")
-        .select("id")
-        .eq("slug", formData.slug)
-        .neq("id", initialData?.id || "");
-
-      if (existingProduct && existingProduct.length > 0) {
+      // Check for duplicate slug via API
+      const slugRes = await fetch(
+        `/api/admin/products?slug=${encodeURIComponent(formData.slug)}&excludeId=${initialData?.id || ""}`,
+      );
+      const slugJson = await slugRes.json();
+      if (slugJson.exists) {
         setErrors({ slug: "This slug is already taken" });
-        showError(
-          "Duplicate Slug",
-          "A product with this slug already exists. Please choose a different one.",
-        );
+        showError("Duplicate Slug", "A product with this slug already exists. Please choose a different one.");
         setLoading(false);
         return;
       }
 
       if (initialData) {
-        // Update existing product
-        const { error } = await supabase
-          .from("products")
-          .update({
-            ...formData,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", initialData.id);
+        const res = await fetch("/api/admin/products", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: initialData.id, ...formData }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "Update failed");
 
-        if (error) throw error;
-
-        showSuccess(
-          "Product Updated!",
-          "The product has been successfully updated.",
-          true,
-        );
-
-        setTimeout(() => {
-          router.refresh();
-          router.push("/admin/products");
-        }, 2000);
+        showSuccess("Product Updated!", "The product has been successfully updated.", true);
+        setTimeout(() => { router.refresh(); router.push("/admin/products"); }, 2000);
       } else {
-        // Create new product
-        const { data, error } = await supabase
-          .from("products")
-          .insert([formData])
-          .select()
-          .single();
+        const res = await fetch("/api/admin/products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "Create failed");
 
-        if (error) throw error;
-
-        showSuccess(
-          "Product Created!",
-          "The product has been successfully created. You can now add variants and manage inventory.",
-          false,
-        );
-
-        setTimeout(() => {
-          router.push(`/admin/products/${data.id}`);
-        }, 2000);
+        showSuccess("Product Created!", "The product has been successfully created. You can now add variants and manage inventory.", false);
+        setTimeout(() => { router.push(`/admin/products/${json.product.id}`); }, 2000);
       }
     } catch (error: any) {
       console.error("Submit error:", error);

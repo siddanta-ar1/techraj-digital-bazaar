@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 // Admin sets maintenance mode → stores in DB and sets a fast-check cookie.
@@ -15,8 +15,9 @@ export async function POST(request: Request) {
 
     const { active } = await request.json();
 
-    // Persist to DB (source of truth)
-    await supabase.from("site_settings").upsert({
+    // Persist to DB using service-role client (site_settings is RLS-restricted)
+    const adminDb = createAdminClient();
+    await adminDb.from("site_settings").upsert({
       key: "maintenance",
       value: { active: !!active },
       updated_at: new Date().toISOString(),

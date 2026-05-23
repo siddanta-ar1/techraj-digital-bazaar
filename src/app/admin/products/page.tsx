@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import { Plus, Package } from "lucide-react";
 import Link from "next/link";
 import ProductListClient from "./ProductListClient";
@@ -10,7 +10,7 @@ export const metadata = {
 };
 
 export default async function AdminProductsPage() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // Fetch products with their category names
   const { data: products } = await supabase

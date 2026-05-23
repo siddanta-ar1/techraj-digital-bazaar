@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { Plus, Trash2, Edit2, Save, X, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -37,7 +36,6 @@ export function ProductVariantsManager({ productId, initialVariants }: Props) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const supabase = createClient();
   const router = useRouter();
 
   // Sync variants when initialVariants changes, but preserve during editing
@@ -88,21 +86,19 @@ export function ProductVariantsManager({ productId, initialVariants }: Props) {
   };
 
   const handleDelete = async (id: string) => {
-    if (loading) return; // Prevent during other operations
+    if (loading) return;
     if (!confirm("Delete this variant?")) return;
 
     setLoading(true);
-    const { error } = await supabase
-      .from("product_variants")
-      .delete()
-      .eq("id", id);
+    const res = await fetch(`/api/admin/products/variants?id=${id}`, { method: "DELETE" });
     setLoading(false);
 
-    if (!error) {
+    if (res.ok) {
       setVariants((prev) => prev.filter((v) => v.id !== id));
       router.refresh();
     } else {
-      alert("Failed to delete variant. It might be in use.");
+      const json = await res.json();
+      alert(json.error || "Failed to delete variant. It might be in use.");
     }
   };
 
@@ -135,39 +131,21 @@ export function ProductVariantsManager({ productId, initialVariants }: Props) {
       sort_order: formData.sort_order,
     };
 
-    let error;
-    let data;
-
-    if (editingId) {
-      // Update
-      const res = await supabase
-        .from("product_variants")
-        .update(payload)
-        .eq("id", editingId)
-        .select();
-      error = res.error;
-      data = res.data;
-    } else {
-      // Create
-      const res = await supabase
-        .from("product_variants")
-        .insert([payload])
-        .select();
-      error = res.error;
-      data = res.data;
-    }
-
+    const res = await fetch("/api/admin/products/variants", {
+      method: editingId ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(editingId ? { id: editingId, ...payload } : payload),
+    });
+    const json = await res.json();
     setLoading(false);
 
-    if (error) {
-      alert(`Error: ${error.message}`);
-    } else if (data) {
+    if (!res.ok) {
+      alert(`Error: ${json.error || "Failed to save variant"}`);
+    } else if (json.variants) {
       if (editingId) {
-        setVariants((prev) =>
-          prev.map((v) => (v.id === editingId ? data[0] : v)),
-        );
+        setVariants((prev) => prev.map((v) => (v.id === editingId ? json.variants[0] : v)));
       } else {
-        setVariants((prev) => [...prev, data[0]]);
+        setVariants((prev) => [...prev, json.variants[0]]);
       }
       resetForm();
       router.refresh();

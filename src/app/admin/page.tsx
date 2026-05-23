@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import {
   Users,
   ShoppingBag,
@@ -14,7 +14,7 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // Layout already verified admin access — go straight to data fetching
   const [
@@ -45,7 +45,7 @@ export default async function AdminDashboard() {
 
   // Calculate Total Revenue
   const totalRevenue =
-    revenueData?.reduce((sum, order) => sum + (order.final_amount || 0), 0) ||
+    revenueData?.reduce((sum: number, order: any) => sum + (order.final_amount || 0), 0) ||
     0;
 
   return (
