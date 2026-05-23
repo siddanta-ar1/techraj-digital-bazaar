@@ -69,7 +69,7 @@ const getCategoryStyle = (name: string) => {
 export function CategoryMarquee() {
   const pathname = usePathname();
   const [categories, setCategories] = useState<any[]>([]);
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
 
   useEffect(() => {
     async function fetchCategories() {

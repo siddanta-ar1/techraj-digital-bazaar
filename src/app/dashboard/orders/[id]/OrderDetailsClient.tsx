@@ -67,7 +67,7 @@ interface OrderDetailsClientProps {
 
 export default function OrderDetailsClient({ order }: OrderDetailsClientProps) {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
   const router = useRouter();
 
   const getStatusColor = (status: string) => {

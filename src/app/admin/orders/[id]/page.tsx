@@ -1,4 +1,4 @@
-import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { OrderStatusManager } from "@/components/admin/OrderStatusManager";
 import Image from "next/image";
