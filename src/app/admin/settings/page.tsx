@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import { SettingsForm } from "./SettingsForm";
 import { Settings as SettingsIcon } from "lucide-react";
 
@@ -7,14 +7,14 @@ export const metadata = {
 };
 
 export default async function AdminSettingsPage() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // Fetch all settings as a map
   const { data } = await supabase.from("site_settings").select("*");
 
   // Transform array to object for easier use
   const settingsMap: Record<string, any> = {};
-  data?.forEach((item) => {
+  data?.forEach((item: any) => {
     settingsMap[item.key] = item.value;
   });
 

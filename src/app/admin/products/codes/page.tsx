@@ -1,10 +1,10 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import CodesClient from "./CodesClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProductCodesPage() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // Fetch product variants that use 'codes' stock type
   const { data: products } = await supabase

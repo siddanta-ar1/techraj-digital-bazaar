@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
 import {
   Plus,
   Trash2,
@@ -37,7 +36,6 @@ export default function CodesClient({ initialProducts }: Props) {
   const [showCodes, setShowCodes] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const supabase = createClient();
   const {
     modalState,
     closeModal,
@@ -50,17 +48,13 @@ export default function CodesClient({ initialProducts }: Props) {
   // Fetch Existing Inventory for Selected Variant
   const fetchCodes = async (variantId: string) => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("product_codes")
-      .select("*")
-      .eq("variant_id", variantId)
-      .eq("is_used", false)
-      .order("created_at", { ascending: false });
+    const res = await fetch(`/api/admin/codes?variantId=${variantId}`);
+    const json = await res.json();
 
-    if (error) {
-      showError("Error Loading Codes", error.message);
+    if (!res.ok) {
+      showError("Error Loading Codes", json.error || "Failed to load codes");
     } else {
-      setCodes(data || []);
+      setCodes(json.codes || []);
       const product = products.find((p) => p.id === variantId);
       setSelectedProduct(product);
     }
@@ -115,29 +109,15 @@ export default function CodesClient({ initialProducts }: Props) {
         return;
       }
 
-      // Check for duplicate codes
-      const existingCodes = await supabase
-        .from("product_codes")
-        .select("code")
-        .in(
-          "code",
-          codeList.map((c) => c.code),
-        );
+      const res = await fetch("/api/admin/codes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codes: codeList }),
+      });
+      const json = await res.json();
 
-      if (existingCodes.data && existingCodes.data.length > 0) {
-        const duplicates = existingCodes.data.map((c: { code: string }) => c.code).join(", ");
-        showError(
-          "Duplicate Codes Found",
-          `The following codes already exist: ${duplicates}`,
-        );
-        setLoading(false);
-        return;
-      }
-
-      const { error } = await supabase.from("product_codes").insert(codeList);
-
-      if (error) {
-        showError("Error Adding Codes", error.message);
+      if (!res.ok) {
+        showError("Error Adding Codes", json.error || "Failed to add codes");
       } else {
         setNewCodes("");
         setDiscountAmount("");
@@ -160,19 +140,14 @@ export default function CodesClient({ initialProducts }: Props) {
       "Delete Code",
       `Are you sure you want to delete the code "${code}"? This action cannot be undone.`,
       async () => {
-        const { error } = await supabase
-          .from("product_codes")
-          .delete()
-          .eq("id", id);
+        const res = await fetch(`/api/admin/codes?id=${id}`, { method: "DELETE" });
+        const json = await res.json();
 
-        if (error) {
-          showError("Error Deleting Code", error.message);
+        if (!res.ok) {
+          showError("Error Deleting Code", json.error || "Failed to delete code");
         } else {
           setCodes((prev) => prev.filter((c) => c.id !== id));
-          showSuccess(
-            "Code Deleted",
-            "The code has been removed from inventory.",
-          );
+          showSuccess("Code Deleted", "The code has been removed from inventory.");
         }
       },
     );
@@ -186,20 +161,14 @@ export default function CodesClient({ initialProducts }: Props) {
       "Delete All Codes",
       `Are you sure you want to delete all ${codes.length} codes? This action cannot be undone.`,
       async () => {
-        const { error } = await supabase
-          .from("product_codes")
-          .delete()
-          .eq("variant_id", selectedVariant)
-          .eq("is_used", false);
+        const res = await fetch(`/api/admin/codes?variantId=${selectedVariant}`, { method: "DELETE" });
+        const json = await res.json();
 
-        if (error) {
-          showError("Error Deleting Codes", error.message);
+        if (!res.ok) {
+          showError("Error Deleting Codes", json.error || "Failed to delete codes");
         } else {
           setCodes([]);
-          showSuccess(
-            "All Codes Deleted",
-            "All codes have been removed from inventory.",
-          );
+          showSuccess("All Codes Deleted", "All codes have been removed from inventory.");
         }
       },
     );

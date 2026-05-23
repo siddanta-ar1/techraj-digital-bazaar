@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Edit3, Trash2, Search, Eye, Image as ImageIcon } from "lucide-react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
@@ -15,17 +14,16 @@ export default function ProductListClient({
   const [products, setProducts] = useState(initialProducts);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
-  const [supabase] = useState(() => createClient());
   const router = useRouter();
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this product?")) return;
 
     setLoading(id);
-    const { error } = await supabase.from("products").delete().eq("id", id);
+    const res = await fetch(`/api/admin/products?id=${id}`, { method: "DELETE" });
 
-    if (!error) {
-      setProducts(products.filter((p) => p.id !== id));
+    if (res.ok) {
+      setProducts((prev) => prev.filter((p) => p.id !== id));
       router.refresh();
     } else {
       alert("Error deleting product");

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import {
   Save,
   Loader2,
@@ -27,7 +26,6 @@ export function SettingsForm({
   const [activeTab, setActiveTab] = useState<"general" | "payment" | "danger">(
     "general",
   );
-  const [supabase] = useState(() => createClient());
   const router = useRouter();
 
   // Modal Hooks
@@ -36,22 +34,18 @@ export function SettingsForm({
 
   const handleSave = async (key: string, value: any) => {
     setLoading(true);
-    const { error } = await supabase.from("site_settings").upsert({
-      key,
-      value,
-      updated_at: new Date().toISOString(),
+    const res = await fetch("/api/admin/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key, value }),
     });
 
     setLoading(false);
-    if (error) {
+    if (!res.ok) {
       showError("Save Failed", "Could not update settings. Please try again.");
     } else {
-      showSuccess(
-        "Settings Saved",
-        "The configuration has been updated successfully.",
-      );
+      showSuccess("Settings Saved", "The configuration has been updated successfully.");
       router.refresh();
-      // Update local state to reflect changes immediately
       setSettings((prev: any) => ({ ...prev, [key]: value }));
     }
   };
