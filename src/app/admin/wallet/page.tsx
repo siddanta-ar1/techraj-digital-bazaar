@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { TopupRequestTable } from "@/components/admin/TopupRequestTable";
 import { WalletAdjustPanel } from "@/components/admin/WalletAdjustPanel";
-import { Wallet, Clock, AlertCircle, ArrowLeftRight } from "lucide-react";
+import { Wallet, Clock, AlertCircle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 

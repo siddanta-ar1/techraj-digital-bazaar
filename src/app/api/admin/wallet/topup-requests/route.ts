@@ -1,20 +1,18 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-// Import the new email utility function (make sure this is implemented in src/lib/resend.ts)
 import { sendTopupApprovedEmail } from "@/lib/resend";
+
+async function verifyAdmin() {
+  const supabase = await createClient();
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) return null;
+  if (user.app_metadata?.role !== "admin") return null;
+  return user;
+}
 
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient();
-
-    // Check if user is admin
-    const {
-      data: { user: authUser },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !authUser)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (authUser.app_metadata?.role !== "admin")
+    if (!(await verifyAdmin()))
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const { searchParams } = new URL(request.url);
@@ -23,7 +21,8 @@ export async function GET(request: Request) {
     const status = searchParams.get("status");
     const offset = (page - 1) * limit;
 
-    let query = supabase
+    const admin = createAdminClient();
+    let query = admin
       .from("topup_requests")
       .select(
         `
@@ -35,12 +34,9 @@ export async function GET(request: Request) {
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (status) {
-      query = query.eq("status", status);
-    }
+    if (status) query = query.eq("status", status);
 
     const { data: requests, error, count } = await query;
-
     if (error) throw error;
 
     return NextResponse.json({
@@ -58,42 +54,31 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-
-    // Check if user is admin
-    const {
-      data: { user: authUser },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !authUser)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (authUser.app_metadata?.role !== "admin")
+    if (!(await verifyAdmin()))
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const { requestId, action, adminNotes } = await request.json();
 
-    if (!["approve", "reject"].includes(action)) {
+    if (!["approve", "reject"].includes(action))
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-    }
 
-    // Get the top-up request
-    const { data: topupRequest } = await supabase
+    const admin = createAdminClient();
+
+    const { data: topupRequest, error: fetchError } = await admin
       .from("topup_requests")
-      .select("*, user:users(email)") // Fetch user email too
+      .select("*, user:users(email)")
       .eq("id", requestId)
       .single();
 
-    if (topupRequest.status !== "pending") {
-      return NextResponse.json(
-        { error: "Request already processed" },
-        { status: 400 },
-      );
-    }
+    if (fetchError || !topupRequest)
+      return NextResponse.json({ error: "Request not found" }, { status: 404 });
+
+    if (topupRequest.status !== "pending")
+      return NextResponse.json({ error: "Request already processed" }, { status: 400 });
 
     const newStatus = action === "approve" ? "approved" : "rejected";
 
-    // Update top-up request
-    const { error: updateError } = await supabase
+    const { error: updateError } = await admin
       .from("topup_requests")
       .update({
         status: newStatus,
@@ -104,42 +89,36 @@ export async function POST(request: Request) {
 
     if (updateError) throw updateError;
 
-    // If approved, update user wallet balance
     if (action === "approve") {
-      // Get current user balance
-      const { data: currentUser } = await supabase
+      const { data: currentUser } = await admin
         .from("users")
         .select("wallet_balance")
         .eq("id", topupRequest.user_id)
         .single();
 
-      const newBalance =
-        (currentUser?.wallet_balance || 0) + topupRequest.amount;
+      const newBalance = (Number(currentUser?.wallet_balance) || 0) + Number(topupRequest.amount);
 
-      // Update user balance
-      await supabase
+      await admin
         .from("users")
         .update({ wallet_balance: newBalance })
         .eq("id", topupRequest.user_id);
 
-      // We ONLY update the existing pending request (created when user submitted topup)
-      // and DO NOT insert a duplicate new completed transaction.
-      await supabase
+      await admin
         .from("wallet_transactions")
-        .update({
-          status: "completed",
-          balance_after: newBalance,
-        })
+        .update({ status: "completed", balance_after: newBalance })
         .eq("reference_id", requestId)
         .eq("transaction_type", "topup");
 
-      // SEND EMAIL TO USER
       if (topupRequest.user?.email) {
-        await sendTopupApprovedEmail(
-          topupRequest.user.email,
-          topupRequest.amount,
-          newBalance,
-        );
+        try {
+          await sendTopupApprovedEmail(
+            topupRequest.user.email,
+            topupRequest.amount,
+            newBalance,
+          );
+        } catch (emailError) {
+          console.error("Failed to send topup approval email:", emailError);
+        }
       }
     }
 

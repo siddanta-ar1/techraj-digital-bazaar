@@ -107,7 +107,6 @@ export function WalletAdjustPanel() {
       return;
     }
 
-    const action = type === "credit" ? "credit" : "debit";
     const newBal =
       type === "credit"
         ? selectedUser.wallet_balance + numAmount
