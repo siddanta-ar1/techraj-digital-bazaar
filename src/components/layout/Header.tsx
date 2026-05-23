@@ -2,6 +2,7 @@
 
 import {
   Menu,
+  X,
   ShoppingCart,
   User,
   Wallet,
@@ -10,15 +11,30 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/providers/AuthProvider";
 import { useCart } from "@/contexts/CartContext";
 import SearchWithDropdown from "@/components/layout/SearchWithDropdown";
+
+const navLinks = [
+  { name: "Home", href: "/" },
+  { name: "Products", href: "/products" },
+  { name: "Game Codes", href: "/products?category=55555555-5555-5555-5555-555555555555" },
+  { name: "Gift Cards", href: "/products?category=22222222-2222-2222-2222-222222222222" },
+];
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const { user, signOut } = useAuth();
   const { totalItems } = useCart();
+  const pathname = usePathname();
+
+  const isNavActive = (href: string) => {
+    const path = href.split("?")[0];
+    if (path === "/") return pathname === "/";
+    return pathname.startsWith(path);
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur-sm">
@@ -73,30 +89,19 @@ export function Header() {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-6 lg:gap-8">
-            <Link
-              href="/"
-              className="text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors"
-            >
-              Home
-            </Link>
-            <Link
-              href="/products"
-              className="text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors"
-            >
-              Products
-            </Link>
-            <Link
-              href="/products?category=55555555-5555-5555-5555-555555555555"
-              className="text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors"
-            >
-              Game Codes
-            </Link>
-            <Link
-              href="/products?category=22222222-2222-2222-2222-222222222222"
-              className="text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors"
-            >
-              Gift Cards
-            </Link>
+            {navLinks.map((link) => (
+              <Link
+                key={link.name}
+                href={link.href}
+                className={`text-sm font-semibold transition-colors ${
+                  isNavActive(link.href)
+                    ? "text-indigo-600 border-b-2 border-indigo-600 pb-0.5"
+                    : "text-slate-600 hover:text-indigo-600"
+                }`}
+              >
+                {link.name}
+              </Link>
+            ))}
           </nav>
 
           {/* Search and Actions */}
@@ -194,79 +199,87 @@ export function Header() {
 
             {/* Mobile Menu Button */}
             <button
-              className="md:hidden p-2 text-slate-600"
+              className="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
             >
-              <Menu className="w-6 h-6" />
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
         </div>
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden mt-4 pb-4 border-t border-slate-100 pt-4 animate-in slide-in-from-top-2">
-            <div className="flex flex-col gap-1">
-              <Link
-                href="/"
-                className="py-3 px-4 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg font-medium"
-              >
-                Home
-              </Link>
-              <Link
-                href="/products"
-                className="py-3 px-4 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg font-medium"
-              >
-                Products
-              </Link>
-              <Link
-                href="/products?category=55555555-5555-5555-5555-555555555555"
-                className="py-3 px-4 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg font-medium"
-              >
-                Game Codes
-              </Link>
-              <Link
-                href="/dashboard"
-                className="py-3 px-4 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg font-medium"
-              >
-                Dashboard
-              </Link>
+          <div className="md:hidden mt-3 pb-4 border-t border-slate-100 pt-4 animate-in slide-in-from-top-2">
+            {/* Mobile Search */}
+            <div className="mb-3 px-1">
+              <SearchWithDropdown />
+            </div>
 
-              {!user && (
+            <div className="flex flex-col gap-1">
+              {navLinks.map((link) => (
                 <Link
-                  href="/login"
-                  className="mt-4 mx-4 py-3 bg-indigo-600 text-white rounded-lg text-center font-bold"
+                  key={link.name}
+                  href={link.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`py-3 px-4 rounded-lg font-medium transition-colors ${
+                    isNavActive(link.href)
+                      ? "bg-indigo-50 text-indigo-600 font-semibold"
+                      : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-600"
+                  }`}
                 >
-                  Sign In
+                  {link.name}
+                </Link>
+              ))}
+              {user && (
+                <Link
+                  href="/dashboard"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`py-3 px-4 rounded-lg font-medium transition-colors ${
+                    pathname.startsWith("/dashboard")
+                      ? "bg-indigo-50 text-indigo-600 font-semibold"
+                      : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-600"
+                  }`}
+                >
+                  Dashboard
                 </Link>
               )}
-
-              {user && (
-                <div className="mt-4 border-t border-slate-100 pt-4 px-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <p className="font-bold text-slate-900">
-                        {user.full_name || "User"}
-                      </p>
-                      <p className="text-xs text-slate-500">{user.email}</p>
-                    </div>
-                    <div className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-sm font-bold min-w-[80px] text-center">
-                      {/* FIX: Check is_synced */}
-                      {user.is_synced ? (
-                        `रु ${(user.wallet_balance ?? 0).toFixed(2)}`
-                      ) : (
-                        <div className="w-10 h-4 bg-emerald-700/20 animate-pulse rounded mx-auto" />
-                      )}
-                    </div>
-                  </div>
-                  <button
-                    onClick={signOut}
-                    className="w-full py-3 px-4 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg text-center font-semibold transition"
-                  >
-                    Sign Out
-                  </button>
-                </div>
-              )}
             </div>
+
+            {!user && (
+              <Link
+                href="/login"
+                className="mt-4 mx-1 py-3 bg-indigo-600 text-white rounded-lg text-center font-bold block"
+              >
+                Sign In
+              </Link>
+            )}
+
+            {user && (
+              <div className="mt-3 border-t border-slate-100 pt-3 px-1">
+                <div className="flex items-center justify-between mb-3 px-3 py-2 bg-slate-50 rounded-lg">
+                  <div>
+                    <p className="font-bold text-slate-900 text-sm">
+                      {user.full_name || "User"}
+                    </p>
+                    <p className="text-xs text-slate-500">{user.email}</p>
+                  </div>
+                  <div className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-sm font-bold min-w-20 text-center">
+                    {user.is_synced ? (
+                      `रु ${(user.wallet_balance ?? 0).toFixed(2)}`
+                    ) : (
+                      <div className="w-10 h-4 bg-emerald-700/20 animate-pulse rounded mx-auto" />
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => { signOut(); setMobileMenuOpen(false); }}
+                  className="w-full py-3 px-4 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg text-center font-semibold transition"
+                >
+                  Sign Out
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

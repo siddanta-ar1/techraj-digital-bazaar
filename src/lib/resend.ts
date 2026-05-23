@@ -179,7 +179,7 @@ export const sendCodesDeliveredEmail = async (
             <a href="https://www.techrajshop.com/dashboard/orders" style="background: #111827; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px;">View Order Details</a>
           </div>
           <p style="margin-top: 24px; font-size: 12px; color: #9ca3af; text-align: center;">
-            Questions? Contact us at support@techrajshop.com
+            Questions? Contact us at techraj687yt@gmail.com
           </p>
         </div>
       `,

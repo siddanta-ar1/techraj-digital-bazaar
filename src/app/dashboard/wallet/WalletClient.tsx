@@ -341,7 +341,7 @@ export default function WalletClient({
               </p>
               <p className="flex items-center gap-2">
                 <span className="opacity-80">Email:</span>
-                <span className="font-medium">support@tronlinebazar.com</span>
+                <span className="font-medium">techraj687yt@gmail.com</span>
               </p>
             </div>
             <button className="mt-4 w-full bg-white text-indigo-600 py-2 rounded-lg font-medium hover:bg-slate-100 transition-colors">

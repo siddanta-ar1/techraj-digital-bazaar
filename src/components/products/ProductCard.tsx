@@ -61,15 +61,15 @@ export function ProductCard({ product }: ProductCardProps) {
   return (
     <Link
       href={`/products/${product.slug}`}
-      className="group block bg-white rounded-xl md:rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-200 hover:border-indigo-300 flex flex-col h-full"
+      className="group flex flex-col bg-white rounded-xl md:rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-200 hover:border-indigo-300 h-full"
     >
       {/* Badges & Image Container */}
       <div className="relative aspect-square bg-slate-50 overflow-hidden">
         {/* Badges - Adjusted for mobile */}
         {product.is_featured && (
-          <div className="absolute top-2 left-2 z-10 bg-amber-500 text-white text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
-            <Zap className="w-3 h-3" />
-            <span className="hidden md:inline">FEATURED</span>
+          <div className="absolute top-2 left-2 z-10 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+            <Zap className="w-3 h-3 shrink-0" />
+            <span>FEATURED</span>
           </div>
         )}
         {hasDiscount && (
@@ -107,7 +107,7 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
 
         {/* Product Name */}
-        <h3 className="font-bold text-sm md:text-base text-slate-900 group-hover:text-indigo-700 transition-colors line-clamp-2 mb-1 md:mb-2 flex-grow">
+        <h3 className="font-bold text-sm md:text-base text-slate-900 group-hover:text-indigo-700 transition-colors line-clamp-2 mb-1 md:mb-2 grow">
           {product.name}
         </h3>
 
@@ -116,7 +116,7 @@ export function ProductCard({ product }: ProductCardProps) {
           <div>
             {mainVariant && (
               <div className="flex flex-col">
-                <span className="text-sm md:text-xl font-bold text-indigo-700">
+                <span className="text-base md:text-lg font-bold text-indigo-700">
                   Rs. {mainVariant.price.toFixed(0)}
                 </span>
                 {hasDiscount && (
@@ -136,7 +136,7 @@ export function ProductCard({ product }: ProductCardProps) {
               handleAddToCart(e);
             }}
             disabled={addingToCart || !mainVariant || isOutOfStock}
-            className="bg-indigo-600 text-white p-2 md:p-2.5 rounded-lg md:rounded-xl hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm shadow-indigo-100 flex-shrink-0 relative z-10"
+            className="bg-indigo-600 text-white p-2 md:p-2.5 rounded-lg md:rounded-xl hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm shadow-indigo-100 shrink-0 relative z-10"
             aria-label={isOutOfStock ? "Out of stock" : "Add to cart"}
           >
             {addingToCart ? (

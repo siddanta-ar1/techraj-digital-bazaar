@@ -1,7 +1,7 @@
-import { createClient } from "@/lib/supabase/server"; // <--- FIXED IMPORT
+import { createClient } from "@/lib/supabase/server";
 import { ProductGrid } from "@/components/products/ProductGrid";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Zap, Shield, Headphones } from "lucide-react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -191,7 +191,7 @@ export default async function HomePage() {
           <div className="flex items-center justify-between mb-8">
             <div>
               <h2 className="text-3xl font-bold text-slate-900">
-                🔥 Featured Products
+                Featured Products
               </h2>
               <p className="text-slate-600 mt-2">
                 Most popular and best selling items
@@ -225,7 +225,7 @@ export default async function HomePage() {
           <div className="flex items-center justify-between mb-8">
             <div>
               <h2 className="text-3xl font-bold text-slate-900">
-                🆕 New Arrivals
+                New Arrivals
               </h2>
               <p className="text-slate-600 mt-2">Recently added to our store</p>
             </div>
@@ -248,49 +248,49 @@ export default async function HomePage() {
       </section>
 
       {/* Benefits Section */}
-      {/* <section className="py-12 bg-white border-t">
+      <section className="py-12 bg-white border-t border-slate-100">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center p-6">
               <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">⚡</span>
+                <Zap className="w-6 h-6 text-indigo-600" />
               </div>
-              <h3 className="font-bold text-lg mb-2">Instant Delivery</h3>
-              <p className="text-slate-600">Digital products delivered instantly via email</p>
+              <h3 className="font-bold text-lg mb-2 text-slate-900">Instant Delivery</h3>
+              <p className="text-slate-500 text-sm">Digital products delivered instantly after payment</p>
             </div>
             <div className="text-center p-6">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">🔒</span>
+              <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Shield className="w-6 h-6 text-emerald-600" />
               </div>
-              <h3 className="font-bold text-lg mb-2">Secure Payment</h3>
-              <p className="text-slate-600">100% secure transactions</p>
+              <h3 className="font-bold text-lg mb-2 text-slate-900">Secure Payment</h3>
+              <p className="text-slate-500 text-sm">100% secure transactions with encrypted checkout</p>
             </div>
             <div className="text-center p-6">
               <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">🎮</span>
+                <Headphones className="w-6 h-6 text-amber-600" />
               </div>
-              <h3 className="font-bold text-lg mb-2">24/7 Support</h3>
-              <p className="text-slate-600">Round-the-clock customer support</p>
+              <h3 className="font-bold text-lg mb-2 text-slate-900">24/7 Support</h3>
+              <p className="text-slate-500 text-sm">Round-the-clock customer support via chat or call</p>
             </div>
           </div>
         </div>
-      </section> */}
+      </section>
 
       {/* Final CTA */}
-      {/* <section className="py-12 bg-gradient-to-r from-indigo-600 to-indigo-800 text-white">
+      <section className="py-12 bg-linear-to-r from-indigo-600 to-indigo-800 text-white">
         <div className="container mx-auto px-4 text-center">
-          <h2 className="text-2xl md:text-3xl font-bold mb-4">Ready to get started?</h2>
-          <p className="text-indigo-100 mb-8 max-w-xl mx-auto">
-            Join thousands of satisfied customers. Create your account today!
+          <h2 className="text-2xl md:text-3xl font-bold mb-3">Ready to get started?</h2>
+          <p className="text-indigo-100 mb-8 max-w-xl mx-auto text-sm md:text-base">
+            Join thousands of satisfied customers. Create your account and get instant access to 100+ digital products.
           </p>
           <Link
             href="/register"
-            className="inline-block bg-white text-indigo-600 hover:bg-indigo-50 px-8 py-3 rounded-lg font-semibold transition-colors"
+            className="inline-block bg-white text-indigo-600 hover:bg-indigo-50 px-8 py-3 rounded-lg font-semibold transition-colors shadow-lg"
           >
             Create Account
           </Link>
         </div>
-      </section> */}
+      </section>
     </div>
   );
 }

@@ -1,11 +1,19 @@
 import Link from "next/link";
 import { Facebook, Youtube, Globe, Mail, Phone, MapPin } from "lucide-react";
 
+function TikTokIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.34 6.34 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.27 8.27 0 004.83 1.55V6.79a4.85 4.85 0 01-1.06-.1z" />
+    </svg>
+  );
+}
+
 export function Footer() {
   return (
     <footer className="bg-slate-950 text-slate-300 border-t border-slate-800">
       <div className="container mx-auto px-4 pt-16 pb-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
           {/* Brand & About */}
           <div className="space-y-6">
             <div className="flex items-center gap-1">
@@ -21,18 +29,26 @@ export function Footer() {
               Your premier digital platform for instant game top-ups, gift
               cards, virtual payments, and digital marketing services in Nepal.
             </p>
-            <div className="flex gap-4">
+            <div className="flex gap-3">
               <SocialLink
                 href="https://facebook.com/profile.php?id=61569895337580"
                 icon={<Facebook className="w-5 h-5" />}
+                label="Facebook"
               />
               <SocialLink
                 href="https://youtube.com/@techraj687"
                 icon={<Youtube className="w-5 h-5" />}
+                label="YouTube"
+              />
+              <SocialLink
+                href="https://tiktok.com/@techraj687"
+                icon={<TikTokIcon className="w-5 h-5" />}
+                label="TikTok"
               />
               <SocialLink
                 href="https://tronlinebazar.com"
                 icon={<Globe className="w-5 h-5" />}
+                label="Website"
               />
             </div>
           </div>
@@ -52,10 +68,10 @@ export function Footer() {
               <li className="flex items-center gap-3">
                 <Mail className="w-5 h-5 text-indigo-500 shrink-0" />
                 <a
-                  href="mailto:support@tronlinebazar.com"
+                  href="mailto:techraj687yt@gmail.com"
                   className="hover:text-white transition-colors"
                 >
-                  support@tronlinebazar.com
+                  techraj687yt@gmail.com
                 </a>
               </li>
               <li className="pt-2 border-t border-slate-800 mt-2">
@@ -139,14 +155,6 @@ export function Footer() {
                   Refund Policy / Request
                 </Link>
               </li>
-              <li>
-                <a
-                  href="https://tiktok.com/@techraj687"
-                  className="text-slate-400 hover:text-indigo-400 hover:translate-x-1 inline-block transition-all"
-                >
-                  Follow on TikTok
-                </a>
-              </li>
             </ul>
           </div>
         </div>
@@ -167,12 +175,13 @@ export function Footer() {
   );
 }
 
-function SocialLink({ href, icon }: { href: string; icon: React.ReactNode }) {
+function SocialLink({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
   return (
     <a
       href={href}
       target="_blank"
       rel="noopener noreferrer"
+      aria-label={label}
       className="bg-slate-800 p-2 rounded-lg text-slate-400 hover:bg-indigo-600 hover:text-white transition-all duration-300 hover:-translate-y-1"
     >
       {icon}

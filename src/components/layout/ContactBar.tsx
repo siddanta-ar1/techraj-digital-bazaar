@@ -12,9 +12,9 @@ export function ContactBar() {
               <Phone className="w-3.5 h-3.5" />
               <span>+977-9846908072</span>
             </a>
-            <a href="mailto:support@tronlinebazar.com" className="hidden sm:flex items-center gap-1.5 hover:text-indigo-600 transition-colors">
+            <a href="mailto:techraj687yt@gmail.com" className="hidden sm:flex items-center gap-1.5 hover:text-indigo-600 transition-colors">
               <Mail className="w-3.5 h-3.5" />
-              <span>support@tronlinebazar.com</span>
+              <span>techraj687yt@gmail.com</span>
             </a>
             <div className="hidden sm:flex items-center gap-1.5">
                <MapPin className="w-3.5 h-3.5" />

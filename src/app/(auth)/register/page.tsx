@@ -356,7 +356,7 @@ export default function RegisterPage() {
           </form>
 
           <div className="text-center text-xs text-slate-400">
-            <p>📞 +977-9846908072 | 📧 support@tronlinebazar.com</p>
+            <p>📞 +977-9846908072 | 📧 techraj687yt@gmail.com</p>
           </div>
         </div>
       </div>
