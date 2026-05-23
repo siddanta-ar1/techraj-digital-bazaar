@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import {
   Plus,
   Trash2,
@@ -50,7 +49,6 @@ export default function PromoClient({ initialData }: Props) {
   >("all");
   const [searchTerm, setSearchTerm] = useState("");
 
-  const supabase = createClient();
   const {
     modalState,
     closeModal,
@@ -131,13 +129,10 @@ export default function PromoClient({ initialData }: Props) {
   const fetchPromos = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("promo_codes")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setPromos(data || []);
+      const res = await fetch("/api/admin/promos");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to load promo codes");
+      setPromos(data.promos || []);
     } catch (error: any) {
       showError("Error Loading Promo Codes", error.message);
     } finally {
@@ -171,24 +166,13 @@ export default function PromoClient({ initialData }: Props) {
     };
 
     try {
-      let error;
-
-      if (editingPromo) {
-        // Update existing promo
-        const { error: updateError } = await supabase
-          .from("promo_codes")
-          .update(promoData)
-          .eq("id", editingPromo.id);
-        error = updateError;
-      } else {
-        // Create new promo
-        const { error: insertError } = await supabase
-          .from("promo_codes")
-          .insert([promoData]);
-        error = insertError;
-      }
-
-      if (error) throw error;
+      const res = await fetch("/api/admin/promos", {
+        method: editingPromo ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editingPromo ? { id: editingPromo.id, ...promoData } : promoData),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save promo code");
 
       showSuccess(
         editingPromo ? "Promo Updated!" : "Promo Created!",
@@ -200,14 +184,7 @@ export default function PromoClient({ initialData }: Props) {
       resetForm();
       fetchPromos();
     } catch (error: any) {
-      if (error.code === "23505") {
-        showError(
-          "Duplicate Code",
-          "A promo code with this name already exists.",
-        );
-      } else {
-        showError("Error Saving Promo", error.message);
-      }
+      showError("Error Saving Promo", error.message);
     }
   };
 
@@ -218,18 +195,12 @@ export default function PromoClient({ initialData }: Props) {
       `Are you sure you want to delete the promo code "${promo.code}"? This action cannot be undone.`,
       async () => {
         try {
-          const { error } = await supabase
-            .from("promo_codes")
-            .delete()
-            .eq("id", promo.id);
-
-          if (error) throw error;
+          const res = await fetch(`/api/admin/promos?id=${promo.id}`, { method: "DELETE" });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Failed to delete promo");
 
           setPromos((prev) => prev.filter((p) => p.id !== promo.id));
-          showSuccess(
-            "Promo Deleted",
-            "The promo code has been deleted successfully.",
-          );
+          showSuccess("Promo Deleted", "The promo code has been deleted successfully.");
         } catch (error: any) {
           showError("Error Deleting Promo", error.message);
         }
@@ -241,12 +212,13 @@ export default function PromoClient({ initialData }: Props) {
   const toggleStatus = async (promo: PromoCode) => {
     try {
       const newStatus = !promo.is_active;
-      const { error } = await supabase
-        .from("promo_codes")
-        .update({ is_active: newStatus })
-        .eq("id", promo.id);
-
-      if (error) throw error;
+      const res = await fetch("/api/admin/promos", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: promo.id, is_active: newStatus }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update status");
 
       setPromos((prev) =>
         prev.map((p) =>
