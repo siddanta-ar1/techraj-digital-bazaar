@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import { ProductForm } from "@/components/admin/ProductForm";
 import { notFound } from "next/navigation";
 import { ProductVariantsManager } from "@/components/admin/ProductVariansManager";
@@ -13,7 +13,7 @@ export default async function EditProductPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // 2. Await the params object
   const { id } = await params;

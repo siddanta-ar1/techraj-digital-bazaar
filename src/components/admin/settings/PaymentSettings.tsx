@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useRef } from "react";
 import { useSupabaseUpload } from "@/hooks/useSupabaseUpload";
 import {
     Smartphone,
@@ -53,7 +52,6 @@ export function PaymentSettings({
 
     // Modal Hooks
     const { modalState, closeModal, showError, showSuccess } = useModal();
-    const supabase = createClient();
 
     const handleUpdate = (
         method: "esewa" | "khalti" | "bank_transfer",

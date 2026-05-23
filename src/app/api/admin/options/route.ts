@@ -67,6 +67,26 @@ export async function POST(request: Request) {
   }
 }
 
+// DELETE ?groupId=... — delete option group and all its options
+export async function DELETE(request: Request) {
+  try {
+    if (!(await verifyAdmin()))
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    const { searchParams } = new URL(request.url);
+    const groupId = searchParams.get("groupId");
+    if (!groupId)
+      return NextResponse.json({ error: "Missing groupId" }, { status: 400 });
+
+    const admin = createAdminClient();
+    const { error } = await admin.from("option_groups").delete().eq("id", groupId);
+    if (error) throw error;
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
 // PATCH — update option group + sync options (upsert existing, insert new, delete removed)
 export async function PATCH(request: Request) {
   try {

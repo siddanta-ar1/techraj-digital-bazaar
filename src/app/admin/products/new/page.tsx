@@ -1,10 +1,10 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import { ProductForm } from "@/components/admin/ProductForm";
 import { PlusCircle, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 export default async function NewProductPage() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // Fetch categories for the dropdown
   const { data: categories } = await supabase

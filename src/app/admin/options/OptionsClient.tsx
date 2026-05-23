@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 import {
     Sliders,
     Plus,
@@ -53,7 +52,6 @@ export default function OptionsClient({ initialData }: Props) {
     const [searchTerm, setSearchTerm] = useState("");
     const [filterGlobal, setFilterGlobal] = useState<"all" | "global" | "product">("all");
     const [deleting, setDeleting] = useState<string | null>(null);
-    const supabase = createClient();
 
     const handleDelete = async (id: string) => {
         if (!confirm("Are you sure you want to delete this option group? This will also delete all options within it.")) {
@@ -61,11 +59,11 @@ export default function OptionsClient({ initialData }: Props) {
         }
 
         setDeleting(id);
-        const { error } = await supabase.from("option_groups").delete().eq("id", id);
+        const res = await fetch(`/api/admin/options?groupId=${id}`, { method: "DELETE" });
 
-        if (error) {
-            console.error("Error deleting option group:", error);
-            alert("Failed to delete option group. It may be in use by products.");
+        if (!res.ok) {
+            const json = await res.json();
+            alert(json.error || "Failed to delete option group. It may be in use by products.");
         } else {
             setOptionGroups((prev) => prev.filter((g) => g.id !== id));
         }
