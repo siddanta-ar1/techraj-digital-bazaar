@@ -1,8 +1,8 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import { Megaphone, X } from "lucide-react";
 
 export async function InboxBanner() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // Fetch settings
   const { data } = await supabase

@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/lib/providers/AuthProvider";
-import { createClient } from "@/lib/supabase/client";
 import {
   Wallet,
   Building,
@@ -35,7 +34,6 @@ export default function CheckoutClient() {
   const router = useRouter();
   const { items, totalPrice, clearCart } = useCart();
   const { user } = useAuth();
-  const supabase = createClient();
 
   // FIX: Load admin phone from Env Variables
   // Fallback provided just in case env var is missing during dev
@@ -112,20 +110,14 @@ export default function CheckoutClient() {
         }
 
         const groupIdsArray = Array.from(groupIds);
-        const { data, error } = await supabase
-          .from("option_groups")
-          .select("id, group_name")
-          .in("id", groupIdsArray);
-
-        if (error) {
-          console.error("Supabase query error:", error);
-          throw error;
-        }
+        const response = await fetch(`/api/option-groups?ids=${groupIdsArray.join(",")}`);
+        if (!response.ok) throw new Error("Failed to fetch option groups");
+        const { data } = await response.json();
 
         const mapping: Record<string, string> = {};
         if (data && Array.isArray(data)) {
           data.forEach((group: any) => {
-            mapping[group.id] = group.group_name;
+            mapping[group.id] = group.name;
           });
         }
         setOptionGroupNames(mapping);
@@ -136,7 +128,7 @@ export default function CheckoutClient() {
     };
 
     fetchOptionGroupNames();
-  }, [items, supabase]);
+  }, [items]);
 
   // Check empty cart
   useEffect(() => {
