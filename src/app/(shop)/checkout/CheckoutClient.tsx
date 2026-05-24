@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/lib/providers/AuthProvider";
@@ -50,7 +50,13 @@ export default function CheckoutClient() {
   const [manualAmountPaid, setManualAmountPaid] = useState("");
   const [transactionId, setTransactionId] = useState("");
   const [paymentScreenshot, setPaymentScreenshot] = useState<File | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
+  // Separate loading states so promo and submit never interfere
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPromoLoading, setIsPromoLoading] = useState(false);
+  // Synchronous ref guard — prevents double-submit before React state updates
+  const isSubmittingRef = useRef(false);
+  // Cache uploaded screenshot URL so retries don't re-upload
+  const [uploadedScreenshotUrl, setUploadedScreenshotUrl] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Promo / Code State
@@ -137,6 +143,17 @@ export default function CheckoutClient() {
     }
   }, [user, authLoading, router]);
 
+  // Sync contact fields once auth resolves — they initialise empty because
+  // user is null during the first render while AuthProvider is loading
+  useEffect(() => {
+    if (!user) return;
+    setDeliveryDetails((prev) => ({
+      ...prev,
+      contactEmail: prev.contactEmail || user.email || "",
+      contactPhone: prev.contactPhone || user.phone || "",
+    }));
+  }, [user]);
+
   // Check empty cart
   useEffect(() => {
     if (items.length === 0) router.push("/cart");
@@ -172,11 +189,9 @@ export default function CheckoutClient() {
   // ------------------------------------------------------------------
   const handleApplyPromo = async () => {
     if (!promoCode.trim()) return;
+    if (isPromoLoading || isSubmittingRef.current) return;
 
-    // Prevent multiple simultaneous requests
-    if (isProcessing) return;
-
-    setIsProcessing(true);
+    setIsPromoLoading(true);
     setPromoMessage("");
     setDiscount(0);
     setIsPromoApplied(false);
@@ -185,14 +200,10 @@ export default function CheckoutClient() {
     try {
       const codeToTest = promoCode.trim();
 
-      // Use API endpoint to validate promo codes atomically to prevent race conditions
       const response = await fetch("/api/promo/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: codeToTest,
-          totalAmount: totalPrice,
-        }),
+        body: JSON.stringify({ code: codeToTest, totalAmount: totalPrice }),
       });
 
       const result = await response.json();
@@ -202,13 +213,11 @@ export default function CheckoutClient() {
         return;
       }
 
-      const { type, discount, message, codeId } = result;
-
-      setDiscount(discount);
+      const { type, discount: promoDiscount, message, codeId } = result;
+      setDiscount(promoDiscount);
       setIsPromoApplied(true);
       setPromoMessage(message);
 
-      // Store code ID for inventory codes to mark as used during order creation
       if (type === "inventory" && codeId) {
         setUsedCodeId(codeId);
       }
@@ -216,7 +225,7 @@ export default function CheckoutClient() {
       console.error("Promo validation error:", err);
       setPromoMessage("Error applying code. Please try again.");
     } finally {
-      setIsProcessing(false);
+      setIsPromoLoading(false);
     }
   };
 
@@ -230,25 +239,19 @@ export default function CheckoutClient() {
 
   const finalTotal = Math.max(0, totalPrice - discount);
 
-  // WhatsApp Notification
-  const triggerWhatsappNotification = (orderNumber: string) => {
-    console.log("📱 WhatsApp - Items in cart:", items);
-    console.log("📱 WhatsApp - Option group names:", optionGroupNames);
-    console.log("📱 WhatsApp - Item details:");
-    items.forEach((item, idx) => {
-      console.log(`  Item ${idx}:`, {
-        productName: item.productName,
-        optionSelections: item.optionSelections,
-        hasOptionalSelections: !!item.optionSelections && Object.keys(item.optionSelections).length > 0,
-      });
-    });
-
-    // Format items list with PPOM customizations
-    const itemsList = items
+  // WhatsApp Notification — accepts a snapshot of items so clearCart() can
+  // safely run before this is called without emptying the message.
+  // Uses window.open (new tab) so the current page is NOT navigated away,
+  // allowing router.push to the success page to work on all platforms.
+  const triggerWhatsappNotification = (
+    orderNumber: string,
+    snapshotItems: typeof items,
+    snapshotTotal: number,
+    snapshotDiscount: number,
+  ) => {
+    const itemsList = snapshotItems
       .map((item) => {
         let itemText = `• ${item.productName} (${item.variantName}) x${item.quantity} - Rs. ${item.price * item.quantity}`;
-        
-        // Add PPOM customizations if available
         if (item.optionSelections && Object.keys(item.optionSelections).length > 0) {
           const customizations = Object.entries(item.optionSelections)
             .map(([groupId, value]) => {
@@ -258,20 +261,18 @@ export default function CheckoutClient() {
             .join(" | ");
           itemText += `\n    🎯 ${customizations}`;
         }
-        
         return itemText;
       })
       .join("\n");
 
-    // FIX: Use Env Variable
     const message = `
 *New Order Placed!* 🛍️
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 *Order Details:*
 📋 Order No: ${orderNumber}
-💰 Total: Rs. ${finalTotal.toFixed(2)} (Discount: Rs. ${discount})
-💳 Payment: ${finalTotal === 0 ? "✅ FULL DISCOUNT" : "🔄 " + paymentMethod.toUpperCase()}
+💰 Total: Rs. ${snapshotTotal.toFixed(2)} (Discount: Rs. ${snapshotDiscount})
+💳 Payment: ${snapshotTotal === 0 ? "✅ FULL DISCOUNT" : "🔄 " + paymentMethod.toUpperCase()}
 🔐 Txn ID: ${transactionId || "N/A"}
 
 *Customer Information:*
@@ -285,12 +286,11 @@ ${itemsList}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✅ Customer says: I have placed an order. Please verify.
-      `.trim();
+    `.trim();
 
-    const whatsappUrl = `https://wa.me/${ADMIN_PHONE_CLEAN}?text=${encodeURIComponent(
-      message,
-    )}`;
-    window.location.href = whatsappUrl;
+    const whatsappUrl = `https://wa.me/${ADMIN_PHONE_CLEAN}?text=${encodeURIComponent(message)}`;
+    // Open in a new tab — never hijack the current tab (would break router.push)
+    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
   };
 
   // Submit Handler
@@ -299,20 +299,25 @@ ${itemsList}
 
     if (!validateForm()) return;
 
-    // Prevent double submission
-    if (isProcessing) return;
+    // Synchronous ref check prevents double-submit even before React re-renders
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+    setErrors({});
 
-    setIsProcessing(true);
-    setErrors({}); // Clear previous errors
+    // Snapshot mutable values now — clearCart() and state changes during the
+    // async flow must not affect what we send to the API or WhatsApp
+    const currentItems = [...items];
+    const currentFinalTotal = finalTotal;
+    const currentDiscount = discount;
 
     try {
-      let screenshotUrl = "";
+      // Reuse a previously uploaded URL on retry so we don't duplicate storage
+      let screenshotUrl = uploadedScreenshotUrl;
 
-      // Upload screenshot only if there is a payment to be made AND a file selected
-      if (finalTotal > 0 && paymentMethod !== "wallet" && paymentScreenshot) {
+      if (currentFinalTotal > 0 && paymentMethod !== "wallet" && paymentScreenshot && !screenshotUrl) {
         const formData = new FormData();
         formData.append("file", paymentScreenshot);
-        formData.append("path", "payment-screenshots"); // Optional context
 
         const uploadResponse = await fetch("/api/upload/payment-screenshot", {
           method: "POST",
@@ -326,10 +331,11 @@ ${itemsList}
 
         const { url } = await uploadResponse.json();
         screenshotUrl = url;
+        setUploadedScreenshotUrl(url); // cache so retries skip re-upload
       }
 
       const orderPayload = {
-        items: items.map((item) => ({
+        items: currentItems.map((item) => ({
           variantId: item.variantId,
           quantity: item.quantity,
           combinationId: item.combinationId || null,
@@ -337,9 +343,9 @@ ${itemsList}
           productName: item.productName,
           variantName: item.variantName,
         })),
-        paymentMethod: finalTotal === 0 ? "wallet" : paymentMethod,
+        paymentMethod: currentFinalTotal === 0 ? "wallet" : paymentMethod,
         promoCode: isPromoApplied ? promoCode : null,
-        finalAmount: finalTotal,
+        finalAmount: currentFinalTotal,
         deliveryDetails: {
           contactEmail: deliveryDetails.contactEmail,
           contactPhone: deliveryDetails.contactPhone,
@@ -365,27 +371,30 @@ ${itemsList}
         throw new Error(result.error || "Failed to create order");
       }
 
-      // Clear cart and redirect only on success
+      // Send WhatsApp notification BEFORE clearing cart so the item snapshot
+      // is used (clearCart triggers a context update which empties items)
+      triggerWhatsappNotification(
+        result.orderNumber,
+        currentItems,
+        currentFinalTotal,
+        currentDiscount,
+      );
       clearCart();
-      triggerWhatsappNotification(result.orderNumber);
 
-      // Redirect to success page
-      setTimeout(() => {
-        router.push(`/order-success?order=${result.orderNumber}`);
-      }, 2000);
+      // Navigate directly — WhatsApp is already open in a new tab
+      router.push(`/order-success?order=${result.orderNumber}`);
     } catch (error: any) {
       console.error("Checkout Error:", error);
       const msg: string = error.message || "Something went wrong. Please try again.";
       if (msg === "Unauthorized") {
-        setErrors({
-          submit: "Your session has expired. Redirecting to login...",
-        });
+        setErrors({ submit: "Your session has expired. Redirecting to login..." });
         setTimeout(() => router.push("/login?redirect=/checkout"), 1500);
       } else {
         setErrors({ submit: msg });
       }
     } finally {
-      setIsProcessing(false);
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
     }
   };
 
@@ -847,10 +856,10 @@ ${itemsList}
                     <button
                       type="button"
                       onClick={handleApplyPromo}
-                      disabled={isProcessing || !promoCode}
-                      className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-700 disabled:opacity-50"
+                      disabled={isPromoLoading || isSubmitting || !promoCode}
+                      className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-700 disabled:opacity-50 flex items-center gap-1"
                     >
-                      Apply
+                      {isPromoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apply"}
                     </button>
                   </div>
                   {promoMessage && (
@@ -906,16 +915,21 @@ ${itemsList}
               <button
                 type="submit"
                 disabled={
-                  isProcessing ||
+                  isSubmitting ||
+                  isPromoLoading ||
                   (paymentMethod === "wallet" &&
                     finalTotal > 0 &&
                     (user?.wallet_balance ?? 0) < finalTotal)
                 }
                 className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-lg hover:bg-slate-800 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
               >
-                {isProcessing ? (
+                {isSubmitting ? (
                   <>
                     <Loader2 className="h-5 w-5 animate-spin" /> Processing...
+                  </>
+                ) : isPromoLoading ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" /> Applying promo...
                   </>
                 ) : (
                   <>
