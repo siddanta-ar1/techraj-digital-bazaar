@@ -36,7 +36,9 @@ export async function middleware(request: NextRequest) {
   const isAdminPage = pathname.startsWith("/admin");
   const isMaintenancePage = pathname === "/maintenance";
   const isProtectedPage =
-    pathname.startsWith("/dashboard") || pathname.startsWith("/refund");
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/refund") ||
+    pathname.startsWith("/checkout");
   const isAuthPage =
     pathname.startsWith("/login") ||
     pathname.startsWith("/register") ||

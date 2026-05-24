@@ -33,7 +33,7 @@ interface DeliveryDetails {
 export default function CheckoutClient() {
   const router = useRouter();
   const { items, totalPrice, clearCart } = useCart();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
 
   // FIX: Load admin phone from Env Variables
   // Fallback provided just in case env var is missing during dev
@@ -129,6 +129,13 @@ export default function CheckoutClient() {
 
     fetchOptionGroupNames();
   }, [items]);
+
+  // Redirect unauthenticated users to login
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/login?redirect=/checkout");
+    }
+  }, [user, authLoading, router]);
 
   // Check empty cart
   useEffect(() => {
@@ -368,15 +375,27 @@ ${itemsList}
       }, 2000);
     } catch (error: any) {
       console.error("Checkout Error:", error);
-      setErrors({
-        submit: error.message || "Something went wrong. Please try again.",
-      });
+      const msg: string = error.message || "Something went wrong. Please try again.";
+      if (msg === "Unauthorized") {
+        setErrors({
+          submit: "Your session has expired. Redirecting to login...",
+        });
+        setTimeout(() => router.push("/login?redirect=/checkout"), 1500);
+      } else {
+        setErrors({ submit: msg });
+      }
     } finally {
       setIsProcessing(false);
     }
   };
 
-  if (items.length === 0) return null;
+  if (authLoading || !user || items.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="max-w-6xl mx-auto pb-12">
