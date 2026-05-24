@@ -32,7 +32,7 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   isLoading: true,
-  signOut: async () => { },
+  signOut: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -41,7 +41,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [supabase] = useState(() => createClient());
   const syncingRef = useRef(false);
 
-  // Fetch user profile with retry logic
+  // Build a minimal user object directly from the auth JWT.
+  // Used immediately so the UI never flashes a logged-out state while the
+  // DB round-trip is in flight.
+  const buildUserFromAuth = useCallback((authUser: any): User => ({
+    id: authUser.id,
+    email: authUser.email || "",
+    full_name:
+      authUser.user_metadata?.full_name ||
+      authUser.email?.split("@")[0] ||
+      "User",
+    avatar_url:
+      authUser.user_metadata?.avatar_url ||
+      authUser.user_metadata?.picture ||
+      undefined,
+    wallet_balance: 0,
+    role: (authUser.app_metadata?.role as "user" | "admin") || "user",
+    phone: authUser.user_metadata?.phone,
+    is_synced: false,
+  }), []);
+
+  // Fetch user profile from public.users with retry.
+  // NEVER throws — always returns { data, error }.
   const fetchUserProfile = useCallback(
     async (
       userId: string,
@@ -55,14 +76,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .maybeSingle();
 
         if (error && retryCount < 2) {
-          await new Promise((resolve) => setTimeout(resolve, 500));
+          await new Promise((r) => setTimeout(r, 600 * (retryCount + 1)));
           return fetchUserProfile(userId, retryCount + 1);
         }
 
         return { data, error };
       } catch (err) {
         if (retryCount < 2) {
-          await new Promise((resolve) => setTimeout(resolve, 500));
+          await new Promise((r) => setTimeout(r, 600 * (retryCount + 1)));
           return fetchUserProfile(userId, retryCount + 1);
         }
         return { data: null, error: err };
@@ -71,7 +92,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [supabase],
   );
 
-  // Sync user profile data
+  // Sync profile from DB. Sets a minimal auth-only user immediately so the UI
+  // is never in a logged-out state while waiting for the DB. If the DB fetch
+  // fails for any reason, the auth session is KEPT — we never sign the user
+  // out due to a DB error.
   const syncProfile = useCallback(
     async (authUser: any) => {
       if (!authUser) {
@@ -79,79 +103,83 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Prevent concurrent syncing
       if (syncingRef.current) return;
       syncingRef.current = true;
 
-      try {
-        const { data, error } = await fetchUserProfile(authUser.id);
+      // Optimistically show the user as logged in using JWT data
+      setUser(buildUserFromAuth(authUser));
 
-        if (error || !data) {
-          console.error("Profile fetch failed, signing out for security:", error);
-          await supabase.auth.signOut();
-          setUser(null);
-        } else {
-          // Use JWT app_metadata.role as primary source — it matches what middleware
-          // enforces, so the nav only shows the admin link when the middleware allows it.
-          const jwtRole = authUser.app_metadata?.role as "user" | "admin" | undefined;
+      try {
+        const { data } = await fetchUserProfile(authUser.id);
+
+        if (data) {
+          const jwtRole = authUser.app_metadata?.role as
+            | "user"
+            | "admin"
+            | undefined;
           setUser({
             id: data.id,
-            email: data.email,
-            full_name: data.full_name || authUser.user_metadata?.full_name || authUser.email?.split("@")[0],
-            avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || undefined,
+            email: data.email || authUser.email,
+            full_name:
+              data.full_name ||
+              authUser.user_metadata?.full_name ||
+              authUser.email?.split("@")[0],
+            avatar_url:
+              authUser.user_metadata?.avatar_url ||
+              authUser.user_metadata?.picture ||
+              undefined,
             wallet_balance: data.wallet_balance ?? 0,
             role: jwtRole || data.role || "user",
             phone: data.phone,
             is_synced: true,
           });
         }
+        // If data is null (DB error / user not in public.users yet), keep the
+        // auth-only user that was already set above. is_synced stays false so
+        // wallet shows 0 rather than a stale value.
       } catch (err) {
-        console.error("Profile sync error, signing out:", err);
-        await supabase.auth.signOut();
-        setUser(null);
+        // Ignore — the auth-only user is already set
+        console.warn("[AuthProvider] profile sync error (session kept):", err);
       } finally {
         syncingRef.current = false;
       }
     },
-    [fetchUserProfile],
+    [buildUserFromAuth, fetchUserProfile],
   );
 
   useEffect(() => {
     let mounted = true;
 
-    // Eagerly resolve the current session — this is what makes new tabs
-    // auto-login instantly instead of waiting for the async auth event.
-    (async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!mounted) return;
-      if (session?.user) {
-        await syncProfile(session.user);
-        if (mounted) setIsLoading(false);
-      } else {
-        setUser(null);
-        setIsLoading(false);
-      }
-    })();
-
-    // Subscribe for real-time cross-tab events (login/logout from other tabs).
-    // INITIAL_SESSION is intentionally skipped — getSession() above handles it.
+    // onAuthStateChange is the single authoritative source. It always fires
+    // INITIAL_SESSION on mount (synchronously after subscription), so there is
+    // no need for a separate getSession() call that can race with events.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, session: Session | null) => {
         if (!mounted) return;
 
-        if (event === "SIGNED_IN" && session?.user) {
-          await syncProfile(session.user);
-          if (mounted) setIsLoading(false);
-        } else if (event === "SIGNED_OUT") {
-          setUser(null);
-          syncingRef.current = false;
-          if (mounted) setIsLoading(false);
-        } else if (event === "TOKEN_REFRESHED") {
-          if (mounted) setIsLoading(false);
+        switch (event) {
+          case "INITIAL_SESSION":
+          case "SIGNED_IN":
+          case "TOKEN_REFRESHED":
+          case "USER_UPDATED":
+            if (session?.user) {
+              await syncProfile(session.user);
+            } else {
+              setUser(null);
+            }
+            if (mounted) setIsLoading(false);
+            break;
+
+          case "SIGNED_OUT":
+            setUser(null);
+            syncingRef.current = false;
+            if (mounted) setIsLoading(false);
+            break;
+
+          default:
+            break;
         }
       },
     );
