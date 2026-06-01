@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { sendAdminTopupNotificationEmail } from "@/lib/resend";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 // Only allow screenshot URLs from our own Supabase storage — prevents attacker-controlled links
@@ -101,7 +102,22 @@ export async function POST(request: Request) {
       }]);
 
     if (txnError) throw txnError;
-    // TODO: Send notification to admin
+
+    const { data: userRecord } = await admin
+      .from("users")
+      .select("full_name, email")
+      .eq("id", user.id)
+      .single();
+
+    sendAdminTopupNotificationEmail({
+      userEmail: userRecord?.email ?? user.email ?? "",
+      userName: userRecord?.full_name ?? "Unknown",
+      amount,
+      paymentMethod,
+      transactionId,
+      screenshotUrl: screenshotUrl ?? undefined,
+      requestId: topupRequest.id,
+    });
 
     return NextResponse.json({
       success: true,

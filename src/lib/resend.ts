@@ -189,6 +189,42 @@ export const sendCodesDeliveredEmail = async (
   }
 };
 
+export const sendAdminTopupNotificationEmail = async (opts: {
+  userEmail: string;
+  userName: string;
+  amount: number;
+  paymentMethod: string;
+  transactionId: string;
+  screenshotUrl?: string;
+  requestId: string;
+}) => {
+  const adminEmail = process.env.ADMIN_EMAIL || "techraj687yt@gmail.com";
+  try {
+    await resend.emails.send({
+      from: EMAIL_FROM,
+      to: adminEmail,
+      subject: `New Top-up Request — Rs. ${opts.amount} via ${opts.paymentMethod}`,
+      html: `
+        <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px;">
+          <h2 style="color: #4f46e5; margin-bottom: 16px;">New Wallet Top-up Request</h2>
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <tr><td style="padding: 8px 0; color: #6b7280;">User</td><td style="padding: 8px 0; font-weight: bold;">${opts.userName} (${opts.userEmail})</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Amount</td><td style="padding: 8px 0; font-weight: bold; color: #059669;">Rs. ${opts.amount.toFixed(2)}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Payment Method</td><td style="padding: 8px 0;">${opts.paymentMethod}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Transaction ID</td><td style="padding: 8px 0; font-family: monospace;">${opts.transactionId || "N/A"}</td></tr>
+            ${opts.screenshotUrl ? `<tr><td style="padding: 8px 0; color: #6b7280;">Screenshot</td><td style="padding: 8px 0;"><a href="${opts.screenshotUrl}" style="color: #4f46e5;">View Screenshot</a></td></tr>` : ""}
+          </table>
+          <div style="margin-top: 24px; text-align: center;">
+            <a href="https://www.techrajshop.com/admin/topup-requests" style="background: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px;">Review Request in Admin Panel</a>
+          </div>
+        </div>
+      `,
+    });
+  } catch (error) {
+    console.error("Admin Topup Notification Email Error:", error);
+  }
+};
+
 export const sendOrderStatusEmail = async (
   email: string,
   orderNumber: string,
