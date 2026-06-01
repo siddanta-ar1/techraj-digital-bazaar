@@ -182,7 +182,7 @@ function SocialLink({ href, icon, label }: { href: string; icon: React.ReactNode
       target="_blank"
       rel="noopener noreferrer"
       aria-label={label}
-      className="bg-slate-800 p-2 rounded-lg text-slate-400 hover:bg-indigo-600 hover:text-white duration-200 [@media(hover:hover)and(pointer:fine)]:hover:-translate-y-1"
+      className="social-link bg-slate-800 p-2 rounded-lg text-slate-400 hover:bg-indigo-600 hover:text-white duration-200"
     >
       {icon}
     </a>
