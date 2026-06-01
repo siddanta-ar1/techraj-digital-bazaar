@@ -1,8 +1,23 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { sendOrderEmail } from "@/lib/resend";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+
+const ALLOWED_PAYMENT_METHODS = new Set(["wallet", "esewa", "khalti", "bank_transfer"]);
+const MAX_ITEMS_PER_ORDER = 20;
+const MAX_QTY_PER_ITEM = 99;
 
 export async function POST(request: Request) {
+  // Rate limit: 5 orders per minute per IP — prevents spam/double-submit
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(`order:${ip}`, 5, 60_000);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait before placing another order." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.resetInMs / 1000)) } },
+    );
+  }
+
   try {
     const supabase = await createClient();
 
@@ -33,10 +48,25 @@ export async function POST(request: Request) {
     if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: "Order must contain items" }, { status: 400 });
     }
-
-    if (!paymentMethod) {
-      return NextResponse.json({ error: "Payment method is required" }, { status: 400 });
+    if (items.length > MAX_ITEMS_PER_ORDER) {
+      return NextResponse.json({ error: `Order cannot exceed ${MAX_ITEMS_PER_ORDER} items` }, { status: 400 });
     }
+
+    if (!paymentMethod || !ALLOWED_PAYMENT_METHODS.has(paymentMethod)) {
+      return NextResponse.json({ error: "Invalid payment method" }, { status: 400 });
+    }
+
+    // Validate per-item quantity
+    for (const item of items) {
+      if (item.quantity > MAX_QTY_PER_ITEM) {
+        return NextResponse.json({ error: `Quantity cannot exceed ${MAX_QTY_PER_ITEM} per item` }, { status: 400 });
+      }
+    }
+
+    // Sanitize promoCode — strip to 50 chars, uppercase, alphanumeric only
+    const sanitizedPromoCode = typeof promoCode === "string"
+      ? promoCode.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0, 50) || null
+      : null;
 
     // 3. FETCH AUTHORITATIVE PRICES FROM DB (never trust client-supplied price)
     const variantIds: string[] = [...new Set(
@@ -163,13 +193,13 @@ export async function POST(request: Request) {
     let promoId: string | null = null;
     let serverDiscountAmount = 0;
 
-    if (promoCode) {
+    if (sanitizedPromoCode) {
       const { data: promo, error: promoError } = await admin
         .from("promo_codes")
         .select(
           "id, discount_type, discount_value, min_order_amount, max_discount_amount, usage_limit, usage_count, expires_at, is_active",
         )
-        .eq("code", (promoCode as string).toUpperCase())
+        .eq("code", sanitizedPromoCode)
         .eq("is_active", true)
         .maybeSingle();
 
@@ -344,7 +374,7 @@ export async function POST(request: Request) {
           total_amount: serverTotalAmount,
           discount_amount: serverDiscountAmount,
           final_amount: serverFinalAmount,
-          promo_code: promoCode || null,
+          promo_code: sanitizedPromoCode,
           status: orderStatus,
           payment_method: effectivePaymentMethod,
           payment_status: isInstantPayment ? "paid" : "pending",

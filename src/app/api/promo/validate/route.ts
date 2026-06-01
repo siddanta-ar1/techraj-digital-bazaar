@@ -1,7 +1,18 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 export async function POST(request: Request) {
+  // Rate limit: 15 validations per minute per IP — prevents enumeration attacks
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(`promo:${ip}`, 15, 60_000);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please slow down." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.resetInMs / 1000)) } },
+    );
+  }
+
   try {
     const supabase = await createClient();
 
@@ -21,14 +32,18 @@ export async function POST(request: Request) {
     // 2. PARSE REQUEST
     const { code, totalAmount } = await request.json();
 
-    if (!code || typeof totalAmount !== "number") {
+    if (!code || typeof totalAmount !== "number" || totalAmount < 0) {
       return NextResponse.json(
         { error: "Code and total amount are required" },
         { status: 400 },
       );
     }
 
-    const codeToTest = code.trim();
+    // Sanitize: strip to 50 chars, alphanumeric + hyphen/underscore only
+    const codeToTest = String(code).trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0, 50);
+    if (!codeToTest) {
+      return NextResponse.json({ error: "Invalid promo code" }, { status: 400 });
+    }
 
     // 3. ATOMIC CHECK FOR INVENTORY CODES (Gift Cards)
     // Use a transaction-like approach to check and temporarily reserve the code

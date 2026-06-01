@@ -1,8 +1,19 @@
 // src/app/api/wallet/topup/route.ts
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 export async function POST(request: Request) {
+  // Rate limit: 3 topup requests per minute per IP
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(`topup:${ip}`, 3, 60_000);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait before submitting another top-up." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.resetInMs / 1000)) } },
+    );
+  }
+
   try {
     const supabase = await createClient();
 

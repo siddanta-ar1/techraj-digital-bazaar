@@ -23,7 +23,10 @@ export async function GET() {
       product_count: (category as any).products?.[0]?.count || 0
     }))
 
-    return NextResponse.json({ categories: categoriesWithCount })
+    return NextResponse.json(
+      { categories: categoriesWithCount },
+      { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" } },
+    )
   } catch (error: any) {
     console.error("[categories] GET error:", error.message);
     return NextResponse.json({ error: "Failed to fetch categories" }, { status: 500 });
