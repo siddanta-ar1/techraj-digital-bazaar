@@ -23,14 +23,20 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter);        /* Inter — body text */
+  --font-display: var(--font-display);   /* Space Grotesk — headings */
+  --font-mono: ui-monospace, monospace;
 }
 
 /* ─── Base ─────────────────────────────────────────────────────────────────── */
 body {
   background: var(--background);
   color: var(--foreground);
+}
+
+/* Apply display font to headings so Space Grotesk personality shows */
+h1, h2, h3, h4 {
+  font-family: var(--font-display), var(--font-sans), sans-serif;
 }
 
 /* Prevent dark-mode colour flash on form elements */
@@ -174,5 +180,11 @@ button:active:not(:disabled),
     animation: none;
     opacity: 1;
     transform: none;
+  }
+
+  /* Stop the category marquee — show as scrollable row instead */
+  .animate-marquee-infinite {
+    animation: none !important;
+    overflow-x: auto;
   }
 }

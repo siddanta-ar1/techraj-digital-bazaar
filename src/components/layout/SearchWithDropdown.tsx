@@ -5,7 +5,6 @@ import { Search, X, Loader2, ArrowRight } from "lucide-react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { createClient } from "@/lib/supabase/client";
 
 interface SearchResult {
   id: string;
@@ -24,7 +23,6 @@ function SearchCore() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [supabase] = useState(() => createClient());
 
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -76,18 +74,15 @@ function SearchCore() {
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const { data, error } = await supabase
-          .from("products")
-          .select("id, name, slug, featured_image, category:categories(name)")
-          .ilike("name", `%${trimmed}%`)
-          .eq("is_active", true)
-          .limit(6);
+        const res = await fetch(
+          `/api/products?search=${encodeURIComponent(trimmed)}&limit=6`,
+        );
 
-        // Discard if a newer search has already been initiated
         if (version !== versionRef.current) return;
-        if (error) throw error;
+        if (!res.ok) throw new Error("search failed");
 
-        const formatted: SearchResult[] = (data ?? []).map((item: any) => ({
+        const json = await res.json();
+        const formatted: SearchResult[] = (json.products ?? []).map((item: any) => ({
           id: item.id,
           name: item.name,
           slug: item.slug,
@@ -109,10 +104,9 @@ function SearchCore() {
 
     return () => {
       clearTimeout(timer);
-      // Invalidate any in-flight request when the query changes
       versionRef.current++;
     };
-  }, [query, supabase]);
+  }, [query]);
 
   // Close dropdown on outside click
   useEffect(() => {

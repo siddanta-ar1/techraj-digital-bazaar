@@ -116,7 +116,8 @@ export function ProductDetail({ product }: ProductDetailProps) {
                     (prev) => (prev - 1 + allImages.length) % allImages.length,
                   )
                 }
-                className="bg-white/90 p-2 rounded-full shadow-md hover:bg-white transition-colors"
+                aria-label="Previous image"
+                className="bg-white/90 w-11 h-11 rounded-full shadow-md hover:bg-white transition-colors flex items-center justify-center"
               >
                 <ChevronLeft className="w-5 h-5 text-slate-700" />
               </button>
@@ -124,7 +125,8 @@ export function ProductDetail({ product }: ProductDetailProps) {
                 onClick={() =>
                   setActiveImageIndex((prev) => (prev + 1) % allImages.length)
                 }
-                className="bg-white/90 p-2 rounded-full shadow-md hover:bg-white transition-colors"
+                aria-label="Next image"
+                className="bg-white/90 w-11 h-11 rounded-full shadow-md hover:bg-white transition-colors flex items-center justify-center"
               >
                 <ChevronRight className="w-5 h-5 text-slate-700" />
               </button>
@@ -235,7 +237,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
           <button
             onClick={handleBuyNow}
             disabled={!selectedVariant || isOutOfStock}
-            className="w-full bg-indigo-600 text-white font-bold rounded-xl py-4 hover:bg-indigo-700 disabled:bg-slate-400 disabled:shadow-none disabled:cursor-not-allowed transition-all shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
+            className="w-full bg-amber-500 text-slate-900 font-bold rounded-xl py-4 hover:bg-amber-400 disabled:bg-slate-300 disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed transition-colors shadow-lg shadow-amber-500/30 flex items-center justify-center gap-2"
           >
             <Zap className="w-5 h-5" /> {isOutOfStock ? "OUT OF STOCK" : "BUY NOW"}
           </button>

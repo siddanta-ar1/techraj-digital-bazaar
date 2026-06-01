@@ -44,7 +44,7 @@ export default function CartClient() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto pb-28 md:pb-0">
       <h1 className="text-2xl md:text-3xl font-black text-slate-900 mb-8 flex items-center gap-3">
         <ShoppingBag className="h-8 w-8 text-indigo-600" />
         Shopping Cart
@@ -216,7 +216,7 @@ export default function CartClient() {
             <button
               onClick={() => router.push("/checkout")}
               disabled={items.length === 0}
-              className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-lg hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20 active:scale-[0.98] flex items-center justify-center gap-2 group"
+              className="w-full bg-amber-500 text-slate-900 py-4 rounded-xl font-bold text-lg hover:bg-amber-400 transition-colors shadow-lg shadow-amber-500/30 active:scale-[0.98] flex items-center justify-center gap-2 group"
             >
               Proceed to Checkout
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -230,6 +230,21 @@ export default function CartClient() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Sticky bottom CTA — mobile only, keeps checkout in thumb zone */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-slate-200 px-4 py-3 shadow-[0_-4px_16px_-4px_rgb(0_0_0/0.1)]">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm text-slate-500 font-medium">Total</span>
+          <span className="text-xl font-black text-slate-900">Rs. {totalPrice.toFixed(0)}</span>
+        </div>
+        <button
+          onClick={() => router.push("/checkout")}
+          disabled={items.length === 0}
+          className="w-full bg-amber-500 text-slate-900 py-3.5 rounded-xl font-bold hover:bg-amber-400 transition-colors shadow-lg shadow-amber-500/30 flex items-center justify-center gap-2"
+        >
+          Checkout <ArrowRight className="w-5 h-5" />
+        </button>
       </div>
     </div>
   );

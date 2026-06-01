@@ -48,13 +48,13 @@ export async function POST(request: Request) {
 
     const [variantResult, combinationResult] = await Promise.all([
       variantIds.length > 0
-        ? supabase
+        ? admin
             .from("product_variants")
             .select("id, price, is_active, product_id")
             .in("id", variantIds)
         : Promise.resolve({ data: [] as any[], error: null }),
       combinationIds.length > 0
-        ? supabase
+        ? admin
             .from("option_combinations")
             .select("id, calculated_price, is_active, product_id")
             .in("id", combinationIds)
@@ -66,10 +66,10 @@ export async function POST(request: Request) {
     }
 
     const variantPriceMap = new Map(
-      (variantResult.data ?? []).map((v) => [v.id, v]),
+      (variantResult.data ?? []).map((v: any) => [v.id, v]),
     );
     const combinationPriceMap = new Map(
-      (combinationResult.data ?? []).map((c) => [c.id, c]),
+      (combinationResult.data ?? []).map((c: any) => [c.id, c]),
     );
 
     // Resolve server-authoritative unit price for each item
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
         );
       }
 
-      const variant = variantPriceMap.get(item.variantId);
+      const variant = variantPriceMap.get(item.variantId) as any;
       if (!variant || !variant.is_active) {
         return NextResponse.json(
           { error: "One or more products are unavailable" },
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
 
       let combination = null;
       if (item.combinationId) {
-        combination = combinationPriceMap.get(item.combinationId);
+        combination = combinationPriceMap.get(item.combinationId) as any;
         if (!combination) {
           return NextResponse.json(
             { error: "Invalid product configuration" },
@@ -267,7 +267,7 @@ export async function POST(request: Request) {
         );
       }
 
-      await supabase.from("wallet_transactions").insert({
+      await admin.from("wallet_transactions").insert({
         user_id: user.id,
         amount: serverFinalAmount,
         type: "debit",
@@ -334,7 +334,7 @@ export async function POST(request: Request) {
     const orderStatus = isInstantPayment && allDelivered ? "completed" : "pending";
 
     // 10. CREATE ORDER
-    const { data: createdOrder, error: orderError } = await supabase
+    const { data: createdOrder, error: orderError } = await admin
       .from("orders")
       .insert([
         {
@@ -392,7 +392,7 @@ export async function POST(request: Request) {
     }
 
     // 11. INSERT ORDER ITEMS
-    const { error: itemsError } = await supabase
+    const { error: itemsError } = await admin
       .from("order_items")
       .insert(processedItems);
 

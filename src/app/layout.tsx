@@ -1,20 +1,23 @@
 // File: src/app/layout.tsx
 import type { Metadata } from "next";
-import { Inter, Poppins } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { InboxBanner } from "@/components/layout/InboxBanner";
 import { MainNav } from "@/components/layout/MainNav";
 import { ContactBar } from "@/components/layout/ContactBar";
 import { CategoryMarquee } from "@/components/layout/CategoryMarquee";
 import { Footer } from "@/components/layout/Footer";
-import { Providers } from "@/lib/providers/Providers"; // Import the new wrapper
+import { Providers } from "@/lib/providers/Providers";
 import { MobileHeader } from "@/components/layout/MobileHeader";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const poppins = Poppins({
-  weight: ["400", "500", "600", "700"],
+// Inter for body — now properly wired via --font-sans in globals.css
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
+// Space Grotesk for headings — distinctive personality, still highly legible
+const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
-  variable: "--font-poppins",
+  variable: "--font-display",
+  weight: ["500", "600", "700"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -78,7 +81,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body
         suppressHydrationWarning
-        className={`${inter.variable} ${poppins.variable} font-sans min-h-screen bg-slate-50 text-slate-900`}
+        className={`${inter.variable} ${spaceGrotesk.variable} font-sans min-h-screen bg-slate-50 text-slate-900`}
       >
         {/* Strip browser-extension attributes (e.g. bis_skin_checked) before React hydrates */}
         <script dangerouslySetInnerHTML={{__html: `(function(){var o=new MutationObserver(function(m){m.forEach(function(r){if(r.attributeName&&r.attributeName.startsWith('bis_'))r.target.removeAttribute(r.attributeName)})});o.observe(document.documentElement,{attributes:true,subtree:true,attributeFilter:['bis_skin_checked','bis_register']});document.querySelectorAll('[bis_skin_checked],[bis_register]').forEach(function(el){el.removeAttribute('bis_skin_checked');el.removeAttribute('bis_register')})})()`}} />

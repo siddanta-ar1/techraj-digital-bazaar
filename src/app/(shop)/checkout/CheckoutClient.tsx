@@ -922,7 +922,7 @@ ${itemsList}
                     !!user?.is_synced &&
                     (user.wallet_balance ?? 0) < finalTotal)
                 }
-                className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-lg hover:bg-slate-800 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                className="w-full bg-amber-500 text-slate-900 py-4 rounded-xl font-bold text-lg hover:bg-amber-400 disabled:opacity-50 disabled:bg-slate-300 disabled:text-slate-400 transition-colors shadow-lg shadow-amber-500/30 flex items-center justify-center gap-2"
               >
                 {checkoutMode === "submitting" ? (
                   <>

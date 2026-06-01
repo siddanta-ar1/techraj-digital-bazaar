@@ -35,7 +35,8 @@ export function MobileHeader() {
             {/* Hamburger Menu */}
             <button
               onClick={() => setIsMenuOpen(true)}
-              className="p-1 -ml-1 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+              aria-label="Open menu"
+              className="p-2.5 -ml-2.5 text-slate-700 hover:bg-slate-100 rounded-xl transition-colors min-w-11 min-h-11 flex items-center justify-center"
             >
               <Menu className="w-6 h-6" />
             </button>
@@ -49,7 +50,8 @@ export function MobileHeader() {
             {/* Cart Icon */}
             <Link
               href="/cart"
-              className="relative p-1 -mr-1 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+              aria-label={totalItems > 0 ? `Cart, ${totalItems} items` : "Cart"}
+              className="relative p-2.5 -mr-2.5 text-slate-700 hover:bg-slate-100 rounded-xl transition-colors min-w-11 min-h-11 flex items-center justify-center"
             >
               <ShoppingCart className="w-6 h-6" />
               {totalItems > 0 && (
@@ -68,7 +70,7 @@ export function MobileHeader() {
 
       {/* Mobile Drawer */}
       <div
-        className={`fixed inset-0 z-[100] transition-opacity duration-300 ${
+        className={`fixed inset-0 z-100 transition-opacity duration-300 ${
           isMenuOpen
             ? "opacity-100 visible"
             : "opacity-0 invisible pointer-events-none"

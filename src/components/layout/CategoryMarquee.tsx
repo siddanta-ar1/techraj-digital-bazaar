@@ -2,7 +2,6 @@
 
 import { usePathname } from "next/navigation";
 import { CategoryMarqueeClient } from "./CategoryMarqueeClient";
-import { createClient } from "@/lib/supabase/client"; // Use client for client component
 import { useEffect, useState } from "react";
 // ... icons import ...
 import {
@@ -69,27 +68,22 @@ const getCategoryStyle = (name: string) => {
 export function CategoryMarquee() {
   const pathname = usePathname();
   const [categories, setCategories] = useState<any[]>([]);
-  const [supabase] = useState(() => createClient());
 
   useEffect(() => {
-    async function fetchCategories() {
-      const { data } = await supabase
-        .from("categories")
-        .select("id, name, slug")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true });
-
-      if (data) {
-        const processed = data.map((cat: { id: string; name: string; slug: string }) => ({
-          id: cat.id,
-          name: cat.name,
-          slug: cat.slug,
-          ...getCategoryStyle(cat.name),
-        }));
-        setCategories(processed);
-      }
-    }
-    fetchCategories();
+    fetch("/api/categories")
+      .then((r) => r.json())
+      .then(({ categories: data }) => {
+        if (!data) return;
+        setCategories(
+          data.map((cat: { id: string; name: string; slug: string }) => ({
+            id: cat.id,
+            name: cat.name,
+            slug: cat.slug,
+            ...getCategoryStyle(cat.name),
+          })),
+        );
+      })
+      .catch(() => {});
   }, []);
 
   // FIX: Hide on Dashboard/Admin
