@@ -13,6 +13,11 @@ export const metadata: Metadata = {
 export default async function AdminUsersPage() {
   const supabase = createAdminClient();
 
+  // Get the currently logged-in admin's ID so UsersClient can hide self-demotion
+  const { createClient: createServerClient } = await import("@/lib/supabase/server");
+  const authClient = await createServerClient();
+  const { data: { user: currentAdmin } } = await authClient.auth.getUser();
+
   const { data: users } = await supabase
     .from("users")
     .select("*")
@@ -100,7 +105,7 @@ export default async function AdminUsersPage() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <UsersClient initialUsers={users || []} />
+          <UsersClient initialUsers={users || []} currentUserId={currentAdmin?.id} />
         </div>
       </div>
     </div>

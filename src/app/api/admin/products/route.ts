@@ -54,14 +54,28 @@ export async function POST(request: Request) {
   }
 }
 
+const ALLOWED_PRODUCT_UPDATES = new Set<string>([
+  "name", "slug", "description", "category_id", "featured_image",
+  "gallery_images", "is_featured", "is_active", "has_variants",
+  "requires_manual_delivery", "delivery_instructions",
+  "ppom_enabled", "min_price", "max_price",
+]);
+
 export async function PATCH(request: Request) {
   try {
     if (!(await verifyAdmin()))
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const { id, ...updates } = await request.json();
+    const { id, ...rawUpdates } = await request.json();
     if (!id)
       return NextResponse.json({ error: "Missing product id" }, { status: 400 });
+
+    const updates: Record<string, unknown> = {};
+    for (const key of Object.keys(rawUpdates)) {
+      if (ALLOWED_PRODUCT_UPDATES.has(key)) updates[key] = rawUpdates[key];
+    }
+    if (Object.keys(updates).length === 0)
+      return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
 
     const admin = createAdminClient();
     const { data, error } = await admin
@@ -74,7 +88,8 @@ export async function PATCH(request: Request) {
     if (error) throw error;
     return NextResponse.json({ product: data });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/products] PATCH error:", error.message);
+    return NextResponse.json({ error: "Failed to update product" }, { status: 500 });
   }
 }
 

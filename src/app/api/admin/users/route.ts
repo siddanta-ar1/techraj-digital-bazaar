@@ -14,7 +14,8 @@ const ALLOWED_USER_UPDATES = new Set<string>(["full_name", "phone", "role", "ema
 
 export async function PATCH(request: Request) {
   try {
-    if (!(await verifyAdmin()))
+    const adminUser = await verifyAdmin();
+    if (!adminUser)
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const { id, ...rawUpdates } = await request.json();
@@ -30,6 +31,11 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
 
     const admin = createAdminClient();
+
+    // Prevent self-demotion — an admin who demotes themselves loses all admin access
+    const adminUser = await verifyAdmin();
+    if (updates.role !== undefined && updates.role !== "admin" && id === adminUser!.id)
+      return NextResponse.json({ error: "You cannot demote your own account" }, { status: 400 });
 
     // If updating role, sync Supabase Auth app_metadata so middleware/verifyAdmin checks work.
     if (updates.role !== undefined) {

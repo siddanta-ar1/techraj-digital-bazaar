@@ -18,7 +18,7 @@ interface UserData {
   created_at: string;
 }
 
-export function UsersClient({ initialUsers }: { initialUsers: UserData[] }) {
+export function UsersClient({ initialUsers, currentUserId }: { initialUsers: UserData[]; currentUserId?: string }) {
   const [users, setUsers] = useState(initialUsers);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
@@ -174,6 +174,10 @@ export function UsersClient({ initialUsers }: { initialUsers: UserData[] }) {
                           >
                             Make Admin
                           </button>
+                        ) : user.id === currentUserId ? (
+                          <span className="px-3 py-1.5 text-xs font-medium text-slate-400 bg-slate-50 rounded-lg cursor-not-allowed" title="Cannot demote yourself">
+                            You
+                          </span>
                         ) : (
                           <button
                             onClick={() => handleRoleUpdate(user.id, "user")}
