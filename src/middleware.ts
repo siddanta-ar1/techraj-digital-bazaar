@@ -33,7 +33,9 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  const isAdminPage = pathname.startsWith("/admin");
+  const isAdminPage    = pathname.startsWith("/admin");
+  const isAdminApiRoute = pathname.startsWith("/api/admin");
+  const isAuthApiRoute  = pathname.startsWith("/api/auth");
   const isMaintenancePage = pathname === "/maintenance";
   const isProtectedPage =
     pathname.startsWith("/dashboard") ||
@@ -60,8 +62,11 @@ export async function middleware(request: NextRequest) {
     return res;
   };
 
-  // Maintenance mode — cookie set by /api/admin/maintenance, no DB query needed.
-  // Admins, API routes, auth pages, and /maintenance itself bypass the gate.
+  // Maintenance mode — cookie set by /api/admin/maintenance.
+  // Admin pages, admin API routes, and auth routes always bypass the gate so
+  // the admin can still log in and manage the site during maintenance.
+  // Non-admin API calls return 503 JSON so clients get a structured error
+  // instead of an HTML redirect — previously these were let through entirely.
   const isUnderMaintenance =
     request.cookies.get("__maintenance")?.value === "1";
   const role = user?.app_metadata?.role as string | undefined;
@@ -69,11 +74,18 @@ export async function middleware(request: NextRequest) {
   if (
     isUnderMaintenance &&
     !isAdminPage &&
-    !isApiRoute &&
+    !isAdminApiRoute &&
     !isAuthPage &&
+    !isAuthApiRoute &&
     !isMaintenancePage &&
     role !== "admin"
   ) {
+    if (isApiRoute) {
+      return NextResponse.json(
+        { error: "Service temporarily unavailable for maintenance" },
+        { status: 503 },
+      );
+    }
     return redirect("/maintenance");
   }
 

@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 
 export async function createClient() {
@@ -18,9 +19,8 @@ export async function createClient() {
               cookieStore.set(name, value, options)
             )
           } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
+            // Called from a Server Component — safe to ignore because middleware
+            // handles session refresh and sets the updated cookies on the response.
           }
         },
       },
@@ -28,10 +28,11 @@ export async function createClient() {
   )
 }
 
+// Uses ESM import (not require) so it works on Edge Runtime and strict ESM builds.
+// The service role key bypasses RLS — only use server-side, never expose to the client.
 export function createAdminClient() {
-  const { createClient: createClientSupabase } = require('@supabase/supabase-js');
-  return createClientSupabase(
+  return createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  )
 }

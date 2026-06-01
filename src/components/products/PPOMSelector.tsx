@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Check, AlertCircle } from "lucide-react";
 import type {
     OptionGroup,
@@ -58,14 +58,23 @@ export function PPOMSelector({
         return getEffectivePrice(basePrice, groups, selections, combinations);
     }, [optionGroups, selections, combinations, basePrice]);
 
-    // Notify parent of selection changes
+    // Keep a ref to the latest callback so the effect never re-fires because
+    // the parent passed a new function reference (e.g., on an image gallery click).
+    // Without this, every parent re-render triggers a redundant callback with
+    // unchanged data, causing price flickering and potential render loops.
+    const onSelectionChangeRef = useRef(onSelectionChange);
     useEffect(() => {
-        onSelectionChange(
+        onSelectionChangeRef.current = onSelectionChange;
+    });
+
+    // Only fire when actual selection values or computed price change
+    useEffect(() => {
+        onSelectionChangeRef.current(
             selections,
             priceResult.totalPrice,
-            priceResult.matchedCombination?.id
+            priceResult.matchedCombination?.id,
         );
-    }, [selections, priceResult, onSelectionChange]);
+    }, [selections, priceResult]);
 
     const handleSelect = (groupId: string, optionId: string, selectionType: "single" | "multiple") => {
         setSelections((prev) => {

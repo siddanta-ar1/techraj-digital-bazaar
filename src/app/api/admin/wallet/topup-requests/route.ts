@@ -90,27 +90,31 @@ export async function POST(request: Request) {
     if (updateError) throw updateError;
 
     if (action === "approve") {
-      const { data: currentUser } = await admin
-        .from("users")
-        .select("wallet_balance")
-        .eq("id", topupRequest.user_id)
-        .single();
-
-      const newBalance = (Number(currentUser?.wallet_balance) || 0) + Number(topupRequest.amount);
-
-      const { error: balanceError } = await admin
-        .from("users")
-        .update({ wallet_balance: newBalance })
-        .eq("id", topupRequest.user_id);
+      // Use the increment_wallet RPC for an atomic UPDATE wallet_balance = wallet_balance + amount.
+      // This prevents the read-compute-write race condition where two concurrent approvals
+      // both read the same balance and the last write silently overwrites the first.
+      // It also eliminates the null-balance bug: if the users row doesn't exist the RPC
+      // returns an error rather than silently computing 0 + amount.
+      const { data: newBalanceResult, error: balanceError } = await admin.rpc(
+        "increment_wallet",
+        { p_user_id: topupRequest.user_id, p_amount: Number(topupRequest.amount) },
+      );
 
       if (balanceError) {
-        // Rollback: revert topup_requests status back to pending
+        // Rollback: revert topup_requests status to pending so the admin can retry
         await admin
           .from("topup_requests")
           .update({ status: "pending", admin_notes: null, updated_at: new Date().toISOString() })
           .eq("id", requestId);
         throw balanceError;
       }
+
+      // Fetch final balance for the transaction record (RPC returns the new balance)
+      const newBalance: number =
+        typeof newBalanceResult === "number"
+          ? newBalanceResult
+          : (await admin.from("users").select("wallet_balance").eq("id", topupRequest.user_id).single())
+              .data?.wallet_balance ?? Number(topupRequest.amount);
 
       // Update the pending transaction if it exists; insert one if it doesn't (older requests)
       const { count } = await admin
@@ -132,7 +136,7 @@ export async function POST(request: Request) {
           type: "credit",
           transaction_type: "topup",
           reference_id: requestId,
-          description: `Top-up approved`,
+          description: "Top-up approved",
           balance_after: newBalance,
           status: "completed",
         });

@@ -204,10 +204,18 @@ export default function CheckoutClient() {
         body: JSON.stringify({ code: codeToTest, totalAmount: totalPrice }),
       });
 
-      const result = await response.json();
+      // Parse JSON inside the try so a malformed body (SyntaxError) is caught
+      // and checkoutMode is always reset to 'idle' via the finally block.
+      let result: any;
+      try {
+        result = await response.json();
+      } catch {
+        setPromoMessage("Server returned an invalid response. Please try again.");
+        return;
+      }
 
       if (!response.ok) {
-        setPromoMessage(result.error || "Invalid promo code");
+        setPromoMessage(result?.error || "Invalid promo code");
         return;
       }
 

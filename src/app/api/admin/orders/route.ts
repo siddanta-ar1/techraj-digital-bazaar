@@ -126,33 +126,37 @@ export async function PATCH(request: Request) {
 
         const variantMap = new Map((variantData ?? []).map((v: any) => [v.id, v]));
 
-        for (const item of pendingItems) {
-          let deliveredCode: string | null = null;
+        // Process all items in parallel — replaces sequential await-in-loop
+        // (5 items × 2 round-trips each = 10 serial DB calls → 2 parallel batches)
+        const results = await Promise.all(
+          pendingItems.map(async (item: any) => {
+            let deliveredCode: string | null = null;
+            try {
+              const { data: claimedCodes, error: claimError } = await admin.rpc(
+                "claim_product_codes_atomic",
+                { p_variant_id: item.variant_id, p_quantity: item.quantity, p_order_id: orderId },
+              );
+              if (!claimError && claimedCodes && claimedCodes.length > 0)
+                deliveredCode = claimedCodes.join(", ");
+            } catch {
+              // Non-fatal — item is marked delivered without a code
+            }
 
-          try {
-            const { data: claimedCodes, error: claimError } = await admin.rpc(
-              "claim_product_codes_atomic",
-              { p_variant_id: item.variant_id, p_quantity: item.quantity, p_order_id: orderId },
-            );
-            if (!claimError && claimedCodes && claimedCodes.length > 0)
-              deliveredCode = claimedCodes.join(", ");
-          } catch {
-            // Non-fatal: item will be marked delivered without a code
-          }
+            await admin
+              .from("order_items")
+              .update({ status: "delivered", delivered_code: deliveredCode })
+              .eq("id", item.id);
 
-          await admin
-            .from("order_items")
-            .update({ status: "delivered", delivered_code: deliveredCode })
-            .eq("id", item.id);
-
-          const variant = variantMap.get(item.variant_id) as any;
-          deliveredItems.push({
-            productName: variant?.product?.name ?? "Product",
-            variantName: variant?.variant_name ?? "Standard",
-            quantity: item.quantity,
-            delivered_code: deliveredCode,
-          });
-        }
+            const variant = variantMap.get(item.variant_id) as any;
+            return {
+              productName: variant?.product?.name ?? "Product",
+              variantName: variant?.variant_name ?? "Standard",
+              quantity: item.quantity,
+              delivered_code: deliveredCode,
+            };
+          }),
+        );
+        deliveredItems.push(...results);
       }
 
       try {
