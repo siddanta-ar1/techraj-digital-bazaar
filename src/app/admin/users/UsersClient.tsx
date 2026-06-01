@@ -84,8 +84,8 @@ export function UsersClient({ initialUsers, currentUserId }: { initialUsers: Use
           </div>
         </div>
 
-        {/* Users Table */}
-        <div className="overflow-x-auto">
+        {/* Desktop Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-500 border-b border-slate-200 uppercase tracking-wider text-xs">
               <tr>
@@ -99,58 +99,38 @@ export function UsersClient({ initialUsers, currentUserId }: { initialUsers: Use
             <tbody className="divide-y divide-slate-100">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="px-6 py-12 text-center text-slate-500"
-                  >
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center">
                       <Search className="h-10 w-10 mb-2 opacity-20" />
-                      <p>No users found matching "{search}"</p>
+                      <p>No users found matching &ldquo;{search}&rdquo;</p>
                     </div>
                   </td>
                 </tr>
               ) : (
                 filteredUsers.map((user) => (
-                  <tr
-                    key={user.id}
-                    className="hover:bg-slate-50 transition-colors group"
-                  >
+                  <tr key={user.id} className="hover:bg-slate-50 transition-colors group">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden border border-slate-300">
+                        <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden border border-slate-300 shrink-0">
                           {user.avatar_url ? (
-                            <Image
-                              src={user.avatar_url}
-                              alt={user.email}
-                              width={40}
-                              height={40}
-                              className="object-cover h-full w-full"
-                            />
+                            <Image src={user.avatar_url} alt={user.email} width={40} height={40} className="object-cover h-full w-full" />
                           ) : (
                             <User className="h-5 w-5 text-slate-400" />
                           )}
                         </div>
                         <div>
-                          <p className="font-semibold text-slate-900">
-                            {user.full_name || "No Name"}
-                          </p>
+                          <p className="font-semibold text-slate-900">{user.full_name || "No Name"}</p>
                           <p className="text-xs text-slate-500">{user.email}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
-                          user.role === "admin"
-                            ? "bg-purple-50 text-purple-700 border-purple-200"
-                            : "bg-slate-100 text-slate-600 border-slate-200"
-                        }`}
-                      >
-                        {user.role === "admin" ? (
-                          <Shield className="h-3 w-3" />
-                        ) : (
-                          <User className="h-3 w-3" />
-                        )}
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
+                        user.role === "admin"
+                          ? "bg-purple-50 text-purple-700 border-purple-200"
+                          : "bg-slate-100 text-slate-600 border-slate-200"
+                      }`}>
+                        {user.role === "admin" ? <Shield className="h-3 w-3" /> : <User className="h-3 w-3" />}
                         <span className="capitalize">{user.role}</span>
                       </span>
                     </td>
@@ -168,21 +148,13 @@ export function UsersClient({ initialUsers, currentUserId }: { initialUsers: Use
                         {loading === user.id ? (
                           <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
                         ) : user.role === "user" ? (
-                          <button
-                            onClick={() => handleRoleUpdate(user.id, "admin")}
-                            className="px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
-                          >
+                          <button onClick={() => handleRoleUpdate(user.id, "admin")} className="px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors">
                             Make Admin
                           </button>
                         ) : user.id === currentUserId ? (
-                          <span className="px-3 py-1.5 text-xs font-medium text-slate-400 bg-slate-50 rounded-lg cursor-not-allowed" title="Cannot demote yourself">
-                            You
-                          </span>
+                          <span className="px-3 py-1.5 text-xs font-medium text-slate-400 bg-slate-50 rounded-lg cursor-not-allowed" title="Cannot demote yourself">You</span>
                         ) : (
-                          <button
-                            onClick={() => handleRoleUpdate(user.id, "user")}
-                            className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
-                          >
+                          <button onClick={() => handleRoleUpdate(user.id, "user")} className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
                             Demote
                           </button>
                         )}
@@ -193,6 +165,82 @@ export function UsersClient({ initialUsers, currentUserId }: { initialUsers: Use
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {filteredUsers.length === 0 ? (
+            <div className="px-4 py-12 text-center text-slate-500">
+              <div className="flex flex-col items-center">
+                <Search className="h-10 w-10 mb-2 opacity-20" />
+                <p>No users found matching &ldquo;{search}&rdquo;</p>
+              </div>
+            </div>
+          ) : (
+            filteredUsers.map((user) => (
+              <div key={user.id} className="p-4 space-y-3 hover:bg-slate-50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden border border-slate-300 shrink-0">
+                    {user.avatar_url ? (
+                      <Image src={user.avatar_url} alt={user.email} width={40} height={40} className="object-cover h-full w-full" />
+                    ) : (
+                      <User className="h-5 w-5 text-slate-400" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-slate-900 text-sm">{user.full_name || "No Name"}</p>
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border ${
+                        user.role === "admin"
+                          ? "bg-purple-50 text-purple-700 border-purple-200"
+                          : "bg-slate-100 text-slate-600 border-slate-200"
+                      }`}>
+                        {user.role === "admin" ? <Shield className="h-2.5 w-2.5" /> : <User className="h-2.5 w-2.5" />}
+                        <span className="capitalize">{user.role}</span>
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-1.5 text-slate-700 font-mono font-medium">
+                    <Wallet className="h-3.5 w-3.5 text-slate-400" />
+                    Rs. {user.wallet_balance?.toFixed(2) || "0.00"}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    Joined {format(new Date(user.created_at), "MMM d, yyyy")}
+                  </div>
+                </div>
+
+                <div className="pt-1">
+                  {loading === user.id ? (
+                    <div className="flex justify-center py-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+                    </div>
+                  ) : user.role === "user" ? (
+                    <button
+                      onClick={() => handleRoleUpdate(user.id, "admin")}
+                      className="w-full py-2 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+                    >
+                      Make Admin
+                    </button>
+                  ) : user.id === currentUserId ? (
+                    <div className="w-full py-2 text-xs font-medium text-center text-slate-400 bg-slate-50 rounded-lg cursor-not-allowed">
+                      Current Account
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleRoleUpdate(user.id, "user")}
+                      className="w-full py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                    >
+                      Demote to User
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 

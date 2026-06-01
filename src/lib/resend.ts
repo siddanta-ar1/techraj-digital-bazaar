@@ -1,9 +1,19 @@
 import { Resend } from "resend";
 
-// In production, strictly use process.env.RESEND_API_KEY
 export const resend = new Resend(process.env.RESEND_API_KEY);
 
 const EMAIL_FROM = "TechRaj Digital <onboarding@resend.dev>";
+
+// P9/P10: Escape all user-supplied values before interpolating into HTML.
+// Prevents HTML injection in admin emails and stored XSS in customer emails.
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+}
 
 export const sendOrderEmail = async (
   email: string,
@@ -35,10 +45,10 @@ export const sendOrderEmail = async (
             (item) => `
               <li style="border-bottom: 1px solid #f3f4f6; padding: 15px 0;">
                 <div style="font-weight: bold; font-size: 16px;">
-                  ${item.productName || item.variant?.product?.name || "Product"}
+                  ${escapeHtml(item.productName || item.variant?.product?.name || "Product")}
                 </div>
                 <div style="color: #6b7280; font-size: 14px; margin-top: 4px;">
-                  Variant: ${item.variantName || item.variant?.variant_name || "Standard"} | Qty: ${item.quantity}
+                  Variant: ${escapeHtml(item.variantName || item.variant?.variant_name || "Standard")} | Qty: ${escapeHtml(item.quantity)}
                 </div>
 
                 ${(() => {
@@ -56,7 +66,7 @@ export const sendOrderEmail = async (
                         <div style="font-size: 11px; text-transform: uppercase; color: #7c3aed; margin-bottom: 4px; font-weight: bold;">Customizations</div>
                         ${Object.entries(parsedSelections).map(([key, value]: [string, any]) =>
                     `<div style="font-size: 13px; color: #6d28d9; margin-top: 2px;">
-                            <strong>${key}:</strong> ${Array.isArray(value) ? value.join(", ") : String(value)}
+                            <strong>${escapeHtml(key)}:</strong> ${escapeHtml(Array.isArray(value) ? value.join(", ") : String(value))}
                           </div>`
                   ).join("")}
                       </div>
@@ -70,7 +80,7 @@ export const sendOrderEmail = async (
                   <div style="margin-top: 12px; background: #ecfdf5; padding: 15px; border: 1px dashed #10b981; border-radius: 8px; text-align: center;">
                     <div style="font-size: 12px; text-transform: uppercase; color: #047857; margin-bottom: 6px; font-weight: bold;">Your Digital Code</div>
                     <div style="font-family: monospace; font-size: 20px; letter-spacing: 2px; font-weight: bold; color: #065f46; background: white; padding: 8px; border-radius: 4px;">
-                      ${item.delivered_code}
+                      ${escapeHtml(item.delivered_code)}
                     </div>
                     <div style="font-size: 11px; color: #059669; margin-top: 6px;">
                       Please redeem this code on the respective platform.
@@ -157,13 +167,13 @@ export const sendCodesDeliveredEmail = async (
 
           ${items.map((item) => `
             <div style="border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; margin-bottom: 16px;">
-              <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">${item.productName}</div>
-              <div style="color: #6b7280; font-size: 13px; margin-bottom: 12px;">${item.variantName} &times; ${item.quantity}</div>
+              <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">${escapeHtml(item.productName)}</div>
+              <div style="color: #6b7280; font-size: 13px; margin-bottom: 12px;">${escapeHtml(item.variantName)} &times; ${escapeHtml(item.quantity)}</div>
               ${item.delivered_code ? `
                 <div style="background: #ecfdf5; border: 1px dashed #10b981; border-radius: 8px; padding: 14px; text-align: center;">
                   <div style="font-size: 11px; text-transform: uppercase; color: #047857; margin-bottom: 6px; font-weight: bold;">Your Digital Code</div>
                   <div style="font-family: monospace; font-size: 22px; letter-spacing: 3px; font-weight: bold; color: #065f46; background: white; padding: 10px; border-radius: 6px;">
-                    ${item.delivered_code}
+                    ${escapeHtml(item.delivered_code)}
                   </div>
                   <div style="font-size: 11px; color: #059669; margin-top: 8px;">Redeem this code on the respective platform.</div>
                 </div>
@@ -208,11 +218,11 @@ export const sendAdminTopupNotificationEmail = async (opts: {
         <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px;">
           <h2 style="color: #4f46e5; margin-bottom: 16px;">New Wallet Top-up Request</h2>
           <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-            <tr><td style="padding: 8px 0; color: #6b7280;">User</td><td style="padding: 8px 0; font-weight: bold;">${opts.userName} (${opts.userEmail})</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">User</td><td style="padding: 8px 0; font-weight: bold;">${escapeHtml(opts.userName)} (${escapeHtml(opts.userEmail)})</td></tr>
             <tr><td style="padding: 8px 0; color: #6b7280;">Amount</td><td style="padding: 8px 0; font-weight: bold; color: #059669;">Rs. ${opts.amount.toFixed(2)}</td></tr>
-            <tr><td style="padding: 8px 0; color: #6b7280;">Payment Method</td><td style="padding: 8px 0;">${opts.paymentMethod}</td></tr>
-            <tr><td style="padding: 8px 0; color: #6b7280;">Transaction ID</td><td style="padding: 8px 0; font-family: monospace;">${opts.transactionId || "N/A"}</td></tr>
-            ${opts.screenshotUrl ? `<tr><td style="padding: 8px 0; color: #6b7280;">Screenshot</td><td style="padding: 8px 0;"><a href="${opts.screenshotUrl}" style="color: #4f46e5;">View Screenshot</a></td></tr>` : ""}
+            <tr><td style="padding: 8px 0; color: #6b7280;">Payment Method</td><td style="padding: 8px 0;">${escapeHtml(opts.paymentMethod)}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Transaction ID</td><td style="padding: 8px 0; font-family: monospace;">${escapeHtml(opts.transactionId || "N/A")}</td></tr>
+            ${opts.screenshotUrl ? `<tr><td style="padding: 8px 0; color: #6b7280;">Screenshot</td><td style="padding: 8px 0;"><a href="${escapeHtml(opts.screenshotUrl)}" style="color: #4f46e5;">View Screenshot</a></td></tr>` : ""}
           </table>
           <div style="margin-top: 24px; text-align: center;">
             <a href="https://www.techrajshop.com/admin/topup-requests" style="background: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px;">Review Request in Admin Panel</a>

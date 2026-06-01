@@ -1,5 +1,5 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { sendAdminTopupNotificationEmail } from "@/lib/resend";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
@@ -102,7 +102,18 @@ export async function POST(request: Request) {
         status: "pending",
       }]);
 
-    if (txnError) throw txnError;
+    if (txnError) {
+      // P6: wallet_transactions insert failed — clean up the topup_requests row so the
+      // user is not permanently locked out by the pending-check on their next attempt.
+      const { error: cleanupError } = await admin
+        .from("topup_requests")
+        .delete()
+        .eq("id", topupRequest.id);
+      if (cleanupError) {
+        console.error("[wallet/topup] orphaned topup_request cleanup failed:", cleanupError.message, "id:", topupRequest.id);
+      }
+      throw txnError;
+    }
 
     const { data: userRecord } = await admin
       .from("users")
@@ -110,14 +121,19 @@ export async function POST(request: Request) {
       .eq("id", user.id)
       .single();
 
-    sendAdminTopupNotificationEmail({
-      userEmail: userRecord?.email ?? user.email ?? "",
-      userName: userRecord?.full_name ?? "Unknown",
-      amount,
-      paymentMethod,
-      transactionId,
-      screenshotUrl: screenshotUrl ?? undefined,
-      requestId: topupRequest.id,
+    // P13: Use after() so the Resend HTTP call completes even after the response is sent.
+    // On Vercel's serverless runtime the execution context is frozen post-response, which
+    // silently drops unawaited in-flight I/O without after().
+    after(() => {
+      sendAdminTopupNotificationEmail({
+        userEmail: userRecord?.email ?? user.email ?? "",
+        userName: userRecord?.full_name ?? "Unknown",
+        amount,
+        paymentMethod,
+        transactionId,
+        screenshotUrl: screenshotUrl ?? undefined,
+        requestId: topupRequest.id,
+      });
     });
 
     return NextResponse.json({

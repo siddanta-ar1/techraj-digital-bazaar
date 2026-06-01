@@ -26,11 +26,20 @@ export async function GET(
     let combinations: any[] = [];
 
     if (product.ppom_enabled) {
-      const { data: pogData } = await supabase
-        .from("product_option_groups")
-        .select(`*, option_group:option_groups(*, options:options(*))`)
-        .eq("product_id", product.id)
-        .order("sort_order");
+      // P15: Both queries depend only on product.id and are fully independent —
+      // run them in parallel to halve the round-trip cost (~50ms → ~50ms instead of ~100ms).
+      const [{ data: pogData }, { data: comboData }] = await Promise.all([
+        supabase
+          .from("product_option_groups")
+          .select(`*, option_group:option_groups(*, options:options(*))`)
+          .eq("product_id", product.id)
+          .order("sort_order"),
+        supabase
+          .from("option_combinations")
+          .select("*")
+          .eq("product_id", product.id)
+          .eq("is_active", true),
+      ]);
 
       optionGroups = (pogData || []).map((pog: any) => ({
         ...pog,
@@ -43,12 +52,6 @@ export async function GET(
             }
           : null,
       }));
-
-      const { data: comboData } = await supabase
-        .from("option_combinations")
-        .select("*")
-        .eq("product_id", product.id)
-        .eq("is_active", true);
 
       combinations = comboData || [];
     }

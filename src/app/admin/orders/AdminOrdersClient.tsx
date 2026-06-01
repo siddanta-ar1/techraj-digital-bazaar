@@ -180,8 +180,8 @@ export default function AdminOrdersClient({
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
+      {/* Desktop Table */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
@@ -266,7 +266,6 @@ export default function AdminOrdersClient({
                       )}
                     </button>
 
-                    {/* Action Menu */}
                     {activeMenuId === order.id && (
                       <div className="absolute right-8 top-12 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top-right">
                         <button
@@ -278,25 +277,18 @@ export default function AdminOrdersClient({
                         >
                           <Eye className="h-4 w-4" /> View Details
                         </button>
-
-                        <div className="h-px bg-slate-100 my-1"></div>
-
+                        <div className="h-px bg-slate-100 my-1" />
                         {order.status !== "completed" && (
                           <button
-                            onClick={() =>
-                              handleStatusUpdate(order.id, "completed")
-                            }
+                            onClick={() => handleStatusUpdate(order.id, "completed")}
                             className="w-full text-left px-4 py-2.5 text-sm text-emerald-600 hover:bg-emerald-50 flex items-center gap-2 transition-colors"
                           >
                             <CheckCircle className="h-4 w-4" /> Mark Completed
                           </button>
                         )}
-
                         {order.status !== "cancelled" && (
                           <button
-                            onClick={() =>
-                              handleStatusUpdate(order.id, "cancelled")
-                            }
+                            onClick={() => handleStatusUpdate(order.id, "cancelled")}
                             className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
                           >
                             <XCircle className="h-4 w-4" /> Cancel Order
@@ -310,6 +302,81 @@ export default function AdminOrdersClient({
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden divide-y divide-slate-100">
+        {orders.length === 0 && !loading ? (
+          <div className="px-4 py-12 text-center">
+            <div className="flex flex-col items-center text-slate-400">
+              <Search className="h-10 w-10 mb-2 opacity-20" />
+              <p>No orders found matching your filters.</p>
+            </div>
+          </div>
+        ) : (
+          orders.map((order) => (
+            <div key={order.id} className="p-4 space-y-3 hover:bg-slate-50 transition-colors">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded text-xs shrink-0">
+                  #{order.order_number || `LEGACY-${order.id.slice(0, 8).toUpperCase()}`}
+                </span>
+                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${getStatusStyle(order.status)}`}>
+                  {order.status.toUpperCase()}
+                </span>
+              </div>
+
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="font-semibold text-slate-900 text-sm truncate">
+                    {order.user?.full_name || "Guest User"}
+                  </div>
+                  <div className="text-xs text-slate-500 truncate">{order.user?.email}</div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="font-bold text-slate-900 text-sm">Rs. {order.final_amount}</div>
+                  <div className="text-xs text-slate-500 capitalize">{order.payment_method.replace("_", " ")}</div>
+                </div>
+              </div>
+
+              <div className="text-xs text-slate-400">
+                {new Date(order.created_at).toLocaleDateString()}{" "}
+                {new Date(order.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => router.push(`/admin/orders/${order.id}`)}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+                >
+                  <Eye className="h-3.5 w-3.5" /> View
+                </button>
+                {order.status !== "completed" && (
+                  <button
+                    onClick={() => handleStatusUpdate(order.id, "completed")}
+                    disabled={updatingId === order.id}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {updatingId === order.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <CheckCircle className="h-3.5 w-3.5" />
+                    )}
+                    Complete
+                  </button>
+                )}
+                {order.status !== "cancelled" && (
+                  <button
+                    onClick={() => handleStatusUpdate(order.id, "cancelled")}
+                    disabled={updatingId === order.id}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    <XCircle className="h-3.5 w-3.5" /> Cancel
+                  </button>
+                )}
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Pagination */}

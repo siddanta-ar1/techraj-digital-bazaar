@@ -79,7 +79,8 @@ export function TopupRequestTable({
 
   return (
     <>
-      <div className="overflow-x-auto">
+      {/* Desktop Table */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-500 border-b border-slate-200 uppercase tracking-wider text-xs">
             <tr>
@@ -94,41 +95,27 @@ export function TopupRequestTable({
           <tbody className="divide-y divide-slate-100">
             {requests.length === 0 ? (
               <tr>
-                <td
-                  colSpan={6}
-                  className="px-6 py-12 text-center text-slate-500"
-                >
+                <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                   No top-up requests found.
                 </td>
               </tr>
             ) : (
               requests.map((req) => (
-                <tr
-                  key={req.id}
-                  className="hover:bg-slate-50 transition-colors group"
-                >
+                <tr key={req.id} className="hover:bg-slate-50 transition-colors group">
                   <td className="px-6 py-4 text-slate-500 whitespace-nowrap">
                     {format(new Date(req.created_at), "MMM d, HH:mm")}
                   </td>
                   <td className="px-6 py-4">
-                    <div className="font-medium text-slate-900">
-                      {req.user?.full_name || "Unknown"}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      {req.user?.email}
-                    </div>
+                    <div className="font-medium text-slate-900">{req.user?.full_name || "Unknown"}</div>
+                    <div className="text-xs text-slate-500">{req.user?.email}</div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="font-bold text-slate-900">
-                      Rs. {req.amount.toLocaleString()}
-                    </div>
+                    <div className="font-bold text-slate-900">Rs. {req.amount.toLocaleString()}</div>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs bg-slate-100 px-2 py-0.5 rounded capitalize border border-slate-200 text-slate-600">
                         {req.payment_method.replace("_", " ")}
                       </span>
-                      <span className="text-xs text-slate-400 font-mono">
-                        #{req.transaction_id}
-                      </span>
+                      <span className="text-xs text-slate-400 font-mono">#{req.transaction_id}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -136,20 +123,17 @@ export function TopupRequestTable({
                       onClick={() => setSelectedImage(req.screenshot_url)}
                       className="flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 px-2 py-1 rounded-lg transition-colors text-xs font-medium"
                     >
-                      <Eye className="h-3.5 w-3.5" />
-                      View
+                      <Eye className="h-3.5 w-3.5" /> View
                     </button>
                   </td>
                   <td className="px-6 py-4">
-                    <span
-                      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border capitalize ${
-                        req.status === "approved"
-                          ? "bg-green-50 text-green-700 border-green-200"
-                          : req.status === "rejected"
-                            ? "bg-red-50 text-red-700 border-red-200"
-                            : "bg-amber-50 text-amber-700 border-amber-200"
-                      }`}
-                    >
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border capitalize ${
+                      req.status === "approved"
+                        ? "bg-green-50 text-green-700 border-green-200"
+                        : req.status === "rejected"
+                          ? "bg-red-50 text-red-700 border-red-200"
+                          : "bg-amber-50 text-amber-700 border-amber-200"
+                    }`}>
                       {req.status}
                     </span>
                   </td>
@@ -184,6 +168,82 @@ export function TopupRequestTable({
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden divide-y divide-slate-100">
+        {requests.length === 0 ? (
+          <div className="px-4 py-12 text-center text-slate-500">
+            No top-up requests found.
+          </div>
+        ) : (
+          requests.map((req) => (
+            <div key={req.id} className="p-4 space-y-3 hover:bg-slate-50 transition-colors">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="font-semibold text-slate-900 text-sm">{req.user?.full_name || "Unknown"}</div>
+                  <div className="text-xs text-slate-500 truncate">{req.user?.email}</div>
+                </div>
+                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border capitalize shrink-0 ${
+                  req.status === "approved"
+                    ? "bg-green-50 text-green-700 border-green-200"
+                    : req.status === "rejected"
+                      ? "bg-red-50 text-red-700 border-red-200"
+                      : "bg-amber-50 text-amber-700 border-amber-200"
+                }`}>
+                  {req.status}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-slate-900">Rs. {req.amount.toLocaleString()}</div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-xs bg-slate-100 px-2 py-0.5 rounded capitalize border border-slate-200 text-slate-600">
+                      {req.payment_method.replace("_", " ")}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-slate-500">{format(new Date(req.created_at), "MMM d, HH:mm")}</div>
+                  <div className="text-xs text-slate-400 font-mono mt-0.5">#{req.transaction_id}</div>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => setSelectedImage(req.screenshot_url)}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+                >
+                  <Eye className="h-3.5 w-3.5" /> View Proof
+                </button>
+                {req.status === "pending" && (
+                  <>
+                    <button
+                      onClick={() => handleAction(req.id, "approve")}
+                      disabled={!!processing}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold text-green-600 bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition-colors disabled:opacity-50"
+                    >
+                      {processing === req.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Check className="h-3.5 w-3.5" />
+                      )}
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => handleAction(req.id, "reject")}
+                      disabled={!!processing}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition-colors disabled:opacity-50"
+                    >
+                      <X className="h-3.5 w-3.5" /> Reject
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Image Modal */}

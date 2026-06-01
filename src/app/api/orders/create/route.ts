@@ -8,7 +8,6 @@ const MAX_ITEMS_PER_ORDER = 20;
 const MAX_QTY_PER_ITEM = 99;
 
 export async function POST(request: Request) {
-  // Rate limit: 5 orders per minute per IP — prevents spam/double-submit
   const ip = getClientIp(request);
   const rl = checkRateLimit(`order:${ip}`, 5, 60_000);
   if (!rl.allowed) {
@@ -17,6 +16,11 @@ export async function POST(request: Request) {
       { status: 429, headers: { "Retry-After": String(Math.ceil(rl.resetInMs / 1000)) } },
     );
   }
+
+  // P16: Declare admin and promoId outside the try block so the outer catch
+  // can access them to decrement promo usage on any unexpected throw.
+  const admin = createAdminClient();
+  let promoId: string | null = null;
 
   try {
     const supabase = await createClient();
@@ -30,9 +34,6 @@ export async function POST(request: Request) {
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    // Admin client for tables protected by RLS (product_codes, promo_codes)
-    const admin = createAdminClient();
 
     // 2. PARSE REQUEST — amounts are NOT accepted from the client; computed server-side below
     const orderData = await request.json();
@@ -56,14 +57,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid payment method" }, { status: 400 });
     }
 
-    // Validate per-item quantity
     for (const item of items) {
       if (item.quantity > MAX_QTY_PER_ITEM) {
         return NextResponse.json({ error: `Quantity cannot exceed ${MAX_QTY_PER_ITEM} per item` }, { status: 400 });
       }
     }
 
-    // Sanitize promoCode — strip to 50 chars, uppercase, alphanumeric only
     const sanitizedPromoCode = typeof promoCode === "string"
       ? promoCode.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0, 50) || null
       : null;
@@ -102,7 +101,6 @@ export async function POST(request: Request) {
       (combinationResult.data ?? []).map((c: any) => [c.id, c]),
     );
 
-    // Resolve server-authoritative unit price for each item
     type ResolvedItem = {
       variantId: string;
       combinationId: string | null;
@@ -141,8 +139,6 @@ export async function POST(request: Request) {
             { status: 400 },
           );
         }
-        // Verify the combination belongs to the same product as the variant.
-        // Without this, a user could pass a cheap combination from a different product.
         if (combination.product_id !== variant.product_id) {
           return NextResponse.json(
             { error: "Invalid product configuration" },
@@ -151,7 +147,6 @@ export async function POST(request: Request) {
         }
       }
 
-      // Validate optionSelections: must be a plain object, capped at 2 KB
       let safeOptionSelections: Record<string, string | string[]> | null = null;
       if (item.optionSelections != null) {
         if (
@@ -167,7 +162,6 @@ export async function POST(request: Request) {
         safeOptionSelections = item.optionSelections as Record<string, string | string[]>;
       }
 
-      // combination price takes precedence; falls back to variant base price
       const unitPrice = combination?.calculated_price ?? variant.price;
 
       resolvedItems.push({
@@ -181,7 +175,6 @@ export async function POST(request: Request) {
       });
     }
 
-    // Compute server-side total
     const serverTotalAmount = resolvedItems.reduce(
       (sum, i) => sum + i.unitPrice * i.quantity,
       0,
@@ -190,7 +183,6 @@ export async function POST(request: Request) {
     // ---------------------------------------------------------
     // 4. PROMO CODE — validate AND recompute discount server-side
     // ---------------------------------------------------------
-    let promoId: string | null = null;
     let serverDiscountAmount = 0;
 
     if (sanitizedPromoCode) {
@@ -219,7 +211,6 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Promo code usage limit reached" }, { status: 400 });
       }
 
-      // Recompute discount server-side — never trust client value
       if (promo.discount_type === "percentage") {
         serverDiscountAmount = (serverTotalAmount * promo.discount_value) / 100;
         if (promo.max_discount_amount) {
@@ -232,7 +223,6 @@ export async function POST(request: Request) {
 
       promoId = promo.id;
 
-      // Increment usage before order creation to reduce race conditions
       const { error: incrementError } = await admin.rpc("increment_promo_usage", {
         promo_id: promoId,
       });
@@ -244,8 +234,13 @@ export async function POST(request: Request) {
     const serverFinalAmount = Math.max(0, serverTotalAmount - serverDiscountAmount);
 
     // 5. DERIVE PAYMENT STATE
+    // P14: Never override the user's paymentMethod to "wallet" for fully-discounted orders.
+    // Storing the wrong payment_method corrupts the audit trail and breaks refund routing
+    // for esewa/khalti orders where the 100% promo means nothing was actually charged.
+    // Keep paymentMethod as-is for the stored record; use isFullDiscount + isInstantPayment
+    // to drive processing logic only.
     const isFullDiscount = serverFinalAmount === 0;
-    const effectivePaymentMethod = isFullDiscount ? "wallet" : paymentMethod;
+    const isInstantPayment = isFullDiscount || paymentMethod === "wallet";
 
     // 6. GENERATE ORDER ID
     const orderNumber = `TR-${crypto.randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`;
@@ -273,7 +268,7 @@ export async function POST(request: Request) {
     }
 
     // 8. WALLET PAYMENT DEDUCTION
-    if (effectivePaymentMethod === "wallet" && !isFullDiscount) {
+    if (paymentMethod === "wallet" && !isFullDiscount) {
       const { data: balanceAfterDeduction, error: deductionError } = await admin.rpc("deduct_wallet_balance", {
         user_id: user.id,
         amount: serverFinalAmount,
@@ -297,7 +292,8 @@ export async function POST(request: Request) {
         );
       }
 
-      await admin.from("wallet_transactions").insert({
+      // P4: Check the error — a silent failure leaves the wallet debited with no ledger record.
+      const { error: txnInsertError } = await admin.from("wallet_transactions").insert({
         user_id: user.id,
         amount: serverFinalAmount,
         type: "debit",
@@ -307,68 +303,101 @@ export async function POST(request: Request) {
         status: "completed",
         balance_after: balanceAfterDeduction ?? 0,
       });
+
+      if (txnInsertError) {
+        console.error("[wallet_transactions] debit insert failed:", txnInsertError.message, "orderId:", orderId);
+        const { error: rbWallet } = await admin.rpc("increment_wallet", {
+          p_user_id: user.id,
+          p_amount: serverFinalAmount,
+        });
+        if (rbWallet) console.error("[rollback] increment_wallet failed — MANUAL RECOVERY NEEDED orderId:", orderId, rbWallet.message);
+        if (paymentMeta?.usedProductCodeId) {
+          const { error: rbGift } = await admin
+            .from("product_codes")
+            .update({ is_used: false, order_id: null, used_at: null })
+            .eq("id", paymentMeta.usedProductCodeId);
+          if (rbGift) console.error("[rollback] gift card unmark failed:", rbGift.message);
+        }
+        if (promoId) {
+          const { error: rbPromo } = await admin.rpc("decrement_promo_usage", { promo_id: promoId });
+          if (rbPromo) console.error("[rollback] decrement_promo_usage failed:", rbPromo.message);
+        }
+        return NextResponse.json({ error: "Failed to record payment transaction" }, { status: 500 });
+      }
     }
 
     // ---------------------------------------------------------
     // 9. ATOMIC DIGITAL DELIVERY
     // ---------------------------------------------------------
-    const isInstantPayment = effectivePaymentMethod === "wallet";
-    const processedItems: any[] = [];
-    const emailItems: any[] = [];
+    // P8: Aggregate total quantity per unique variantId before calling claim_product_codes_atomic.
+    // Submitting two cart items with the same variantId caused two concurrent RPCs on the same
+    // code pool — with SKIP LOCKED the second could claim 0 codes without error, orphaning
+    // codes already marked is_used=true by the first call.
+    const variantQtyMap = new Map<string, number>();
+    for (const item of resolvedItems) {
+      variantQtyMap.set(item.variantId, (variantQtyMap.get(item.variantId) ?? 0) + item.quantity);
+    }
 
-    // Claim codes for all items in parallel — each RPC call is independent
-    // (different variant_id; same order_id is fine since the function scopes
-    // by variant). Sequential await-in-loop on the checkout critical path was
-    // adding N×~50 ms (N = number of cart items) unnecessarily.
-    const itemResults = await Promise.all(
-      resolvedItems.map(async (item) => {
-        let assignedCode: string | null = null;
-        let itemStatus = "pending";
-
-        if (isInstantPayment) {
+    const claimedCodesMap = new Map<string, string[]>();
+    if (isInstantPayment) {
+      await Promise.all(
+        [...variantQtyMap.entries()].map(async ([variantId, totalQty]) => {
           try {
             const { data: claimedCodes, error: claimError } = await admin.rpc(
               "claim_product_codes_atomic",
               {
-                p_variant_id: item.variantId,
-                p_quantity: item.quantity,
+                p_variant_id: variantId,
+                p_quantity: totalQty,
                 p_order_id: orderId,
               },
             );
-            if (!claimError && claimedCodes && claimedCodes.length === item.quantity) {
-              assignedCode = claimedCodes.join(", ");
-              itemStatus = "completed";
+            if (!claimError && claimedCodes && claimedCodes.length === totalQty) {
+              claimedCodesMap.set(variantId, claimedCodes);
             }
           } catch {
-            // Non-fatal: order proceeds with pending delivery
+            // Non-fatal: item proceeds with pending delivery
           }
-        }
+        }),
+      );
+    }
 
-        return {
-          processedItem: {
-            order_id: orderId,
-            variant_id: item.variantId,
-            quantity: item.quantity,
-            unit_price: item.unitPrice,
-            total_price: item.unitPrice * item.quantity,
-            status: itemStatus,
-            delivered_code: assignedCode,
-            combination_id: item.combinationId,
-            option_selections: item.optionSelections,
-          },
-          emailItem: {
-            productName: item.productName,
-            variantName: item.variantName,
-            quantity: item.quantity,
-            delivered_code: assignedCode,
-            optionSelections: item.optionSelections,
-          },
-        };
-      }),
-    );
+    // Distribute claimed codes back to individual cart items in their original order
+    const codeCursors = new Map<string, number>();
+    const processedItems: any[] = [];
+    const emailItems: any[] = [];
 
-    processedItems.push(...itemResults.map((r) => r.processedItem));
-    emailItems.push(...itemResults.map((r) => r.emailItem));
+    for (const item of resolvedItems) {
+      const codes = claimedCodesMap.get(item.variantId);
+      const cursor = codeCursors.get(item.variantId) ?? 0;
+      let assignedCode: string | null = null;
+      let itemStatus = "pending";
+
+      if (codes && cursor + item.quantity <= codes.length) {
+        assignedCode = codes.slice(cursor, cursor + item.quantity).join(", ");
+        itemStatus = "completed";
+        codeCursors.set(item.variantId, cursor + item.quantity);
+      }
+
+      processedItems.push({
+        order_id: orderId,
+        variant_id: item.variantId,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        total_price: item.unitPrice * item.quantity,
+        status: itemStatus,
+        delivered_code: assignedCode,
+        combination_id: item.combinationId,
+        option_selections: item.optionSelections,
+      });
+
+      emailItems.push({
+        productName: item.productName,
+        variantName: item.variantName,
+        quantity: item.quantity,
+        delivered_code: assignedCode,
+        optionSelections: item.optionSelections,
+      });
+    }
 
     const allDelivered = processedItems.every((i) => i.status === "completed");
     const orderStatus = isInstantPayment && allDelivered ? "completed" : "pending";
@@ -386,7 +415,7 @@ export async function POST(request: Request) {
           final_amount: serverFinalAmount,
           promo_code: sanitizedPromoCode,
           status: orderStatus,
-          payment_method: effectivePaymentMethod,
+          payment_method: paymentMethod,
           payment_status: isInstantPayment ? "paid" : "pending",
           payment_screenshot_url: paymentScreenshotUrl,
           delivery_details: {
@@ -401,13 +430,66 @@ export async function POST(request: Request) {
 
     if (orderError) {
       console.error("[order] insert failed:", orderError.message, "orderId:", orderId);
-      // Rollback wallet
-      if (effectivePaymentMethod === "wallet" && !isFullDiscount) {
+      if (paymentMethod === "wallet" && !isFullDiscount) {
         const { error: rbWallet } = await admin.rpc("increment_wallet", {
           p_user_id: user.id,
           p_amount: serverFinalAmount,
         });
         if (rbWallet) console.error("[rollback] increment_wallet failed — MANUAL RECOVERY NEEDED orderId:", orderId, rbWallet.message);
+        // P4: delete the debit record so the ledger stays in sync with the restored balance
+        const { error: rbTxn } = await admin
+          .from("wallet_transactions")
+          .delete()
+          .eq("reference_id", orderId)
+          .eq("transaction_type", "purchase");
+        if (rbTxn) console.error("[rollback] wallet_transactions delete failed — MANUAL RECOVERY NEEDED orderId:", orderId, rbTxn.message);
+      }
+      if (paymentMeta?.usedProductCodeId) {
+        const { error: rbGift } = await admin
+          .from("product_codes")
+          .update({ is_used: false, order_id: null, used_at: null })
+          .eq("id", paymentMeta.usedProductCodeId);
+        if (rbGift) console.error("[rollback] gift card unmark failed:", rbGift.message);
+      }
+      // P12: include used_at: null so rolled-back codes are fully clean and remain
+      // visible to inventory queries that filter on used_at IS NULL
+      const { error: rbCodes } = await admin
+        .from("product_codes")
+        .update({ is_used: false, order_id: null, used_at: null })
+        .eq("order_id", orderId);
+      if (rbCodes) console.error("[rollback] product_codes unmark failed:", rbCodes.message);
+      if (promoId) {
+        const { error: rbPromo } = await admin.rpc("decrement_promo_usage", { promo_id: promoId });
+        if (rbPromo) console.error("[rollback] decrement_promo_usage failed:", rbPromo.message);
+      }
+      throw new Error("Failed to create order");
+    }
+
+    // 11. INSERT ORDER ITEMS
+    // P1: Full rollback on order_items failure — without this the user was charged and
+    // codes were consumed but no usable order existed.
+    const { error: itemsError } = await admin
+      .from("order_items")
+      .insert(processedItems);
+
+    if (itemsError) {
+      console.error("[order_items] insert failed:", itemsError.message, "orderId:", orderId);
+      // Rollback order row
+      const { error: rbOrder } = await admin.from("orders").delete().eq("id", orderId);
+      if (rbOrder) console.error("[rollback] order delete failed — MANUAL RECOVERY NEEDED orderId:", orderId, rbOrder.message);
+      // Rollback wallet
+      if (paymentMethod === "wallet" && !isFullDiscount) {
+        const { error: rbWallet } = await admin.rpc("increment_wallet", {
+          p_user_id: user.id,
+          p_amount: serverFinalAmount,
+        });
+        if (rbWallet) console.error("[rollback] increment_wallet failed — MANUAL RECOVERY NEEDED orderId:", orderId, rbWallet.message);
+        const { error: rbTxn } = await admin
+          .from("wallet_transactions")
+          .delete()
+          .eq("reference_id", orderId)
+          .eq("transaction_type", "purchase");
+        if (rbTxn) console.error("[rollback] wallet_transactions delete failed — MANUAL RECOVERY NEEDED orderId:", orderId, rbTxn.message);
       }
       // Rollback gift card
       if (paymentMeta?.usedProductCodeId) {
@@ -420,7 +502,7 @@ export async function POST(request: Request) {
       // Rollback claimed codes
       const { error: rbCodes } = await admin
         .from("product_codes")
-        .update({ is_used: false, order_id: null })
+        .update({ is_used: false, order_id: null, used_at: null })
         .eq("order_id", orderId);
       if (rbCodes) console.error("[rollback] product_codes unmark failed:", rbCodes.message);
       // Rollback promo
@@ -428,16 +510,7 @@ export async function POST(request: Request) {
         const { error: rbPromo } = await admin.rpc("decrement_promo_usage", { promo_id: promoId });
         if (rbPromo) console.error("[rollback] decrement_promo_usage failed:", rbPromo.message);
       }
-      throw new Error("Failed to create order");
-    }
-
-    // 11. INSERT ORDER ITEMS
-    const { error: itemsError } = await admin
-      .from("order_items")
-      .insert(processedItems);
-
-    if (itemsError) {
-      throw new Error("Failed to create order items");
+      return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
     }
 
     const finalOrderNumber = createdOrder?.order_number || orderNumber;
@@ -458,6 +531,13 @@ export async function POST(request: Request) {
     });
   } catch (error: any) {
     console.error("Order creation error:", error);
+    // P16: Any unexpected throw after increment_promo_usage must decrement usage.
+    // Known failure paths (gift card error, wallet error, order insert, order_items insert)
+    // all call decrement in their own blocks. This catch is the safety net for anything else.
+    if (promoId) {
+      const { error: rbPromo } = await admin.rpc("decrement_promo_usage", { promo_id: promoId });
+      if (rbPromo) console.error("[rollback] outer-catch decrement_promo_usage failed:", rbPromo.message);
+    }
     return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
   }
 }

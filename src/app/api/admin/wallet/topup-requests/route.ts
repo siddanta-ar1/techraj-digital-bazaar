@@ -78,30 +78,34 @@ export async function POST(request: Request) {
 
     const newStatus = action === "approve" ? "approved" : "rejected";
 
-    const { error: updateError } = await admin
+    // P3: Add .eq("status", "pending") as an atomic guard so two concurrent admin
+    // approvals cannot both succeed. The second concurrent UPDATE finds 0 rows
+    // (the first already flipped it to "approved") and we return 409 before ever
+    // calling increment_wallet, preventing the double-credit.
+    const { data: updatedRows, error: updateError } = await admin
       .from("topup_requests")
       .update({
         status: newStatus,
         admin_notes: adminNotes,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", requestId);
+      .eq("id", requestId)
+      .eq("status", "pending")
+      .select("id");
 
     if (updateError) throw updateError;
+    if (!updatedRows || updatedRows.length === 0) {
+      return NextResponse.json({ error: "Request already processed" }, { status: 409 });
+    }
 
     if (action === "approve") {
-      // Use the increment_wallet RPC for an atomic UPDATE wallet_balance = wallet_balance + amount.
-      // This prevents the read-compute-write race condition where two concurrent approvals
-      // both read the same balance and the last write silently overwrites the first.
-      // It also eliminates the null-balance bug: if the users row doesn't exist the RPC
-      // returns an error rather than silently computing 0 + amount.
       const { data: newBalanceResult, error: balanceError } = await admin.rpc(
         "increment_wallet",
         { p_user_id: topupRequest.user_id, p_amount: Number(topupRequest.amount) },
       );
 
       if (balanceError) {
-        // Rollback: revert topup_requests status to pending so the admin can retry
+        // Wallet was NOT credited — safe to roll back the status update
         await admin
           .from("topup_requests")
           .update({ status: "pending", admin_notes: null, updated_at: new Date().toISOString() })
@@ -109,43 +113,50 @@ export async function POST(request: Request) {
         throw balanceError;
       }
 
-      // Fetch the balance for the audit-trail record. The RPC may return a
-      // scalar number OR an array of rows depending on how the Postgres function
-      // is defined. Rather than guessing the shape, always do one fresh SELECT
-      // after the atomic UPDATE. This is safe: the wallet has already been
-      // incremented atomically; this read is only for the balance_after field.
-      // The previous fallback to `Number(topupRequest.amount)` was wrong: it
-      // would record e.g. 200 as balance_after when the real balance is 5200.
-      const { data: balanceRow, error: balanceFetchError } = await admin
-        .from("users")
-        .select("wallet_balance")
-        .eq("id", topupRequest.user_id)
-        .single();
-      if (balanceFetchError || !balanceRow) {
-        // Roll back and surface the error — don't silently record a wrong balance
-        await admin
-          .from("topup_requests")
-          .update({ status: "pending", admin_notes: null, updated_at: new Date().toISOString() })
-          .eq("id", requestId);
-        throw new Error("Could not read updated wallet balance after increment");
-      }
-      const newBalance: number = balanceRow.wallet_balance as number;
-
-      // Update the pending transaction if it exists; insert one if it doesn't (older requests)
-      const { count } = await admin
-        .from("wallet_transactions")
-        .select("id", { count: "exact", head: true })
-        .eq("reference_id", requestId)
-        .eq("transaction_type", "topup");
-
-      if ((count ?? 0) > 0) {
-        await admin
-          .from("wallet_transactions")
-          .update({ status: "completed", balance_after: newBalance })
-          .eq("reference_id", requestId)
-          .eq("transaction_type", "topup");
+      // P2: Resolve the new balance for the audit record.
+      // Try the RPC return value first (avoids an extra round-trip).
+      // If the RPC doesn't return a usable number, fall back to a fresh SELECT.
+      // NEVER roll back a successful increment_wallet due to a read failure —
+      // the credit is already committed; only the balance_after audit field would be imprecise.
+      let newBalance: number;
+      if (typeof newBalanceResult === "number" && Number.isFinite(newBalanceResult)) {
+        newBalance = newBalanceResult;
+      } else if (
+        Array.isArray(newBalanceResult) &&
+        newBalanceResult.length > 0 &&
+        Number.isFinite(Number(newBalanceResult[0]))
+      ) {
+        newBalance = Number(newBalanceResult[0]);
       } else {
-        await admin.from("wallet_transactions").insert({
+        const { data: balanceRow } = await admin
+          .from("users")
+          .select("wallet_balance")
+          .eq("id", topupRequest.user_id)
+          .single();
+        newBalance = typeof balanceRow?.wallet_balance === "number" ? balanceRow.wallet_balance : 0;
+        if (!balanceRow) {
+          console.warn(
+            "[topup approve] could not resolve post-increment balance for user",
+            topupRequest.user_id,
+            "— recording balance_after=0",
+          );
+        }
+      }
+
+      // P5 + P11: Replace the old SELECT-count → UPDATE/INSERT pattern (3 round trips,
+      // TOCTOU race) with a single UPDATE first. If 0 rows affected the pending record
+      // doesn't exist (older request), so INSERT it. Both operations check their error.
+      const { data: updatedTxn, error: txnUpdateError } = await admin
+        .from("wallet_transactions")
+        .update({ status: "completed", balance_after: newBalance })
+        .eq("reference_id", requestId)
+        .eq("transaction_type", "topup")
+        .select("id");
+
+      if (txnUpdateError) throw txnUpdateError;
+
+      if (!updatedTxn || updatedTxn.length === 0) {
+        const { error: txnInsertError } = await admin.from("wallet_transactions").insert({
           user_id: topupRequest.user_id,
           amount: topupRequest.amount,
           type: "credit",
@@ -155,6 +166,7 @@ export async function POST(request: Request) {
           balance_after: newBalance,
           status: "completed",
         });
+        if (txnInsertError) throw txnInsertError;
       }
 
       if (topupRequest.user?.email) {
