@@ -2,40 +2,32 @@
 import { Metadata } from "next";
 import { Wallet, TrendingUp, History, PlusCircle, Shield } from "lucide-react";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import WalletClient from "./WalletClient";
 
 export const metadata: Metadata = {
-  title: "Wallet - Tronline Bazar",
+  title: "Wallet - Techraj Digital",
   description: "Manage your wallet balance and transactions",
 };
 
 export default async function WalletPage() {
   const supabase = await createClient();
+  const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+  if (authError || !authUser) redirect("/login");
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) {
-    redirect("/login");
-  }
+  const admin = createAdminClient();
 
-  // Fetch user wallet balance
-  const { data: user } = await supabase
-    .from("users")
-    .select("wallet_balance")
-    .eq("id", session.user.id)
-    .single();
-
-  // Fetch recent transactions
-  const { data: recentTransactions } = await supabase
-    .from("wallet_transactions")
-    .select("*")
-    .eq("user_id", session.user.id)
-    .order("created_at", { ascending: false })
-    .limit(5);
+  const [{ data: user }, { data: recentTransactions }] = await Promise.all([
+    admin.from("users").select("wallet_balance").eq("id", authUser.id).single(),
+    admin
+      .from("wallet_transactions")
+      .select("*")
+      .eq("user_id", authUser.id)
+      .order("created_at", { ascending: false })
+      .limit(5),
+  ]);
 
   return (
     <div className="container mx-auto px-4 py-0.1">

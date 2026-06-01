@@ -7,27 +7,23 @@ import {
   CheckCircle,
   CreditCard,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import OrdersClient from "./OrdersClient";
 
 export const metadata: Metadata = {
-  title: "My Orders - Tronline Bazar",
+  title: "My Orders - Techraj Digital",
   description: "View your order history and track deliveries",
 };
 
 export default async function OrdersPage() {
   const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect("/login");
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) {
-    redirect("/login");
-  }
+  const admin = createAdminClient();
 
-  // Fetch user's orders
-  const { data: orders } = await supabase
+  const { data: orders } = await admin
     .from("orders")
     .select(
       `
@@ -41,19 +37,17 @@ export default async function OrdersPage() {
       )
     `,
     )
-    .eq("user_id", session.user.id)
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(20);
 
   // Calculate stats safely on the server
-  const safeOrders = orders || [];
+  const safeOrders: any[] = orders || [];
   const totalOrders = safeOrders.length;
-  const pendingOrders = safeOrders.filter((o) => o.status === "pending").length;
-  const completedOrders = safeOrders.filter(
-    (o) => o.status === "completed",
-  ).length;
+  const pendingOrders = safeOrders.filter((o: any) => o.status === "pending").length;
+  const completedOrders = safeOrders.filter((o: any) => o.status === "completed").length;
   const totalSpent = safeOrders
-    .reduce((sum, o) => sum + (Number(o.final_amount) || 0), 0)
+    .reduce((sum: number, o: any) => sum + (Number(o.final_amount) || 0), 0)
     .toFixed(2);
 
   return (

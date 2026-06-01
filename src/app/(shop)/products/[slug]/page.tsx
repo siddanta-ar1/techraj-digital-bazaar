@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { PurchaseSection } from "@/components/products/PurchaseSection";
 import { ProductMedia } from "@/components/products/ProductMedia";
@@ -10,7 +10,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: product } = await supabase
     .from("products")
     .select("name, description, featured_image, slug")
@@ -51,7 +51,7 @@ export default async function ProductPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // Fetch product with category and variants
   const { data: product, error } = await supabase

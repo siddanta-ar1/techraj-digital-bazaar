@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import TransactionsClient from "./TransactionsClient";
 
@@ -10,18 +10,11 @@ export const metadata: Metadata = {
 
 export default async function TransactionsPage() {
   const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect("/login");
 
-  // 1. Authenticate
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
-
-  // 2. Fetch Transactions (Fetch more than just the recent 10)
-  const { data: transactions } = await supabase
+  const admin = createAdminClient();
+  const { data: transactions } = await admin
     .from("wallet_transactions")
     .select("*")
     .eq("user_id", user.id)

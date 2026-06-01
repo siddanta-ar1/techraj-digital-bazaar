@@ -1,10 +1,10 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     const category = searchParams.get("category");
     const search = searchParams.get("search");

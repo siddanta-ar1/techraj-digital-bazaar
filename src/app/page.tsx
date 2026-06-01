@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import { ProductGrid } from "@/components/products/ProductGrid";
 import Link from "next/link";
 import { ArrowRight, Zap, Shield, Headphones } from "lucide-react";
@@ -53,7 +53,7 @@ const organizationJsonLd = {
 
 export default async function HomePage() {
   // 1. Initialize the Supabase client for this request
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // Fetch featured products
   const { data: featuredProducts } = await supabase

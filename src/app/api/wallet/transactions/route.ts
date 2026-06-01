@@ -1,5 +1,5 @@
 // src/app/api/wallet/transactions/route.ts
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
@@ -11,6 +11,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const admin = createAdminClient()
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
@@ -18,7 +19,7 @@ export async function GET(request: Request) {
     const type = searchParams.get('type')
     const transactionType = searchParams.get('transactionType')
 
-    let query = supabase
+    let query = admin
       .from('wallet_transactions')
       .select('*', { count: 'exact' })
       .eq('user_id', user.id)

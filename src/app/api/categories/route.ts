@@ -1,9 +1,9 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
   try {
-    const supabase = await createClient()
+    const supabase = createAdminClient()
     
     const { data: categories, error } = await supabase
       .from('categories')
@@ -18,7 +18,7 @@ export async function GET() {
     if (error) throw error
 
     // Transform to include product count
-    const categoriesWithCount = categories?.map(category => ({
+    const categoriesWithCount = categories?.map((category: any) => ({
       ...category,
       product_count: (category as any).products?.[0]?.count || 0
     }))

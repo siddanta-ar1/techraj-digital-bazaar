@@ -1,5 +1,5 @@
 // src/app/api/wallet/topup/route.ts
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -15,10 +15,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const admin = createAdminClient();
     const { amount, paymentMethod, transactionId, screenshotUrl } =
       await request.json();
 
-    // Validate input
     if (!amount || amount < 100 || amount > 50000) {
       return NextResponse.json(
         { error: "Amount must be between Rs. 100 and Rs. 50,000" },
@@ -26,8 +26,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if user has pending top-up requests
-    const { data: pendingRequests } = await supabase
+    const { data: pendingRequests } = await admin
       .from("topup_requests")
       .select("id")
       .eq("user_id", user.id)
@@ -36,47 +35,38 @@ export async function POST(request: Request) {
 
     if (pendingRequests && pendingRequests.length > 0) {
       return NextResponse.json(
-        {
-          error:
-            "You have a pending top-up request. Please wait for it to be processed.",
-        },
+        { error: "You have a pending top-up request. Please wait for it to be processed." },
         { status: 400 },
       );
     }
 
-    // Create top-up request
-    const { data: topupRequest, error } = await supabase
+    const { data: topupRequest, error } = await admin
       .from("topup_requests")
-      .insert([
-        {
-          user_id: user.id,
-          amount,
-          payment_method: paymentMethod,
-          transaction_id: transactionId,
-          screenshot_url: screenshotUrl,
-          status: "pending",
-        },
-      ])
+      .insert([{
+        user_id: user.id,
+        amount,
+        payment_method: paymentMethod,
+        transaction_id: transactionId,
+        screenshot_url: screenshotUrl,
+        status: "pending",
+      }])
       .select()
       .single();
 
     if (error) throw error;
 
-    // Create pending wallet transaction
-    const { error: txnError } = await supabase
+    const { error: txnError } = await admin
       .from("wallet_transactions")
-      .insert([
-        {
-          user_id: user.id,
-          amount,
-          type: "credit",
-          transaction_type: "topup",
-          reference_id: topupRequest.id,
-          description: `Top-up request via ${paymentMethod}`,
-          balance_after: 0,
-          status: "pending",
-        },
-      ]);
+      .insert([{
+        user_id: user.id,
+        amount,
+        type: "credit",
+        transaction_type: "topup",
+        reference_id: topupRequest.id,
+        description: `Top-up request via ${paymentMethod}`,
+        balance_after: 0,
+        status: "pending",
+      }]);
 
     if (txnError) throw txnError;
     // TODO: Send notification to admin
@@ -105,12 +95,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const adminGet = createAdminClient();
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
     const offset = (page - 1) * limit;
 
-    const { data: topupRequests, error } = await supabase
+    const { data: topupRequests, error } = await adminGet
       .from("topup_requests")
       .select("*")
       .eq("user_id", user.id)
@@ -119,7 +110,7 @@ export async function GET(request: Request) {
 
     if (error) throw error;
 
-    const { count } = await supabase
+    const { count } = await adminGet
       .from("topup_requests")
       .select("*", { count: "exact", head: true })
       .eq("user_id", user.id);

@@ -1,5 +1,5 @@
 import { ProductGrid } from "@/components/products/ProductGrid";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import { CategoryFilter } from "@/components/products/CategoryFilter";
 import { Search, ShieldCheck, Zap, Globe } from "lucide-react";
 import type { Metadata } from "next";
@@ -23,7 +23,7 @@ export default async function ProductsPage({
   searchParams: Promise<{ category?: string; search?: string }>;
 }) {
   const { category, search } = await searchParams;
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // 1. Fetch Categories for the sidebar
   const { data: categories } = await supabase
