@@ -316,49 +316,59 @@ export async function POST(request: Request) {
     const processedItems: any[] = [];
     const emailItems: any[] = [];
 
-    for (const item of resolvedItems) {
-      let assignedCode: string | null = null;
-      let itemStatus = "pending";
+    // Claim codes for all items in parallel — each RPC call is independent
+    // (different variant_id; same order_id is fine since the function scopes
+    // by variant). Sequential await-in-loop on the checkout critical path was
+    // adding N×~50 ms (N = number of cart items) unnecessarily.
+    const itemResults = await Promise.all(
+      resolvedItems.map(async (item) => {
+        let assignedCode: string | null = null;
+        let itemStatus = "pending";
 
-      if (isInstantPayment) {
-        try {
-          const { data: claimedCodes, error: claimError } = await admin.rpc(
-            "claim_product_codes_atomic",
-            {
-              p_variant_id: item.variantId,
-              p_quantity: item.quantity,
-              p_order_id: orderId,
-            },
-          );
-          if (!claimError && claimedCodes && claimedCodes.length === item.quantity) {
-            assignedCode = claimedCodes.join(", ");
-            itemStatus = "completed";
+        if (isInstantPayment) {
+          try {
+            const { data: claimedCodes, error: claimError } = await admin.rpc(
+              "claim_product_codes_atomic",
+              {
+                p_variant_id: item.variantId,
+                p_quantity: item.quantity,
+                p_order_id: orderId,
+              },
+            );
+            if (!claimError && claimedCodes && claimedCodes.length === item.quantity) {
+              assignedCode = claimedCodes.join(", ");
+              itemStatus = "completed";
+            }
+          } catch {
+            // Non-fatal: order proceeds with pending delivery
           }
-        } catch {
-          // Non-fatal: order proceeds with pending delivery
         }
-      }
 
-      processedItems.push({
-        order_id: orderId,
-        variant_id: item.variantId,
-        quantity: item.quantity,
-        unit_price: item.unitPrice,
-        total_price: item.unitPrice * item.quantity,
-        status: itemStatus,
-        delivered_code: assignedCode,
-        combination_id: item.combinationId,
-        option_selections: item.optionSelections,
-      });
+        return {
+          processedItem: {
+            order_id: orderId,
+            variant_id: item.variantId,
+            quantity: item.quantity,
+            unit_price: item.unitPrice,
+            total_price: item.unitPrice * item.quantity,
+            status: itemStatus,
+            delivered_code: assignedCode,
+            combination_id: item.combinationId,
+            option_selections: item.optionSelections,
+          },
+          emailItem: {
+            productName: item.productName,
+            variantName: item.variantName,
+            quantity: item.quantity,
+            delivered_code: assignedCode,
+            optionSelections: item.optionSelections,
+          },
+        };
+      }),
+    );
 
-      emailItems.push({
-        productName: item.productName,
-        variantName: item.variantName,
-        quantity: item.quantity,
-        delivered_code: assignedCode,
-        optionSelections: item.optionSelections,
-      });
-    }
+    processedItems.push(...itemResults.map((r) => r.processedItem));
+    emailItems.push(...itemResults.map((r) => r.emailItem));
 
     const allDelivered = processedItems.every((i) => i.status === "completed");
     const orderStatus = isInstantPayment && allDelivered ? "completed" : "pending";

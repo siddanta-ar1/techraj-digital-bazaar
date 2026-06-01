@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -16,7 +16,6 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect } from "react";
 
 interface WalletTransaction {
   id: string;
@@ -53,14 +52,19 @@ export default function WalletClient({
     (t) => t.status === "pending",
   ).length;
 
-  // Realtime: refresh server data instead of querying the DB from the client
-  // (avoids RLS issues and keeps a single source of truth)
+  // Realtime: refresh server data instead of querying the DB from the client.
+  // Uses a cancellation flag so that if the component unmounts while getUser()
+  // is still in-flight, the async setup() sees isCancelled=true and never
+  // subscribes — avoiding the channel leak where cleanup fires with
+  // channel=undefined but setup() completes post-unmount and creates an
+  // orphaned subscription that is never removed.
   useEffect(() => {
-    let channel: ReturnType<typeof supabase.channel>;
+    let isCancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
     const setup = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (isCancelled || !user) return;
 
       channel = supabase
         .channel("wallet-realtime")
@@ -74,7 +78,10 @@ export default function WalletClient({
     };
 
     setup();
-    return () => { if (channel) supabase.removeChannel(channel); };
+    return () => {
+      isCancelled = true;
+      if (channel) supabase.removeChannel(channel);
+    };
   }, [supabase, router]);
 
   const statusStyle = {

@@ -11,11 +11,12 @@ const SUPABASE_STORAGE_HOST = process.env.NEXT_PUBLIC_SUPABASE_URL
 function isAllowedScreenshotUrl(url: unknown): boolean {
   if (url == null || url === "") return true; // optional field
   if (typeof url !== "string") return false;
+  // Fail-closed: if the env var is missing we cannot validate the hostname,
+  // so reject any non-empty URL rather than silently allowing all URLs (SSRF).
+  if (!SUPABASE_STORAGE_HOST) return false;
   try {
     const parsed = new URL(url);
-    return SUPABASE_STORAGE_HOST
-      ? parsed.hostname === SUPABASE_STORAGE_HOST
-      : true;
+    return parsed.hostname === SUPABASE_STORAGE_HOST;
   } catch {
     return false;
   }

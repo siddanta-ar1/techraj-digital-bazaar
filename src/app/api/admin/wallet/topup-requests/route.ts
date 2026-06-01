@@ -109,12 +109,27 @@ export async function POST(request: Request) {
         throw balanceError;
       }
 
-      // Fetch final balance for the transaction record (RPC returns the new balance)
-      const newBalance: number =
-        typeof newBalanceResult === "number"
-          ? newBalanceResult
-          : (await admin.from("users").select("wallet_balance").eq("id", topupRequest.user_id).single())
-              .data?.wallet_balance ?? Number(topupRequest.amount);
+      // Fetch the balance for the audit-trail record. The RPC may return a
+      // scalar number OR an array of rows depending on how the Postgres function
+      // is defined. Rather than guessing the shape, always do one fresh SELECT
+      // after the atomic UPDATE. This is safe: the wallet has already been
+      // incremented atomically; this read is only for the balance_after field.
+      // The previous fallback to `Number(topupRequest.amount)` was wrong: it
+      // would record e.g. 200 as balance_after when the real balance is 5200.
+      const { data: balanceRow, error: balanceFetchError } = await admin
+        .from("users")
+        .select("wallet_balance")
+        .eq("id", topupRequest.user_id)
+        .single();
+      if (balanceFetchError || !balanceRow) {
+        // Roll back and surface the error — don't silently record a wrong balance
+        await admin
+          .from("topup_requests")
+          .update({ status: "pending", admin_notes: null, updated_at: new Date().toISOString() })
+          .eq("id", requestId);
+        throw new Error("Could not read updated wallet balance after increment");
+      }
+      const newBalance: number = balanceRow.wallet_balance as number;
 
       // Update the pending transaction if it exists; insert one if it doesn't (older requests)
       const { count } = await admin
