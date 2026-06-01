@@ -1,7 +1,24 @@
-// src/app/api/wallet/topup/route.ts
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+
+// Only allow screenshot URLs from our own Supabase storage — prevents attacker-controlled links
+const SUPABASE_STORAGE_HOST = process.env.NEXT_PUBLIC_SUPABASE_URL
+  ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname
+  : null;
+
+function isAllowedScreenshotUrl(url: unknown): boolean {
+  if (url == null || url === "") return true; // optional field
+  if (typeof url !== "string") return false;
+  try {
+    const parsed = new URL(url);
+    return SUPABASE_STORAGE_HOST
+      ? parsed.hostname === SUPABASE_STORAGE_HOST
+      : true;
+  } catch {
+    return false;
+  }
+}
 
 export async function POST(request: Request) {
   // Rate limit: 3 topup requests per minute per IP
@@ -29,6 +46,10 @@ export async function POST(request: Request) {
     const admin = createAdminClient();
     const { amount, paymentMethod, transactionId, screenshotUrl } =
       await request.json();
+
+    if (!isAllowedScreenshotUrl(screenshotUrl)) {
+      return NextResponse.json({ error: "Invalid screenshot URL" }, { status: 400 });
+    }
 
     if (!amount || amount < 100 || amount > 50000) {
       return NextResponse.json(
@@ -84,7 +105,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      topupRequest,
+      requestId: topupRequest.id,
       message: "Top-up request submitted successfully",
     });
   } catch (error: any) {

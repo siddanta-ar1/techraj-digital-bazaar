@@ -185,16 +185,22 @@ export async function PATCH(request: Request) {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(request: Request) {
   try {
-    // Auth check uses user JWT — then actual deletes use service-role client
-    // to bypass RLS (which would otherwise block cross-user deletes)
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     if (user.app_metadata?.role !== "admin")
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    // Require an explicit confirmation token to prevent accidental/CSRF-triggered bulk deletes
+    const { confirmToken } = await request.json().catch(() => ({}));
+    if (confirmToken !== "CONFIRM_DELETE_ALL_ORDERS")
+      return NextResponse.json(
+        { error: "Missing confirmation token. Send { confirmToken: 'CONFIRM_DELETE_ALL_ORDERS' }." },
+        { status: 400 },
+      );
 
     const admin = createAdminClient();
 

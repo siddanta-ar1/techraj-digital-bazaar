@@ -140,7 +140,6 @@ export async function POST(request: Request) {
       type: "promo",
       discount: calculatedDiscount,
       message: "Promo code applied successfully!",
-      promoId: promo.id,
     });
   } catch (error: any) {
     console.error("Promo validation error:", error);
