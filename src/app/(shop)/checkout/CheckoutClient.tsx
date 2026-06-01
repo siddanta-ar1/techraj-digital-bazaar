@@ -50,9 +50,8 @@ export default function CheckoutClient() {
   const [manualAmountPaid, setManualAmountPaid] = useState("");
   const [transactionId, setTransactionId] = useState("");
   const [paymentScreenshot, setPaymentScreenshot] = useState<File | null>(null);
-  // Separate loading states so promo and submit never interfere
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isPromoLoading, setIsPromoLoading] = useState(false);
+  // Single state machine — prevents invalid combinations like both flags stuck true
+  const [checkoutMode, setCheckoutMode] = useState<"idle" | "submitting" | "promo">("idle");
   // Synchronous ref guard — prevents double-submit before React state updates
   const isSubmittingRef = useRef(false);
   // Cache uploaded screenshot URL so retries don't re-upload
@@ -136,13 +135,6 @@ export default function CheckoutClient() {
     fetchOptionGroupNames();
   }, [items]);
 
-  // Redirect unauthenticated users to login
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/login?redirect=/checkout");
-    }
-  }, [user, authLoading, router]);
-
   // Sync contact fields once auth resolves — they initialise empty because
   // user is null during the first render while AuthProvider is loading
   useEffect(() => {
@@ -153,6 +145,12 @@ export default function CheckoutClient() {
       contactPhone: prev.contactPhone || user.phone || "",
     }));
   }, [user]);
+
+  // Reset cached upload URL whenever the user picks a new file so stale URLs
+  // are never reused after a file swap following a failed order attempt
+  useEffect(() => {
+    setUploadedScreenshotUrl("");
+  }, [paymentScreenshot]);
 
   // Check empty cart
   useEffect(() => {
@@ -189,9 +187,9 @@ export default function CheckoutClient() {
   // ------------------------------------------------------------------
   const handleApplyPromo = async () => {
     if (!promoCode.trim()) return;
-    if (isPromoLoading || isSubmittingRef.current) return;
+    if (checkoutMode !== "idle") return;
 
-    setIsPromoLoading(true);
+    setCheckoutMode("promo");
     setPromoMessage("");
     setDiscount(0);
     setIsPromoApplied(false);
@@ -225,7 +223,7 @@ export default function CheckoutClient() {
       console.error("Promo validation error:", err);
       setPromoMessage("Error applying code. Please try again.");
     } finally {
-      setIsPromoLoading(false);
+      setCheckoutMode("idle");
     }
   };
 
@@ -297,12 +295,13 @@ ${itemsList}
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!validateForm()) return;
-
-    // Synchronous ref check prevents double-submit even before React re-renders
+    // Synchronous ref check first — blocks double-submit even before React re-renders.
+    // Must come before validateForm so an in-flight submit can't be bypassed via
+    // rapid clicks on an invalid form.
     if (isSubmittingRef.current) return;
+    if (!validateForm()) return;
     isSubmittingRef.current = true;
-    setIsSubmitting(true);
+    setCheckoutMode("submitting");
     setErrors({});
 
     // Snapshot mutable values now — clearCart() and state changes during the
@@ -368,7 +367,7 @@ ${itemsList}
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "Failed to create order");
+        throw Object.assign(new Error(result.error || "Failed to create order"), { status: response.status });
       }
 
       // Send WhatsApp notification BEFORE clearing cart so the item snapshot
@@ -386,7 +385,7 @@ ${itemsList}
     } catch (error: any) {
       console.error("Checkout Error:", error);
       const msg: string = error.message || "Something went wrong. Please try again.";
-      if (msg === "Unauthorized") {
+      if (error.status === 401) {
         setErrors({ submit: "Your session has expired. Redirecting to login..." });
         setTimeout(() => router.push("/login?redirect=/checkout"), 1500);
       } else {
@@ -394,7 +393,7 @@ ${itemsList}
       }
     } finally {
       isSubmittingRef.current = false;
-      setIsSubmitting(false);
+      setCheckoutMode("idle");
     }
   };
 
@@ -522,8 +521,10 @@ ${itemsList}
                         My Wallet Balance
                       </div>
                       <div className="text-sm text-slate-500 font-medium">
-                        Available: Rs.{" "}
-                        {user?.wallet_balance?.toFixed(2) || "0.00"}
+                        Available:{" "}
+                        {user?.is_synced
+                          ? `Rs. ${user.wallet_balance.toFixed(2)}`
+                          : "checking..."}
                       </div>
                     </div>
                   </div>
@@ -813,9 +814,9 @@ ${itemsList}
               )}
 
             {paymentMethod === "wallet" &&
-              user &&
+              user?.is_synced &&
               finalTotal > 0 &&
-              (user.wallet_balance || 0) < finalTotal && (
+              (user.wallet_balance ?? 0) < finalTotal && (
                 <div className="p-6 border-t border-slate-100 bg-amber-50/50">
                   <div className="flex gap-3 items-start p-4 bg-white border border-amber-200 rounded-xl shadow-sm">
                     <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -856,10 +857,10 @@ ${itemsList}
                     <button
                       type="button"
                       onClick={handleApplyPromo}
-                      disabled={isPromoLoading || isSubmitting || !promoCode}
+                      disabled={checkoutMode !== "idle" || !promoCode}
                       className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-700 disabled:opacity-50 flex items-center gap-1"
                     >
-                      {isPromoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apply"}
+                      {checkoutMode === "promo" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apply"}
                     </button>
                   </div>
                   {promoMessage && (
@@ -915,19 +916,19 @@ ${itemsList}
               <button
                 type="submit"
                 disabled={
-                  isSubmitting ||
-                  isPromoLoading ||
+                  checkoutMode !== "idle" ||
                   (paymentMethod === "wallet" &&
                     finalTotal > 0 &&
-                    (user?.wallet_balance ?? 0) < finalTotal)
+                    !!user?.is_synced &&
+                    (user.wallet_balance ?? 0) < finalTotal)
                 }
                 className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-lg hover:bg-slate-800 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
               >
-                {isSubmitting ? (
+                {checkoutMode === "submitting" ? (
                   <>
                     <Loader2 className="h-5 w-5 animate-spin" /> Processing...
                   </>
-                ) : isPromoLoading ? (
+                ) : checkoutMode === "promo" ? (
                   <>
                     <Loader2 className="h-5 w-5 animate-spin" /> Applying promo...
                   </>

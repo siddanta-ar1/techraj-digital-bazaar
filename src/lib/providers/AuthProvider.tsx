@@ -40,6 +40,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [supabase] = useState(() => createClient());
   const syncingRef = useRef(false);
+  // Holds the most recent authUser that arrived while a sync was in flight.
+  // Checked in the finally block so the latest data is never permanently lost.
+  const pendingAuthUserRef = useRef<any>(null);
 
   // Build a minimal user object directly from the auth JWT.
   // Used immediately so the UI never flashes a logged-out state while the
@@ -103,8 +106,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      if (syncingRef.current) return;
+      if (syncingRef.current) {
+        // Queue this authUser so the in-flight sync retries with the latest data
+        pendingAuthUserRef.current = authUser;
+        return;
+      }
       syncingRef.current = true;
+      pendingAuthUserRef.current = null;
 
       // Optimistically show the user as logged in using JWT data
       setUser(buildUserFromAuth(authUser));
@@ -113,23 +121,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data } = await fetchUserProfile(authUser.id);
 
         if (data) {
-          const jwtRole = authUser.app_metadata?.role as
-            | "user"
-            | "admin"
-            | undefined;
+          // Spread the JWT-derived base so metadata fields (avatar_url, role,
+          // full_name fallback) are handled in one place — buildUserFromAuth.
+          const base = buildUserFromAuth(authUser);
           setUser({
-            id: data.id,
-            email: data.email || authUser.email,
-            full_name:
-              data.full_name ||
-              authUser.user_metadata?.full_name ||
-              authUser.email?.split("@")[0],
-            avatar_url:
-              authUser.user_metadata?.avatar_url ||
-              authUser.user_metadata?.picture ||
-              undefined,
+            ...base,
+            email: data.email || base.email,
+            full_name: data.full_name || base.full_name,
             wallet_balance: data.wallet_balance ?? 0,
-            role: jwtRole || data.role || "user",
             phone: data.phone,
             is_synced: true,
           });
@@ -142,6 +141,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.warn("[AuthProvider] profile sync error (session kept):", err);
       } finally {
         syncingRef.current = false;
+        // If a newer event arrived while we were syncing, run it now so the
+        // latest wallet balance / role is never permanently lost.
+        const pending = pendingAuthUserRef.current;
+        if (pending) {
+          pendingAuthUserRef.current = null;
+          syncProfile(pending);
+        }
       }
     },
     [buildUserFromAuth, fetchUserProfile],

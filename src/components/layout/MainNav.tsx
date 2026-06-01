@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/providers/AuthProvider";
 import { useCart } from "@/contexts/CartContext";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { usePathname } from "next/navigation";
 import SearchWithDropdown from "./SearchWithDropdown"; // We will create this next
 
@@ -140,7 +140,7 @@ export function MainNav() {
                         <Wallet className="w-4 h-4" />
                         <span className="flex-1">Wallet</span>
                         <span className="text-emerald-600 font-bold text-xs bg-emerald-50 px-2 py-0.5 rounded-full">
-                          Rs. {user.wallet_balance.toFixed(0)}
+                          {user.is_synced ? `Rs. ${user.wallet_balance.toFixed(0)}` : "..."}
                         </span>
                       </Link>
                     </div>
