@@ -15,7 +15,7 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import { useAuth } from "@/lib/providers/AuthProvider";
-import type { Session } from "@supabase/supabase-js";
+import type { InitialUser } from "@/components/dashboard/DashboardClientLayout";
 
 interface NavItem {
   name: string;
@@ -25,10 +25,10 @@ interface NavItem {
 
 interface DashboardNavProps {
   navItems: NavItem[];
-  session: Session;
+  initialUser: InitialUser;
 }
 
-export default function DashboardNav({ navItems, session }: DashboardNavProps) {
+export default function DashboardNav({ navItems, initialUser }: DashboardNavProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -36,7 +36,7 @@ export default function DashboardNav({ navItems, session }: DashboardNavProps) {
   const router = useRouter();
   const { user, signOut } = useAuth();
 
-  // Use server session data for stable initial render, then use auth context if available
+  // Use synced AuthProvider data once available; fall back to server-passed initialUser
   const displayUser = useMemo(() => {
     if (user?.is_synced) {
       return {
@@ -48,13 +48,13 @@ export default function DashboardNav({ navItems, session }: DashboardNavProps) {
       };
     }
     return {
-      full_name: session.user.user_metadata?.full_name || session.user.email?.split("@")[0],
-      email: session.user.email || "",
+      full_name: initialUser.full_name,
+      email: initialUser.email,
       role: user?.role || "user",
       wallet_balance: user?.wallet_balance ?? 0,
-      avatar_url: session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || undefined,
+      avatar_url: initialUser.avatar_url,
     };
-  }, [user, session]);
+  }, [user, initialUser]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

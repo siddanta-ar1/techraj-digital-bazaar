@@ -2,7 +2,6 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { DashboardClientLayout } from "../../components/dashboard/DashboardClientLayout";
 
-// Force dynamic rendering for auth checks
 export const dynamic = "force-dynamic";
 
 export default async function DashboardLayout({
@@ -12,18 +11,30 @@ export default async function DashboardLayout({
 }) {
   const supabase = await createClient();
 
-  // Server-side auth check - instant redirect for unauthenticated users
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  // getUser() validates the JWT with Supabase's server — never use getSession() here
+  const { data: { user }, error } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (error || !user) {
     redirect("/login");
   }
 
-  // If we reach here, user is authenticated
-  // Pass the session to client layout for UI state
+  // Pass minimal display data so the nav can render before AuthProvider syncs
+  const initialUser = {
+    id: user.id,
+    email: user.email ?? "",
+    full_name:
+      user.user_metadata?.full_name ||
+      user.email?.split("@")[0] ||
+      "User",
+    avatar_url:
+      user.user_metadata?.avatar_url ||
+      user.user_metadata?.picture ||
+      undefined,
+  };
+
   return (
-    <DashboardClientLayout session={session}>{children}</DashboardClientLayout>
+    <DashboardClientLayout initialUser={initialUser}>
+      {children}
+    </DashboardClientLayout>
   );
 }

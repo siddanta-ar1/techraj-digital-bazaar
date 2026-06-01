@@ -63,6 +63,9 @@ export async function GET(request: Request) {
   }
 }
 
+// Allowlist prevents financial field tampering (total_amount, final_amount, etc.)
+const ALLOWED_ORDER_UPDATES = new Set<string>(["status", "payment_status", "admin_notes", "delivery_details"]);
+
 export async function PATCH(request: Request) {
   try {
     const supabase = await createClient();
@@ -73,9 +76,17 @@ export async function PATCH(request: Request) {
     if (authUser.app_metadata?.role !== "admin")
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const { orderId, updates } = await request.json();
+    const { orderId, updates: rawUpdates } = await request.json();
     if (!orderId)
       return NextResponse.json({ error: "Order ID is required" }, { status: 400 });
+
+    // Strip fields not on the allowlist before writing to DB
+    const updates: Record<string, unknown> = {};
+    for (const key of Object.keys(rawUpdates ?? {})) {
+      if (ALLOWED_ORDER_UPDATES.has(key)) updates[key] = rawUpdates[key];
+    }
+    if (Object.keys(updates).length === 0)
+      return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
 
     const admin = createAdminClient();
 
@@ -156,12 +167,12 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ success: true, order, message: "Order completed and codes delivered" });
     }
 
-    if (updates.status && ["processing", "cancelled"].includes(updates.status)) {
+    if (updates.status && ["processing", "cancelled"].includes(updates.status as string)) {
       try {
         const { data: customer } = await admin
           .from("users").select("email").eq("id", order.user_id).single();
-        if (customer?.email)
-          await sendOrderStatusEmail(customer.email, order.order_number, updates.status, order.final_amount);
+        if ((customer as any)?.email)
+          await sendOrderStatusEmail((customer as any).email, order.order_number, updates.status as string, order.final_amount);
       } catch (emailError) {
         console.error("Failed to send status email:", emailError);
       }

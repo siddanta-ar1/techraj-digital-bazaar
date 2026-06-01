@@ -84,26 +84,15 @@ export default function RegisterPage() {
       if (authError) throw authError;
 
       if (authData.user) {
-        // FIX 1: Use upsert instead of insert to prevent 'duplicate key' errors
-        const { error: profileError } = await supabase.from("users").upsert(
-          {
-            id: authData.user.id,
-            email: formData.email,
-            full_name: formData.fullName,
-            phone: formData.phone,
-            wallet_balance: 0.0,
-            role: "user",
-            // Only generate referral code if inserting, upsert handles duplicates safely
-            referral_code: `TR${Math.random().toString(36).substr(2, 8).toUpperCase()}`,
-            email_verified: false,
-          },
-          { onConflict: "id" },
-        ); // Ensure we merge on ID
-
-        if (profileError) {
-          // If profile fails but auth succeeded, we don't delete auth user anymore
-          // because upsert makes this safe. Just warn the user.
-          console.error("Profile creation warning:", profileError);
+        // Use the server-side API to create the profile with the admin client.
+        // Direct browser-client upserts are blocked by RLS when the fresh JWT
+        // hasn't propagated yet.
+        const profileRes = await fetch("/api/auth/ensure-profile", {
+          method: "POST",
+        });
+        if (!profileRes.ok) {
+          console.error("Profile creation warning:", await profileRes.text());
+          // Non-fatal — auth succeeded; profile can be retried on next login
         }
 
         // Handle Resend Trigger (Avoid spamming if already sent)

@@ -1,8 +1,8 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import { ProductCard } from "@/components/products/ProductCard";
 
 export async function FeaturedProducts() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: products } = await supabase
     .from("products")
@@ -27,7 +27,7 @@ export async function FeaturedProducts() {
 
   return (
     <div className="stagger-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-      {products.map((product) => (
+      {products.map((product: any) => (
         <ProductCard key={product.id} product={product} />
       ))}
     </div>
