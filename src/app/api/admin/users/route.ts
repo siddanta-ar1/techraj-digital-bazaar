@@ -3,14 +3,22 @@ import { NextResponse } from "next/server";
 
 async function verifyAdmin() {
   const supabase = await createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
   if (error || !user) return null;
   if (user.app_metadata?.role !== "admin") return null;
   return user;
 }
 
 // Explicit allowlist — prevents mass assignment of wallet_balance, id, etc.
-const ALLOWED_USER_UPDATES = new Set<string>(["full_name", "phone", "role", "email_verified"]);
+const ALLOWED_USER_UPDATES = new Set<string>([
+  "full_name",
+  "phone",
+  "role",
+  "email_verified",
+]);
 
 export async function PATCH(request: Request) {
   try {
@@ -28,14 +36,23 @@ export async function PATCH(request: Request) {
       if (ALLOWED_USER_UPDATES.has(key)) updates[key] = rawUpdates[key];
     }
     if (Object.keys(updates).length === 0)
-      return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+      return NextResponse.json(
+        { error: "No valid fields to update" },
+        { status: 400 },
+      );
 
     const admin = createAdminClient();
 
     // Prevent self-demotion — an admin who demotes themselves loses all admin access
-    const adminUser = await verifyAdmin();
-    if (updates.role !== undefined && updates.role !== "admin" && id === adminUser!.id)
-      return NextResponse.json({ error: "You cannot demote your own account" }, { status: 400 });
+    if (
+      updates.role !== undefined &&
+      updates.role !== "admin" &&
+      id === adminUser!.id
+    )
+      return NextResponse.json(
+        { error: "You cannot demote your own account" },
+        { status: 400 },
+      );
 
     // If updating role, sync Supabase Auth app_metadata so middleware/verifyAdmin checks work.
     if (updates.role !== undefined) {
@@ -56,6 +73,9 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ user: data });
   } catch (error: any) {
     console.error("[admin/users] PATCH error:", error.message);
-    return NextResponse.json({ error: "Failed to update user" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update user" },
+      { status: 500 },
+    );
   }
 }
