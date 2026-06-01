@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* Restrict Tailwind v4 auto-detection to source files only.
+   Without this, Tailwind scans .agents/, .claude/, and other project
+   files that contain CSS examples, generating broken arbitrary variants. */
+@source "../../src/**/*.{ts,tsx,js,jsx,html}";
+@source not "../../.agents/**";
+@source not "../../.claude/**";
+@source not "../../node_modules/**";
+@source not "../../.next/**";
+
 /* ─── Design tokens ────────────────────────────────────────────────────────── */
 :root {
   --background: #ffffff;
