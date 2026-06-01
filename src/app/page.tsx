@@ -186,14 +186,14 @@ export default async function HomePage() {
       )} */}
 
       {/* Featured Products */}
-      <section id="featured" className="py-12 bg-white">
+      <section id="featured" className="py-12 bg-white scroll-mt-20">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h2 className="text-3xl font-bold text-slate-900">
+              <h2 className="text-3xl font-bold text-slate-900 animate-fade-up">
                 Featured Products
               </h2>
-              <p className="text-slate-600 mt-2">
+              <p className="text-slate-600 mt-2 animate-fade-up stagger-2">
                 Most popular and best selling items
               </p>
             </div>
@@ -224,10 +224,10 @@ export default async function HomePage() {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h2 className="text-3xl font-bold text-slate-900">
+              <h2 className="text-3xl font-bold text-slate-900 animate-fade-up">
                 New Arrivals
               </h2>
-              <p className="text-slate-600 mt-2">Recently added to our store</p>
+              <p className="text-slate-600 mt-2 animate-fade-up stagger-2">Recently added to our store</p>
             </div>
             <Link
               href="/products?sort=newest"
@@ -251,21 +251,21 @@ export default async function HomePage() {
       <section className="py-12 bg-white border-t border-slate-100">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center p-6">
+            <div className="text-center p-6 animate-fade-up stagger-1">
               <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Zap className="w-6 h-6 text-indigo-600" />
               </div>
               <h3 className="font-bold text-lg mb-2 text-slate-900">Instant Delivery</h3>
               <p className="text-slate-500 text-sm">Digital products delivered instantly after payment</p>
             </div>
-            <div className="text-center p-6">
+            <div className="text-center p-6 animate-fade-up stagger-2">
               <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Shield className="w-6 h-6 text-emerald-600" />
               </div>
               <h3 className="font-bold text-lg mb-2 text-slate-900">Secure Payment</h3>
               <p className="text-slate-500 text-sm">100% secure transactions with encrypted checkout</p>
             </div>
-            <div className="text-center p-6">
+            <div className="text-center p-6 animate-fade-up stagger-3">
               <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Headphones className="w-6 h-6 text-amber-600" />
               </div>

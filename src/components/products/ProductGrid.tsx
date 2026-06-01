@@ -18,7 +18,7 @@ export function ProductGrid({
   // For the Home Page, you likely just want to map through the initialProducts:
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+    <div className="stagger-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
       {initialProducts.map((product) => (
         <ProductCard key={product.id} product={product} />
       ))}

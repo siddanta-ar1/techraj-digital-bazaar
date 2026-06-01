@@ -61,7 +61,21 @@ export function ProductCard({ product }: ProductCardProps) {
   return (
     <Link
       href={`/products/${product.slug}`}
-      className="group flex flex-col bg-white rounded-xl md:rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-200 hover:border-indigo-300 h-full"
+      className="group flex flex-col bg-white rounded-xl md:rounded-2xl overflow-hidden border border-slate-200 h-full animate-fade-up"
+      style={{
+        boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1)",
+        transition: "box-shadow 250ms var(--ease-out), border-color 200ms ease, transform 250ms var(--ease-out)",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLAnchorElement).style.boxShadow = "0 10px 40px -8px rgb(99 102 241 / 0.25)";
+        (e.currentTarget as HTMLAnchorElement).style.borderColor = "#a5b4fc";
+        (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(-2px)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLAnchorElement).style.boxShadow = "0 1px 3px 0 rgb(0 0 0 / 0.1)";
+        (e.currentTarget as HTMLAnchorElement).style.borderColor = "#e2e8f0";
+        (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(0)";
+      }}
     >
       {/* Badges & Image Container */}
       <div className="relative aspect-square bg-slate-50 overflow-hidden">
@@ -84,7 +98,7 @@ export function ProductCard({ product }: ProductCardProps) {
             alt={product.name}
             fill
             sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            className="object-cover transition-transform duration-500 ease-out group-hover:scale-105"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-slate-400">
@@ -136,7 +150,7 @@ export function ProductCard({ product }: ProductCardProps) {
               handleAddToCart(e);
             }}
             disabled={addingToCart || !mainVariant || isOutOfStock}
-            className="bg-indigo-600 text-white p-2 md:p-2.5 rounded-lg md:rounded-xl hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm shadow-indigo-100 shrink-0 relative z-10"
+            className="bg-indigo-600 text-white p-2 md:p-2.5 rounded-lg md:rounded-xl hover:bg-indigo-700 disabled:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed shrink-0 relative z-10 shadow-sm shadow-indigo-100"
             aria-label={isOutOfStock ? "Out of stock" : "Add to cart"}
           >
             {addingToCart ? (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from "lucide-react";
 
 type ModalType = "success" | "error" | "warning" | "info";
@@ -50,6 +50,10 @@ const modalStyles = {
   },
 };
 
+// Keep the modal in the DOM for 200ms after isOpen → false so the exit
+// animation can play before the component unmounts.
+const EXIT_DURATION = 180;
+
 export default function Modal({
   isOpen,
   onClose,
@@ -66,48 +70,54 @@ export default function Modal({
   const style = modalStyles[type];
   const Icon = style.icon;
 
-  // Auto close functionality
+  // `mounted` keeps the DOM node alive during exit animation
+  const [mounted, setMounted] = useState(false);
+  // `visible` drives the CSS transition classes
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setMounted(true);
+      // One frame delay so the browser registers the initial state before
+      // applying the visible classes (otherwise the transition doesn't play)
+      const raf = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(raf);
+    } else {
+      setVisible(false);
+      const t = setTimeout(() => setMounted(false), EXIT_DURATION);
+      return () => clearTimeout(t);
+    }
+  }, [isOpen]);
+
+  // Auto-close
   useEffect(() => {
     if (isOpen && autoClose) {
-      const timer = setTimeout(() => {
-        onClose();
-      }, autoCloseDelay);
-
-      return () => clearTimeout(timer);
+      const t = setTimeout(onClose, autoCloseDelay);
+      return () => clearTimeout(t);
     }
   }, [isOpen, autoClose, autoCloseDelay, onClose]);
 
-  // Close on escape key
+  // Escape key
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
-        onClose();
-      }
-    };
-
-    document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && isOpen) onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
   }, [isOpen, onClose]);
 
-  // Prevent body scroll when modal is open
+  // Lock body scroll
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
     } else {
-      document.body.style.overflow = "unset";
+      document.body.style.overflow = "";
     }
-
-    return () => {
-      document.body.style.overflow = "unset";
-    };
+    return () => { document.body.style.overflow = ""; };
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!mounted) return null;
 
   const handleConfirm = () => {
-    if (onConfirm) {
-      onConfirm();
-    }
+    onConfirm?.();
     onClose();
   };
 
@@ -115,25 +125,35 @@ export default function Modal({
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+        className="fixed inset-0 bg-black/50"
+        style={{
+          opacity: visible ? 1 : 0,
+          transition: `opacity ${EXIT_DURATION}ms ease`,
+        }}
         onClick={onClose}
       />
 
-      {/* Modal */}
+      {/* Dialog */}
       <div className="flex min-h-full items-center justify-center p-4">
         <div
-          className={`relative w-full max-w-md transform rounded-2xl bg-white shadow-2xl transition-all ${style.bgColor} ${style.borderColor} border-2`}
+          className={`relative w-full max-w-md rounded-2xl bg-white shadow-2xl border-2 ${style.bgColor} ${style.borderColor}`}
+          style={{
+            opacity: visible ? 1 : 0,
+            transform: visible ? "scale(1) translateY(0)" : "scale(0.95) translateY(8px)",
+            transition: `opacity ${EXIT_DURATION}ms var(--ease-out), transform ${EXIT_DURATION}ms var(--ease-out)`,
+            willChange: "transform, opacity",
+          }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Close button */}
           <button
             onClick={onClose}
-            className="absolute right-4 top-4 p-1 rounded-full hover:bg-black/10 transition-colors"
+            className="absolute right-4 top-4 p-1.5 rounded-full hover:bg-black/10 transition-colors"
+            aria-label="Close"
           >
-            <X className="w-5 h-5 text-slate-400" />
+            <X className="w-4 h-4 text-slate-400" />
           </button>
 
-          {/* Content */}
           <div className="p-8">
             {/* Icon */}
             <div className="flex justify-center mb-6">
@@ -142,29 +162,25 @@ export default function Modal({
               </div>
             </div>
 
-            {/* Title */}
-            <h3 className="text-xl font-bold text-center text-slate-900 mb-4">
+            <h3 className="text-xl font-bold text-center text-slate-900 mb-3">
               {title}
             </h3>
-
-            {/* Message */}
             <p className="text-center text-slate-600 mb-8 leading-relaxed">
               {message}
             </p>
 
-            {/* Action buttons */}
             <div className="flex gap-3 justify-center">
               {showConfirmButton ? (
                 <>
                   <button
                     onClick={onClose}
-                    className="px-6 py-2.5 text-slate-600 hover:text-slate-800 font-medium rounded-xl hover:bg-slate-100 transition-colors"
+                    className="px-6 py-2.5 text-slate-600 font-medium rounded-xl hover:bg-slate-100 transition-colors"
                   >
                     {cancelText}
                   </button>
                   <button
                     onClick={handleConfirm}
-                    className={`px-6 py-2.5 text-white font-semibold rounded-xl transition-colors shadow-lg ${style.buttonColor}`}
+                    className={`px-6 py-2.5 text-white font-semibold rounded-xl shadow-lg ${style.buttonColor}`}
                   >
                     {confirmText}
                   </button>
@@ -172,7 +188,7 @@ export default function Modal({
               ) : (
                 <button
                   onClick={onClose}
-                  className={`px-8 py-3 text-white font-semibold rounded-xl transition-colors shadow-lg ${style.buttonColor}`}
+                  className={`px-8 py-3 text-white font-semibold rounded-xl shadow-lg ${style.buttonColor}`}
                 >
                   {confirmText}
                 </button>

@@ -92,7 +92,7 @@ function LoginForm() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4">
       <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
+        <div className="text-center animate-fade-up">
           <div className="flex justify-center mb-6">
             <div className="bg-indigo-100 p-4 rounded-2xl shadow-sm">
               <LogIn className="w-10 h-10 text-indigo-600" />
@@ -116,7 +116,7 @@ function LoginForm() {
 
         <form
           onSubmit={handleSubmit}
-          className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 space-y-6"
+          className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 space-y-6 animate-fade-up stagger-2"
         >
           <div>
             <label
@@ -173,7 +173,7 @@ function LoginForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-70 transition-all shadow-lg flex items-center justify-center gap-2"
+            className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-70 shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
           >
             {loading ? (
               "Signing in..."
@@ -200,7 +200,7 @@ function LoginForm() {
             onClick={handleGoogleSignIn}
             className="w-full flex items-center justify-center gap-3 bg-white border border-[#dadce0] py-3 rounded-xl font-medium text-[15px] text-[#3c4043]
                        hover:bg-[#f7f8f8] active:bg-[#f1f3f4]
-                       transition-all shadow-sm"
+                       shadow-sm"
           >
             <svg
               width="20"
