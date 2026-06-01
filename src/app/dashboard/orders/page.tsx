@@ -1,18 +1,11 @@
-// src/app/dashboard/orders/page.tsx
 import { Metadata } from "next";
-import {
-  ShoppingBag,
-  Package,
-  Clock,
-  CheckCircle,
-  CreditCard,
-} from "lucide-react";
+import { ShoppingBag, Package, Clock, CheckCircle, CreditCard } from "lucide-react";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import OrdersClient from "./OrdersClient";
 
 export const metadata: Metadata = {
-  title: "My Orders - Techraj Digital",
+  title: "My Orders – Techraj Digital",
   description: "View your order history and track deliveries",
 };
 
@@ -25,106 +18,55 @@ export default async function OrdersPage() {
 
   const { data: orders } = await admin
     .from("orders")
-    .select(
-      `
+    .select(`
       *,
       order_items(
         *,
-        variant:product_variants(
-          variant_name,
-          product:products(name)
-        )
+        variant:product_variants(variant_name, product:products(name))
       )
-    `,
-    )
+    `)
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(20);
 
-  // Calculate stats safely on the server
-  const safeOrders: any[] = orders || [];
-  const totalOrders = safeOrders.length;
-  const pendingOrders = safeOrders.filter((o: any) => o.status === "pending").length;
+  const safeOrders: any[] = orders ?? [];
+  const totalOrders    = safeOrders.length;
+  const pendingOrders  = safeOrders.filter((o: any) => o.status === "pending").length;
   const completedOrders = safeOrders.filter((o: any) => o.status === "completed").length;
-  const totalSpent = safeOrders
+  const totalSpent     = safeOrders
     .reduce((sum: number, o: any) => sum + (Number(o.final_amount) || 0), 0)
     .toFixed(2);
 
+  const stats = [
+    { label: "Total Orders",  value: totalOrders,    icon: Package,     bg: "bg-blue-100",    fg: "text-blue-600"    },
+    { label: "Pending",       value: pendingOrders,  icon: Clock,       bg: "bg-amber-100",   fg: "text-amber-600"   },
+    { label: "Completed",     value: completedOrders,icon: CheckCircle, bg: "bg-emerald-100", fg: "text-emerald-600" },
+    { label: "Total Spent",   value: `Rs. ${totalSpent}`, icon: CreditCard, bg: "bg-indigo-100", fg: "text-indigo-600" },
+  ];
+
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-          <ShoppingBag className="h-8 w-8 text-indigo-600" />
-          My Orders
-        </h1>
-        <p className="text-slate-600 mt-2">Track and manage your orders</p>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-slate-900">My Orders</h1>
+        <p className="text-slate-500 mt-1">Track and manage your purchases</p>
       </div>
 
-      {/* Stats - Rendered directly to ensure safety */}
+      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        {/* Total Orders */}
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-500">Total Orders</p>
-              <p className="text-xl font-bold text-slate-900 mt-2">
-                {totalOrders}
-              </p>
+        {stats.map(({ label, value, icon: Icon, bg, fg }) => (
+          <div key={label} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex items-center gap-4">
+            <div className={`${bg} p-3 rounded-xl shrink-0`}>
+              <Icon className={`w-5 h-5 ${fg}`} />
             </div>
-            <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-              <Package className="h-5 w-5 text-blue-600" />
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-slate-500 truncate">{label}</p>
+              <p className="text-xl font-bold text-slate-900 mt-0.5 truncate">{value}</p>
             </div>
           </div>
-        </div>
-
-        {/* Pending */}
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-500">Pending</p>
-              <p className="text-xl font-bold text-slate-900 mt-2">
-                {pendingOrders}
-              </p>
-            </div>
-            <div className="h-10 w-10 bg-amber-100 rounded-full flex items-center justify-center">
-              <Clock className="h-5 w-5 text-amber-600" />
-            </div>
-          </div>
-        </div>
-
-        {/* Completed */}
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-500">Completed</p>
-              <p className="text-xl font-bold text-slate-900 mt-2">
-                {completedOrders}
-              </p>
-            </div>
-            <div className="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-            </div>
-          </div>
-        </div>
-
-        {/* Total Spent */}
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-500">Total Spent</p>
-              <p className="text-xl font-bold text-slate-900 mt-2">
-                Rs. {totalSpent}
-              </p>
-            </div>
-            <div className="h-10 w-10 bg-purple-100 rounded-full flex items-center justify-center">
-              <CreditCard className="h-5 w-5 text-purple-600" />
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Orders List */}
       <OrdersClient initialOrders={safeOrders} />
     </div>
   );

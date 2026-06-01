@@ -1,18 +1,15 @@
-// src/components/orders/OrderCard.tsx
 'use client'
 
 import Link from 'next/link'
-import { Package, CreditCard, Truck, CheckCircle, Clock, XCircle, AlertCircle, Eye } from 'lucide-react'
+import {
+  Package, CreditCard, Truck, CheckCircle, Clock,
+  XCircle, AlertCircle, Eye, Zap,
+} from 'lucide-react'
 import { format } from 'date-fns'
 
 interface OrderItem {
   id: string
-  variant: {
-    variant_name: string
-    product: {
-      name: string
-    }
-  }
+  variant: { variant_name: string; product: { name: string } }
   quantity: number
   unit_price: number
   total_price: number
@@ -34,146 +31,127 @@ interface Order {
   order_items: OrderItem[]
 }
 
-interface OrderCardProps {
-  order: Order
+const STATUS_CONFIG = {
+  completed:  { icon: CheckCircle, pill: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
+  processing: { icon: Package,     pill: 'bg-blue-50 text-blue-700 border-blue-200',          dot: 'bg-blue-500'   },
+  pending:    { icon: Clock,       pill: 'bg-amber-50 text-amber-700 border-amber-200',        dot: 'bg-amber-500'  },
+  cancelled:  { icon: XCircle,     pill: 'bg-red-50 text-red-700 border-red-200',              dot: 'bg-red-500'    },
+  refunded:   { icon: AlertCircle, pill: 'bg-slate-50 text-slate-600 border-slate-200',        dot: 'bg-slate-400'  },
+} as const
+
+const PAYMENT_LABEL: Record<string, string> = {
+  wallet: 'Wallet',
+  esewa: 'eSewa',
+  bank_transfer: 'Bank Transfer',
 }
 
-export default function OrderCard({ order }: OrderCardProps) {
-  const getStatusIcon = () => {
-    switch (order.status) {
-      case 'completed':
-        return <CheckCircle className="h-5 w-5 text-green-600" />
-      case 'processing':
-        return <Package className="h-5 w-5 text-blue-600" />
-      case 'pending':
-        return <Clock className="h-5 w-5 text-amber-600" />
-      case 'cancelled':
-        return <XCircle className="h-5 w-5 text-red-600" />
-      default:
-        return <AlertCircle className="h-5 w-5 text-slate-600" />
-    }
-  }
-
-  const getStatusColor = () => {
-    switch (order.status) {
-      case 'completed': return 'bg-green-100 text-green-800'
-      case 'processing': return 'bg-blue-100 text-blue-800'
-      case 'pending': return 'bg-amber-100 text-amber-800'
-      case 'cancelled': return 'bg-red-100 text-red-800'
-      default: return 'bg-slate-100 text-slate-800'
-    }
-  }
-
-  const getPaymentIcon = () => {
-    switch (order.payment_method) {
-      case 'wallet': return <CreditCard className="h-4 w-4" />
-      case 'esewa': return <div className="h-4 w-4 bg-blue-500 rounded"></div>
-      case 'bank_transfer': return <div className="h-4 w-4 bg-purple-500 rounded"></div>
-      default: return null
-    }
-  }
-
-  const itemCount = order.order_items.reduce((sum, item) => sum + item.quantity, 0)
-  const hasDeliveredItems = order.order_items.some(item => item.delivered_code)
+export default function OrderCard({ order }: { order: Order }) {
+  const cfg = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.refunded
+  const StatusIcon = cfg.icon
+  const itemCount = order.order_items.reduce((s, i) => s + i.quantity, 0)
+  const hasDelivered = order.order_items.some((i) => i.delivered_code)
 
   return (
-    <div className="p-6 hover:bg-slate-50 transition-colors">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        {/* Order Info */}
-        <div className="flex-1">
-          <div className="flex items-center gap-4 mb-3">
-            <div className="flex items-center gap-2">
-              {getStatusIcon()}
-              <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor()}`}>
-                {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              {getPaymentIcon()}
-              <span className="text-sm text-slate-600">
-                {order.payment_method === 'wallet' ? 'Wallet' :
-                  order.payment_method === 'esewa' ? 'Esewa' : 'Bank Transfer'}
-              </span>
-              <span className={`text-xs px-2 py-1 rounded ${order.payment_status === 'paid'
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-amber-100 text-amber-800'
-                }`}>
-                {order.payment_status}
-              </span>
-            </div>
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md hover:border-slate-300 transition-all duration-200">
+      {/* Status bar */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50/60">
+        <div className="flex items-center gap-2.5">
+          <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+          <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${cfg.pill}`}>
+            <StatusIcon className="w-3 h-3" />
+            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+          </span>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${
+            order.payment_status === 'paid'
+              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+              : 'bg-amber-50 text-amber-700 border-amber-200'
+          }`}>
+            {order.payment_status.toUpperCase()}
+          </span>
+        </div>
+        <span className="text-xs text-slate-400 font-medium hidden sm:block">
+          {format(new Date(order.created_at), 'MMM d, yyyy · h:mm a')}
+        </span>
+      </div>
+
+      {/* Body */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4">
+        <div className="flex-1 min-w-0">
+          {/* Order number + item count */}
+          <div className="flex items-baseline gap-2.5 mb-2">
+            <h3 className="font-bold text-slate-900">#{order.order_number}</h3>
+            <span className="text-sm text-slate-400">{itemCount} item{itemCount !== 1 ? 's' : ''}</span>
           </div>
 
-          <h3 className="font-semibold text-slate-900 mb-2">
-            Order #{order.order_number}
-          </h3>
-
-          <div className="text-sm text-slate-600 space-y-1">
-            <p>Placed on {format(new Date(order.created_at), 'MMM dd, yyyy h:mm a')}</p>
-            <p>{itemCount} item{itemCount !== 1 ? 's' : ''} • Total: Rs. {order.final_amount.toFixed(2)}</p>
-            <p className="flex items-center gap-2">
-              <Truck className="h-4 w-4" />
-              {order.delivery_type === 'auto' ? 'Auto Delivery' : 'Manual Delivery'}
-              {hasDeliveredItems && (
-                <span className="text-green-600 font-medium">• Some items delivered</span>
-              )}
-            </p>
+          {/* Meta row */}
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mb-3">
+            <span className="flex items-center gap-1">
+              <CreditCard className="w-3.5 h-3.5" />
+              {PAYMENT_LABEL[order.payment_method] ?? order.payment_method}
+            </span>
+            <span className="text-slate-300">·</span>
+            <span className="flex items-center gap-1">
+              {order.delivery_type === 'auto'
+                ? <><Zap className="w-3.5 h-3.5 text-indigo-500" />Auto</>
+                : <><Truck className="w-3.5 h-3.5" />Manual</>}
+            </span>
+            {hasDelivered && (
+              <>
+                <span className="text-slate-300">·</span>
+                <span className="flex items-center gap-1 text-emerald-600 font-semibold">
+                  <CheckCircle className="w-3.5 h-3.5" />Delivered
+                </span>
+              </>
+            )}
+            <span className="text-slate-300 sm:hidden">·</span>
+            <span className="text-slate-400 sm:hidden">
+              {format(new Date(order.created_at), 'MMM d, yyyy')}
+            </span>
           </div>
 
-          {/* Items Preview */}
-          <div className="mt-4 flex flex-wrap gap-2">
-            {order.order_items.slice(0, 3).map(item => {
-              let parsedSelections: Record<string, any> = {};
+          {/* Item chips */}
+          <div className="flex flex-wrap gap-1.5">
+            {order.order_items.slice(0, 3).map((item) => {
+              let parsedSelections: Record<string, any> = {}
               try {
                 parsedSelections = typeof item.option_selections === 'string'
                   ? JSON.parse(item.option_selections)
-                  : (item.option_selections || {});
-              } catch (e) { }
-
-              const hasOptions = Object.keys(parsedSelections).length > 0;
-
+                  : (item.option_selections || {})
+              } catch { /* ignore */ }
+              const optionText = Object.entries(parsedSelections)
+                .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+                .join(' · ')
               return (
-                <div
+                <span
                   key={item.id}
-                  className="px-3 py-1 bg-slate-100 rounded text-sm text-slate-700 flex flex-col gap-1"
+                  className="inline-flex items-center px-2.5 py-1 bg-slate-100 text-slate-700 text-xs font-medium rounded-lg max-w-[200px] truncate"
+                  title={optionText ? `${item.variant.product.name} · ${optionText}` : item.variant.product.name}
                 >
-                  <span className="font-medium">{item.variant.product.name} × {item.quantity}</span>
-                  {hasOptions && (
-                    <span className="text-xs text-slate-500 max-w-[200px] truncate" title={Object.entries(parsedSelections).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ')}>
-                      {Object.entries(parsedSelections).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ')}
-                    </span>
-                  )}
-                </div>
-              );
+                  {item.variant.product.name} × {item.quantity}
+                </span>
+              )
             })}
             {order.order_items.length > 3 && (
-              <div className="px-3 py-1 bg-slate-200 rounded text-sm text-slate-600">
+              <span className="inline-flex items-center px-2.5 py-1 bg-slate-200 text-slate-500 text-xs font-medium rounded-lg">
                 +{order.order_items.length - 3} more
-              </div>
+              </span>
             )}
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex flex-col sm:flex-row lg:flex-col gap-3">
+        {/* Amount + action */}
+        <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-3 shrink-0">
+          <div className="text-right">
+            <p className="text-[11px] text-slate-400 mb-0.5 uppercase tracking-wide">Total</p>
+            <p className="text-xl font-bold text-slate-900">Rs. {order.final_amount.toFixed(2)}</p>
+          </div>
           <Link
             href={`/dashboard/orders/${order.id}`}
-            className="inline-flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+            className="inline-flex items-center gap-1.5 bg-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-indigo-700 transition-colors whitespace-nowrap"
           >
-            <Eye className="h-4 w-4" />
-            View Details
+            <Eye className="w-4 h-4" />
+            View Order
           </Link>
-
-          {order.status === 'pending' && order.payment_method === 'bank_transfer' && (
-            <button className="inline-flex items-center justify-center gap-2 bg-white text-slate-700 px-4 py-2 rounded-lg font-medium border border-slate-300 hover:bg-slate-50 transition-colors">
-              Upload Payment
-            </button>
-          )}
-
-          {order.status === 'completed' && (
-            <button className="inline-flex items-center justify-center gap-2 bg-white text-green-700 px-4 py-2 rounded-lg font-medium border border-green-300 hover:bg-green-50 transition-colors">
-              Download Invoice
-            </button>
-          )}
         </div>
       </div>
     </div>

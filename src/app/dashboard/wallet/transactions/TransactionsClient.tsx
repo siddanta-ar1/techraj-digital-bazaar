@@ -40,36 +40,36 @@ export default function TransactionsClient({
   });
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
       {/* Filters Bar */}
-      <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row gap-4 justify-between items-center">
-        <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
+      <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/60 flex flex-col md:flex-row gap-4 justify-between items-center">
+        <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
           <button
             onClick={() => setFilter("all")}
-            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+            className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-colors ${
               filter === "all"
-                ? "bg-slate-900 text-white shadow"
-                : "text-slate-600 hover:bg-slate-50"
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "text-slate-600 hover:bg-slate-100"
             }`}
           >
             All
           </button>
           <button
             onClick={() => setFilter("credit")}
-            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+            className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-colors ${
               filter === "credit"
-                ? "bg-green-600 text-white shadow"
-                : "text-slate-600 hover:bg-slate-50"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "text-slate-600 hover:bg-slate-100"
             }`}
           >
             Credits
           </button>
           <button
             onClick={() => setFilter("debit")}
-            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+            className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-colors ${
               filter === "debit"
-                ? "bg-red-600 text-white shadow"
-                : "text-slate-600 hover:bg-slate-50"
+                ? "bg-rose-600 text-white shadow-sm"
+                : "text-slate-600 hover:bg-slate-100"
             }`}
           >
             Debits

@@ -22,17 +22,13 @@ export default async function TransactionsPage() {
     .limit(50); // Get last 50 transactions
 
   return (
-    <div className="max-w-5xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">
-          Transaction History
-        </h1>
-        <p className="text-slate-500">
-          Track all your wallet credits and debits
-        </p>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-slate-900">Transaction History</h1>
+        <p className="text-slate-500 mt-1">All your wallet credits and debits</p>
       </div>
 
-      <TransactionsClient initialTransactions={transactions || []} />
+      <TransactionsClient initialTransactions={transactions ?? []} />
     </div>
   );
 }
