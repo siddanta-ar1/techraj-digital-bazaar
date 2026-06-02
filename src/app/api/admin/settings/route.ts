@@ -1,4 +1,3 @@
-import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/adminAuth";
 import { NextResponse } from "next/server";
 

@@ -1,4 +1,3 @@
-import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/adminAuth";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import { NextResponse } from "next/server";
