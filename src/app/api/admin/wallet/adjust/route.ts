@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/adminAuth";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import { NextResponse } from "next/server";
 
 // GET /api/admin/wallet/adjust?search=... — search users
@@ -36,6 +37,16 @@ export async function GET(request: Request) {
 
 // POST /api/admin/wallet/adjust — credit or debit a user's wallet
 export async function POST(request: Request) {
+  // Rate limit: 20 admin wallet adjustments per minute per IP — prevents
+  // a compromised admin account from rapidly draining/inflating multiple wallets.
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(`admin-adjust:${ip}`, 20, 60000);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.resetInMs / 1000)) } },
+    );
+  }
   try {
     const ctx = await requireAdmin();
     if (ctx instanceof NextResponse) return ctx;

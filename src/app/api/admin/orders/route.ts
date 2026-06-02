@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { sendOrderStatusEmail, sendCodesDeliveredEmail } from "@/lib/resend";
 import { requireAdmin } from "@/lib/adminAuth";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 export async function GET(request: Request) {
   try {
@@ -56,6 +57,15 @@ export async function GET(request: Request) {
 const ALLOWED_ORDER_UPDATES = new Set<string>(["status", "payment_status", "admin_notes", "delivery_details"]);
 
 export async function PATCH(request: Request) {
+  // Rate limit: 60 order updates per minute per IP
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(`admin-order-update:${ip}`, 60, 60000);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.resetInMs / 1000)) } },
+    );
+  }
   try {
     const ctx = await requireAdmin();
     if (ctx instanceof NextResponse) return ctx;

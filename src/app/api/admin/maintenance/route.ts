@@ -1,23 +1,17 @@
-import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/adminAuth";
 
 // Admin sets maintenance mode → stores in DB and sets a fast-check cookie.
 // Middleware reads the cookie so it never needs a DB query per request.
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (user.app_metadata?.role !== "admin")
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
+    const { admin } = ctx;
 
     const { active } = await request.json();
 
-    // Persist to DB using service-role client (site_settings is RLS-restricted)
-    const adminDb = createAdminClient();
-    await adminDb.from("site_settings").upsert({
+    await admin.from("site_settings").upsert({
       key: "maintenance",
       value: { active: !!active },
       updated_at: new Date().toISOString(),

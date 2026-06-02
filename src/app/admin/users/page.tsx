@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { UsersClient } from "./UsersClient";
 import { Users, ShieldCheck, UserCheck, Wallet, Search } from "lucide-react";
 import { Metadata } from "next";
@@ -13,15 +13,15 @@ export const metadata: Metadata = {
 export default async function AdminUsersPage() {
   const supabase = createAdminClient();
 
-  // Get the currently logged-in admin's ID so UsersClient can hide self-demotion
-  const { createClient: createServerClient } = await import("@/lib/supabase/server");
-  const authClient = await createServerClient();
-  const { data: { user: currentAdmin } } = await authClient.auth.getUser();
-
-  const { data: users } = await supabase
-    .from("users")
-    .select("*")
-    .order("created_at", { ascending: false });
+  // Fetch admin identity and users list in parallel
+  const authClient = await createClient();
+  const [
+    { data: { user: currentAdmin } },
+    { data: users },
+  ] = await Promise.all([
+    authClient.auth.getUser(),
+    supabase.from("users").select("*").order("created_at", { ascending: false }),
+  ]);
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">

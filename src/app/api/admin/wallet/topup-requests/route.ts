@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/adminAuth";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import { NextResponse } from "next/server";
 import { sendTopupApprovedEmail } from "@/lib/resend";
 
@@ -46,6 +47,15 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  // Rate limit: 30 topup approvals/rejections per minute per IP
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(`admin-topup-approve:${ip}`, 30, 60000);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.resetInMs / 1000)) } },
+    );
+  }
   try {
     const ctx = await requireAdmin();
     if (ctx instanceof NextResponse) return ctx;
