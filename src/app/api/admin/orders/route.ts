@@ -1,30 +1,20 @@
-import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { sendOrderStatusEmail, sendCodesDeliveredEmail } from "@/lib/resend";
+import { requireAdmin } from "@/lib/adminAuth";
 
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient();
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
+    const { admin } = ctx;
+
     const { searchParams } = new URL(request.url);
-
-    // Auth Check
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (user.app_metadata?.role !== "admin")
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
     const page   = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
     const limit  = Math.min(Math.max(1, parseInt(searchParams.get("limit") || "10", 10) || 10), 200);
     const status = searchParams.get("status");
     const payment = searchParams.get("payment");
     const search = searchParams.get("search");
     const offset = (page - 1) * limit;
-
-    const admin = createAdminClient();
     let query = admin
       .from("orders")
       .select(
@@ -67,13 +57,9 @@ const ALLOWED_ORDER_UPDATES = new Set<string>(["status", "payment_status", "admi
 
 export async function PATCH(request: Request) {
   try {
-    const supabase = await createClient();
-    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !authUser)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (authUser.app_metadata?.role !== "admin")
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
+    const { admin } = ctx;
 
     const { orderId, updates: rawUpdates } = await request.json();
     if (!orderId)
@@ -87,7 +73,6 @@ export async function PATCH(request: Request) {
     if (Object.keys(updates).length === 0)
       return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
 
-    const admin = createAdminClient();
 
     const { data: order, error: updateError } = await admin
       .from("orders")
@@ -190,12 +175,9 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (user.app_metadata?.role !== "admin")
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
+    const { admin } = ctx;
 
     // Require an explicit confirmation token to prevent accidental/CSRF-triggered bulk deletes
     const { confirmToken } = await request.json().catch(() => ({}));
@@ -204,8 +186,6 @@ export async function DELETE(request: Request) {
         { error: "Missing confirmation token. Send { confirmToken: 'CONFIRM_DELETE_ALL_ORDERS' }." },
         { status: 400 },
       );
-
-    const admin = createAdminClient();
 
     // Delete order items first (foreign key), then orders
     const { error: itemsError } = await admin
