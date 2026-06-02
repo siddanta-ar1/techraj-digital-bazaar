@@ -27,12 +27,17 @@ type AuthContextType = {
   user: User | null;
   isLoading: boolean;
   signOut: () => Promise<void>;
+  // Explicitly re-fetches wallet_balance from DB.
+  // Call this after actions that change the balance (checkout, topup submission)
+  // to get an immediate update without waiting for the Realtime event.
+  refreshBalance: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   isLoading: true,
   signOut: async () => {},
+  refreshBalance: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -43,6 +48,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Holds the most recent authUser that arrived while a sync was in flight.
   // Checked in the finally block so the latest data is never permanently lost.
   const pendingAuthUserRef = useRef<any>(null);
+  // Stable ref to current user id so refreshBalance / channel handler can
+  // access it without becoming stale.
+  const userIdRef = useRef<string | null>(null);
+
+  // Keep userIdRef in sync with state.
+  useEffect(() => {
+    userIdRef.current = user?.id ?? null;
+  }, [user?.id]);
 
   // Build a minimal user object directly from the auth JWT.
   // Used immediately so the UI never flashes a logged-out state while the
@@ -118,7 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(buildUserFromAuth(authUser));
 
       try {
-        const { data } = await fetchUserProfile(authUser.id);
+        const { data, error } = await fetchUserProfile(authUser.id);
 
         if (data) {
           // Spread the JWT-derived base so metadata fields (avatar_url, role,
@@ -132,12 +145,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             phone: data.phone,
             is_synced: true,
           });
+        } else if (!error) {
+          // data is null with no error = .maybeSingle() found no row.
+          // This is a new/unprovisioned user — Rs. 0 is the correct balance.
+          setUser((prev) => (prev ? { ...prev, is_synced: true } : null));
         }
-        // If data is null (DB error / user not in public.users yet), keep the
-        // auth-only user that was already set above. is_synced stays false so
-        // wallet shows 0 rather than a stale value.
+        // If error is non-null, all retries were exhausted against an unreachable DB.
+        // Leave is_synced: false so the dropdown shows "..." rather than a false "Rs. 0".
+        // The Realtime channel or next auth event will re-sync when connectivity returns.
       } catch (err) {
-        // Ignore — the auth-only user is already set
+        // Unexpected throw (e.g. network failure before any retry). Keep is_synced: false
+        // so the wallet shows "..." rather than incorrectly claiming the balance is Rs. 0.
         console.warn("[AuthProvider] profile sync error (session kept):", err);
       } finally {
         syncingRef.current = false;
@@ -153,8 +171,75 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [buildUserFromAuth, fetchUserProfile],
   );
 
+  // Explicitly re-fetches wallet_balance from the DB.
+  // Useful for immediate UI feedback after checkout or topup submission without
+  // waiting for the Realtime channel to fire.
+  const refreshBalance = useCallback(async () => {
+    const userId = userIdRef.current;
+    if (!userId) return;
+    const { data, error } = await supabase
+      .from("users")
+      .select("wallet_balance")
+      .eq("id", userId)
+      .maybeSingle();
+    if (error) {
+      console.warn("[AuthProvider] refreshBalance failed — balance may be stale:", error.message);
+      return;
+    }
+    if (data && typeof data.wallet_balance === "number") {
+      setUser((prev) =>
+        prev ? { ...prev, wallet_balance: data.wallet_balance } : null,
+      );
+    }
+  }, [supabase]);
+
   useEffect(() => {
     let mounted = true;
+    // Supabase Realtime channel that listens for wallet_balance changes on the
+    // current user's row in public.users. Keeps the dropdown balance in sync
+    // after orders are placed, topups are approved, or admin adjustments are made —
+    // all of which update the DB without triggering an auth event.
+    let walletChannel: ReturnType<typeof supabase.channel> | null = null;
+
+    const teardownWalletChannel = () => {
+      if (walletChannel) {
+        supabase.removeChannel(walletChannel);
+        walletChannel = null;
+      }
+    };
+
+    const setupWalletChannel = (userId: string) => {
+      // TOKEN_REFRESHED fires every ~55 min. Skip recreation if the channel is
+      // already live — avoids an unnecessary DB round-trip and the brief ~100ms
+      // window where a push update could be missed during teardown/resubscribe.
+      if (walletChannel) return;
+      walletChannel = supabase
+        .channel(`user-balance-${userId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "users",
+            filter: `id=eq.${userId}`,
+          },
+          (payload: any) => {
+            if (!mounted) return;
+            if (typeof payload.new?.wallet_balance !== "number") {
+              // wallet_balance missing from payload — table replica identity may not be FULL.
+              // Run via: ALTER TABLE public.users REPLICA IDENTITY FULL;
+              console.warn("[AuthProvider] wallet Realtime payload missing wallet_balance — replica identity may not be FULL");
+              return;
+            }
+            setUser((prev) =>
+              prev
+                ? { ...prev, wallet_balance: payload.new.wallet_balance }
+                : null,
+            );
+          },
+        )
+        .subscribe();
+    };
 
     // onAuthStateChange is the single authoritative source. It always fires
     // INITIAL_SESSION on mount (synchronously after subscription), so there is
@@ -172,15 +257,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           case "USER_UPDATED":
             if (session?.user) {
               await syncProfile(session.user);
+              if (mounted) {
+                setIsLoading(false);
+                // Set up the balance channel after the initial sync so the
+                // starting value is accurate and future DB changes push automatically.
+                setupWalletChannel(session.user.id);
+              }
             } else {
               setUser(null);
+              teardownWalletChannel();
+              if (mounted) setIsLoading(false);
             }
-            if (mounted) setIsLoading(false);
             break;
 
           case "SIGNED_OUT":
             setUser(null);
             syncingRef.current = false;
+            teardownWalletChannel();
             if (mounted) setIsLoading(false);
             break;
 
@@ -193,8 +286,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      teardownWalletChannel();
     };
-  }, [syncProfile, supabase.auth]);
+  }, [syncProfile, supabase]);
 
   const signOut = useCallback(async () => {
     try {
@@ -210,8 +304,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase.auth]);
 
   const value = useMemo(
-    () => ({ user, isLoading, signOut }),
-    [user, isLoading, signOut],
+    () => ({ user, isLoading, signOut, refreshBalance }),
+    [user, isLoading, signOut, refreshBalance],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

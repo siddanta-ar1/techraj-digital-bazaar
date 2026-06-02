@@ -1,19 +1,12 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/adminAuth";
 import { NextResponse } from "next/server";
-
-async function verifyAdmin() {
-  const supabase = await createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) return null;
-  if (user.app_metadata?.role !== "admin") return null;
-  return user;
-}
 
 // GET — fetch all settings as key→value map
 export async function GET() {
   try {
-    if (!(await verifyAdmin()))
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const authResult = await requireAdmin();
+    if (authResult instanceof NextResponse) return authResult;
 
     const admin = createAdminClient();
     const { data, error } = await admin.from("site_settings").select("*");
@@ -30,12 +23,22 @@ export async function GET() {
 // PATCH — upsert a single setting by key
 export async function PATCH(request: Request) {
   try {
-    if (!(await verifyAdmin()))
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const authResult = await requireAdmin();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { key, value } = await request.json();
-    if (!key)
-      return NextResponse.json({ error: "Missing key" }, { status: 400 });
+    if (!key || typeof key !== "string")
+      return NextResponse.json({ error: "Missing or invalid key" }, { status: 400 });
+
+    // Only allow known settings keys — prevents arbitrary DB row injection
+    const ALLOWED_SETTINGS_KEYS = new Set(["payment_methods"]);
+    if (!ALLOWED_SETTINGS_KEYS.has(key))
+      return NextResponse.json({ error: "Unknown settings key" }, { status: 400 });
+
+    // Cap value payload at 64 KB serialised — prevents storage abuse
+    const serialised = JSON.stringify(value);
+    if (serialised.length > 65536)
+      return NextResponse.json({ error: "Settings value too large" }, { status: 400 });
 
     const admin = createAdminClient();
     const { error } = await admin.from("site_settings").upsert({

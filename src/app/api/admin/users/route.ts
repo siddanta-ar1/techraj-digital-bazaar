@@ -1,16 +1,6 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/adminAuth";
 import { NextResponse } from "next/server";
-
-async function verifyAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-  if (error || !user) return null;
-  if (user.app_metadata?.role !== "admin") return null;
-  return user;
-}
 
 // Explicit allowlist — prevents mass assignment of wallet_balance, id, etc.
 const ALLOWED_USER_UPDATES = new Set<string>([
@@ -22,9 +12,9 @@ const ALLOWED_USER_UPDATES = new Set<string>([
 
 export async function PATCH(request: Request) {
   try {
-    const adminUser = await verifyAdmin();
-    if (!adminUser)
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const authResult = await requireAdmin();
+    if (authResult instanceof NextResponse) return authResult;
+    const { user: adminUser } = authResult;
 
     const { id, ...rawUpdates } = await request.json();
     if (!id)

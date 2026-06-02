@@ -1,19 +1,12 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/adminAuth";
 import { NextResponse } from "next/server";
-
-async function verifyAdmin() {
-  const supabase = await createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) return null;
-  if (user.app_metadata?.role !== "admin") return null;
-  return user;
-}
 
 // GET /api/admin/wallet/adjust?search=... — search users
 export async function GET(request: Request) {
   try {
-    if (!(await verifyAdmin()))
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const authResult = await requireAdmin();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search")?.trim() || "";
@@ -44,66 +37,70 @@ export async function GET(request: Request) {
 // POST /api/admin/wallet/adjust — credit or debit a user's wallet
 export async function POST(request: Request) {
   try {
-    const adminUser = await verifyAdmin();
-    if (!adminUser)
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const authResult = await requireAdmin();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { userId, type, amount, note } = await request.json();
 
     if (!userId || !type || !amount) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
+    // Validate userId is a UUID — prevents SQL injection via RPC param
+    if (typeof userId !== "string" || !/^[0-9a-f-]{36}$/i.test(userId)) {
+      return NextResponse.json({ error: "Invalid userId" }, { status: 400 });
+    }
     if (!["credit", "debit"].includes(type)) {
       return NextResponse.json({ error: "type must be credit or debit" }, { status: 400 });
     }
-    const numAmount = Number(amount);
-    if (!Number.isFinite(numAmount) || numAmount <= 0) {
+    if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0) {
       return NextResponse.json({ error: "Amount must be a positive number" }, { status: 400 });
     }
+    // Cap note to prevent column overflow
+    const sanitisedNote = typeof note === "string" ? note.trim().slice(0, 500) : "";
 
     const admin = createAdminClient();
 
-    // Fetch current balance
+    // Fetch user info for the response message (not for balance — RPCs handle that atomically)
     const { data: userRow, error: fetchError } = await admin
       .from("users")
-      .select("id, full_name, email, wallet_balance")
+      .select("id, full_name, email")
       .eq("id", userId)
       .single();
 
     if (fetchError || !userRow)
       return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    const currentBalance = Number(userRow.wallet_balance) || 0;
-
-    if (type === "debit" && numAmount > currentBalance) {
-      return NextResponse.json(
-        { error: `Insufficient balance. Current balance: Rs. ${currentBalance}` },
-        { status: 400 },
-      );
+    // Use atomic RPCs instead of read-then-write to eliminate the TOCTOU race
+    // where a concurrent deduction could cause the balance to go negative.
+    let newBalance: number;
+    if (type === "credit") {
+      const { data: result, error: creditError } = await admin.rpc("increment_wallet", {
+        p_user_id: userId,
+        p_amount: amount,
+      });
+      if (creditError) throw creditError;
+      newBalance = typeof result === "number" ? result : 0;
+    } else {
+      const { data: result, error: debitError } = await admin.rpc("deduct_wallet_balance", {
+        user_id: userId,
+        amount,
+      });
+      if (debitError) {
+        // deduct_wallet_balance returns an error when balance is insufficient
+        return NextResponse.json({ error: "Insufficient balance" }, { status: 400 });
+      }
+      newBalance = typeof result === "number" ? result : 0;
     }
 
-    const newBalance =
-      type === "credit"
-        ? currentBalance + numAmount
-        : currentBalance - numAmount;
-
-    // Update wallet balance
-    const { error: updateError } = await admin
-      .from("users")
-      .update({ wallet_balance: newBalance })
-      .eq("id", userId);
-
-    if (updateError) throw updateError;
-
-    // Record transaction
+    // Record the adjustment in the audit ledger
     const { error: txnError } = await admin.from("wallet_transactions").insert([
       {
         user_id: userId,
-        amount: numAmount,
+        amount,
         type,
         transaction_type: "admin_adjustment",
-        description: note?.trim()
-          ? `Admin ${type}: ${note.trim()}`
+        description: sanitisedNote
+          ? `Admin ${type}: ${sanitisedNote}`
           : `Admin ${type} adjustment`,
         balance_after: newBalance,
         status: "completed",
@@ -115,7 +112,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       newBalance,
-      message: `Rs. ${numAmount.toLocaleString()} ${type === "credit" ? "credited to" : "debited from"} ${userRow.full_name}'s wallet`,
+      message: `Rs. ${amount.toLocaleString()} ${type === "credit" ? "credited to" : "debited from"} ${userRow.full_name}'s wallet`,
     });
   } catch (error: any) {
     console.error("[admin/wallet/adjust] POST error:", error.message);

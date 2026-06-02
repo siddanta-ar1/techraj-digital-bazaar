@@ -1,19 +1,12 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/adminAuth";
 import { NextResponse } from "next/server";
-
-async function verifyAdmin() {
-  const supabase = await createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) return null;
-  if (user.app_metadata?.role !== "admin") return null;
-  return user;
-}
 
 // GET ?productId=... — fetch assigned groups + available global groups
 export async function GET(request: Request) {
   try {
-    if (!(await verifyAdmin()))
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const authResult = await requireAdmin();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { searchParams } = new URL(request.url);
     const productId = searchParams.get("productId");
@@ -48,8 +41,8 @@ export async function GET(request: Request) {
 // POST — link an option group to a product
 export async function POST(request: Request) {
   try {
-    if (!(await verifyAdmin()))
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const authResult = await requireAdmin();
+    if (authResult instanceof NextResponse) return authResult;
 
     const body = await request.json();
     const admin = createAdminClient();
@@ -65,8 +58,8 @@ export async function POST(request: Request) {
 // PATCH — update a product_option_group row (e.g. toggle is_required)
 export async function PATCH(request: Request) {
   try {
-    if (!(await verifyAdmin()))
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const authResult = await requireAdmin();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { id, ...updates } = await request.json();
     if (!id)
@@ -88,8 +81,8 @@ export async function PATCH(request: Request) {
 // DELETE ?id=... — unlink option group from product
 export async function DELETE(request: Request) {
   try {
-    if (!(await verifyAdmin()))
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const authResult = await requireAdmin();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");

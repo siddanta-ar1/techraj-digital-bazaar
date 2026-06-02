@@ -31,22 +31,21 @@ export default async function AdminWalletPage() {
       .reduce((sum: number, r: any) => sum + Number(r.amount), 0) || 0;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="max-w-7xl mx-auto space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-            <div className="p-2 bg-indigo-100 rounded-lg">
-              <Wallet className="h-8 w-8 text-indigo-600" />
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-3">
+            <div className="p-2 bg-indigo-100 rounded-lg shrink-0">
+              <Wallet className="h-6 w-6 md:h-8 md:w-8 text-indigo-600" />
             </div>
             Wallet Management
           </h1>
-          <p className="text-slate-500 mt-2">
+          <p className="text-slate-500 mt-1 text-sm">
             Process top-up requests and directly credit or debit user wallets.
           </p>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-6">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
             <div className="flex items-center justify-between">
               <div>
@@ -127,7 +126,6 @@ export default async function AdminWalletPage() {
             </div>
           </div>
         </div>
-      </div>
     </div>
   );
 }

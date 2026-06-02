@@ -1,19 +1,12 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/adminAuth";
 import { NextResponse } from "next/server";
 import { sendTopupApprovedEmail } from "@/lib/resend";
 
-async function verifyAdmin() {
-  const supabase = await createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) return null;
-  if (user.app_metadata?.role !== "admin") return null;
-  return user;
-}
-
 export async function GET(request: Request) {
   try {
-    if (!(await verifyAdmin()))
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const authResult = await requireAdmin();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
@@ -54,8 +47,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    if (!(await verifyAdmin()))
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const authResult = await requireAdmin();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { requestId, action, adminNotes } = await request.json();
 
@@ -105,11 +98,21 @@ export async function POST(request: Request) {
       );
 
       if (balanceError) {
-        // Wallet was NOT credited — safe to roll back the status update
-        await admin
+        // Wallet was NOT credited — safe to roll back the status update.
+        // Check the error: if this rollback also fails, the row is stuck in
+        // "approved" with no wallet credit. Log prominently so ops can recover.
+        const { error: rbStatusError } = await admin
           .from("topup_requests")
           .update({ status: "pending", admin_notes: null, updated_at: new Date().toISOString() })
           .eq("id", requestId);
+        if (rbStatusError) {
+          console.error(
+            "[topup approve] MANUAL RECOVERY NEEDED: increment_wallet failed AND status rollback failed.",
+            "requestId:", requestId, "userId:", topupRequest.user_id,
+            "walletError:", balanceError.message,
+            "rollbackError:", rbStatusError.message,
+          );
+        }
         throw balanceError;
       }
 
@@ -151,6 +154,7 @@ export async function POST(request: Request) {
         .update({ status: "completed", balance_after: newBalance })
         .eq("reference_id", requestId)
         .eq("transaction_type", "topup")
+        .eq("status", "pending")  // idempotency guard — never overwrite an already-completed record
         .select("id");
 
       if (txnUpdateError) throw txnUpdateError;
@@ -179,6 +183,22 @@ export async function POST(request: Request) {
         } catch (emailError) {
           console.error("Failed to send topup approval email:", emailError);
         }
+      }
+    } else {
+      // Rejection: mark the pending wallet_transactions row as "failed" so it
+      // doesn't appear as a ghost pending entry in audit queries and dashboards.
+      const { error: txnFailError } = await admin
+        .from("wallet_transactions")
+        .update({ status: "failed" })
+        .eq("reference_id", requestId)
+        .eq("transaction_type", "topup")
+        .eq("status", "pending");
+      if (txnFailError) {
+        // Don't silently succeed — the topup_requests row is rejected but the
+        // wallet_transactions row is stuck as pending forever, creating a ghost
+        // entry in the user's ledger. Throw so the caller receives a 500 and
+        // can retry rather than assuming the rejection fully completed.
+        throw txnFailError;
       }
     }
 

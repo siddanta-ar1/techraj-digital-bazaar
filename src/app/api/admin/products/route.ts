@@ -1,19 +1,13 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/adminAuth";
 import { NextResponse } from "next/server";
-
-async function verifyAdmin() {
-  const supabase = await createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) return null;
-  if (user.app_metadata?.role !== "admin") return null;
-  return user;
-}
+import { revalidatePath } from "next/cache";
 
 // GET ?slug=...&excludeId=... — slug uniqueness check
 export async function GET(request: Request) {
   try {
-    if (!(await verifyAdmin()))
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const authResult = await requireAdmin();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { searchParams } = new URL(request.url);
     const slug = searchParams.get("slug");
@@ -35,8 +29,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    if (!(await verifyAdmin()))
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const authResult = await requireAdmin();
+    if (authResult instanceof NextResponse) return authResult;
 
     const body = await request.json();
     const admin = createAdminClient();
@@ -48,6 +42,9 @@ export async function POST(request: Request) {
       .single();
 
     if (error) throw error;
+    revalidatePath("/");
+    revalidatePath("/products");
+    if (data?.slug) revalidatePath(`/products/${data.slug}`);
     return NextResponse.json({ product: data });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -63,8 +60,8 @@ const ALLOWED_PRODUCT_UPDATES = new Set<string>([
 
 export async function PATCH(request: Request) {
   try {
-    if (!(await verifyAdmin()))
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const authResult = await requireAdmin();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { id, ...rawUpdates } = await request.json();
     if (!id)
@@ -86,6 +83,9 @@ export async function PATCH(request: Request) {
       .single();
 
     if (error) throw error;
+    revalidatePath("/");
+    revalidatePath("/products");
+    if (data?.slug) revalidatePath(`/products/${data.slug}`);
     return NextResponse.json({ product: data });
   } catch (error: any) {
     console.error("[admin/products] PATCH error:", error.message);
@@ -95,8 +95,8 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    if (!(await verifyAdmin()))
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const authResult = await requireAdmin();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
@@ -107,6 +107,8 @@ export async function DELETE(request: Request) {
     const { error } = await admin.from("products").delete().eq("id", id);
 
     if (error) throw error;
+    revalidatePath("/");
+    revalidatePath("/products");
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

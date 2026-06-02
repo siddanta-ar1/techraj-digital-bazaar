@@ -1,19 +1,12 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/adminAuth";
 import { NextResponse } from "next/server";
-
-async function verifyAdmin() {
-  const supabase = await createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) return null;
-  if (user.app_metadata?.role !== "admin") return null;
-  return user;
-}
 
 // GET ?variantId=... — fetch unused codes for a variant
 export async function GET(request: Request) {
   try {
-    if (!(await verifyAdmin()))
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const authResult = await requireAdmin();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { searchParams } = new URL(request.url);
     const variantId = searchParams.get("variantId");
@@ -38,8 +31,8 @@ export async function GET(request: Request) {
 // POST — bulk insert codes (with duplicate check)
 export async function POST(request: Request) {
   try {
-    if (!(await verifyAdmin()))
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const authResult = await requireAdmin();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { codes } = await request.json();
     if (!Array.isArray(codes) || codes.length === 0)
@@ -73,8 +66,8 @@ export async function POST(request: Request) {
 //        ?variantId=... — delete all unused codes for a variant
 export async function DELETE(request: Request) {
   try {
-    if (!(await verifyAdmin()))
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const authResult = await requireAdmin();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");

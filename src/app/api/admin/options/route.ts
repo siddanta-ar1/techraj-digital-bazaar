@@ -1,19 +1,12 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/adminAuth";
 import { NextResponse } from "next/server";
-
-async function verifyAdmin() {
-  const supabase = await createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) return null;
-  if (user.app_metadata?.role !== "admin") return null;
-  return user;
-}
 
 // GET ?groupId=... — fetch a single option group with its options
 export async function GET(request: Request) {
   try {
-    if (!(await verifyAdmin()))
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const authResult = await requireAdmin();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { searchParams } = new URL(request.url);
     const groupId = searchParams.get("groupId");
@@ -37,8 +30,8 @@ export async function GET(request: Request) {
 // POST — create option group + upsert its options
 export async function POST(request: Request) {
   try {
-    if (!(await verifyAdmin()))
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const authResult = await requireAdmin();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { groupData, options } = await request.json();
     const admin = createAdminClient();
@@ -70,8 +63,8 @@ export async function POST(request: Request) {
 // DELETE ?groupId=... — delete option group and all its options
 export async function DELETE(request: Request) {
   try {
-    if (!(await verifyAdmin()))
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const authResult = await requireAdmin();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { searchParams } = new URL(request.url);
     const groupId = searchParams.get("groupId");
@@ -90,8 +83,8 @@ export async function DELETE(request: Request) {
 // PATCH — update option group + sync options (upsert existing, insert new, delete removed)
 export async function PATCH(request: Request) {
   try {
-    if (!(await verifyAdmin()))
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const authResult = await requireAdmin();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { groupId, groupData, options, deletedOptionIds } = await request.json();
     if (!groupId)
@@ -107,26 +100,54 @@ export async function PATCH(request: Request) {
 
     if (groupError) throw groupError;
 
-    // Delete removed options
+    // Delete removed options — group_id guard prevents deleting options from other groups
     if (deletedOptionIds && deletedOptionIds.length > 0) {
-      await admin.from("options").delete().in("id", deletedOptionIds);
+      const { error: delErr } = await admin
+        .from("options")
+        .delete()
+        .in("id", deletedOptionIds)
+        .eq("group_id", groupId);
+      if (delErr) throw delErr;
     }
 
-    // Upsert options
+    // Upsert options — run in parallel, each with its own error check.
+    // group_id guard on UPDATE prevents cross-group option hijacking (BOLA):
+    // without it, supplying an opt.id from a different group would silently
+    // mutate that unrelated row.
     if (options && options.length > 0) {
-      for (let i = 0; i < options.length; i++) {
-        const opt = options[i];
-        const optionData = { ...opt, group_id: groupId, sort_order: i };
-
-        if (opt.id) {
-          await admin
-            .from("options")
-            .update({ ...optionData, updated_at: new Date().toISOString() })
-            .eq("id", opt.id);
-        } else {
-          await admin.from("options").insert([optionData]);
-        }
-      }
+      const results = await Promise.all(
+        options.map(async (opt: any, i: number) => {
+          const optionData = {
+            group_id: groupId,
+            sort_order: i,
+            name: opt.name,
+            display_value: opt.display_value,
+            color_code: opt.color_code,
+            image_url: opt.image_url,
+            icon: opt.icon,
+            price_modifier: opt.price_modifier,
+            price_modifier_type: opt.price_modifier_type,
+            stock_type: opt.stock_type,
+            stock_quantity: opt.stock_quantity,
+            is_default: opt.is_default,
+            is_active: opt.is_active,
+            validation_regex: opt.validation_regex,
+          };
+          if (opt.id) {
+            const { error } = await admin
+              .from("options")
+              .update({ ...optionData, updated_at: new Date().toISOString() })
+              .eq("id", opt.id)
+              .eq("group_id", groupId); // ownership guard
+            return error;
+          } else {
+            const { error } = await admin.from("options").insert([optionData]);
+            return error;
+          }
+        }),
+      );
+      const firstErr = results.find(Boolean);
+      if (firstErr) throw firstErr;
     }
 
     return NextResponse.json({ success: true });

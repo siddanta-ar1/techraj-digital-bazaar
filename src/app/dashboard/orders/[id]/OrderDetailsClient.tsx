@@ -51,7 +51,7 @@ interface Order {
   discount_amount: number;
   final_amount: number;
   status: "pending" | "processing" | "completed" | "cancelled" | "refunded";
-  payment_method: "wallet" | "esewa" | "bank_transfer";
+  payment_method: "wallet" | "esewa" | "khalti" | "bank_transfer";
   payment_status: "pending" | "paid" | "failed";
   payment_screenshot_url?: string;
   delivery_type: "auto" | "manual";

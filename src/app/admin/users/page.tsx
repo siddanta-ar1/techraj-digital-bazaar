@@ -24,17 +24,16 @@ export default async function AdminUsersPage() {
     .order("created_at", { ascending: false });
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-              <div className="p-2 bg-indigo-100 rounded-lg">
-                <Users className="h-8 w-8 text-indigo-600" />
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-3">
+              <div className="p-2 bg-indigo-100 rounded-lg shrink-0">
+                <Users className="h-6 w-6 md:h-8 md:w-8 text-indigo-600" />
               </div>
               User Management
             </h1>
-            <p className="text-slate-500 mt-2">
+            <p className="text-slate-500 mt-1 text-sm">
               Manage user roles, balances, and account status.
             </p>
           </div>
@@ -42,7 +41,7 @@ export default async function AdminUsersPage() {
         </div>
 
         {/* User Statistics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           {[
             {
               label: "Total Users",
@@ -107,7 +106,6 @@ export default async function AdminUsersPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <UsersClient initialUsers={users || []} currentUserId={currentAdmin?.id} />
         </div>
-      </div>
     </div>
   );
 }

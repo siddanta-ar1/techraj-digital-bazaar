@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/server";
+
 import { ProductGrid } from "@/components/products/ProductGrid";
 import Link from "next/link";
 import { ArrowRight, Zap, Shield, Headphones } from "lucide-react";
@@ -52,35 +53,45 @@ const organizationJsonLd = {
 };
 
 export default async function HomePage() {
+  // 1. Initialize the Supabase client for this request
   const supabase = createAdminClient();
 
-  // All three queries run in parallel — reduces TTFB from ~600ms to ~200ms
-  // (one round-trip instead of three sequential ones)
-  const [
-    { data: featuredProducts },
-    { data: newArrivals },
-    { data: categories },
-  ] = await Promise.all([
-    supabase
-      .from("products")
-      .select(`*, category:categories(name, slug), variants:product_variants(*)`)
-      .eq("is_featured", true)
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(12),
-    supabase
-      .from("products")
-      .select(`*, category:categories(name, slug), variants:product_variants(*)`)
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(8),
-    supabase
-      .from("categories")
-      .select("*")
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true })
-      .limit(8),
-  ]);
+  // Fetch featured products
+  const { data: featuredProducts } = await supabase
+    .from("products")
+    .select(
+      `
+      *,
+      category:categories(name, slug),
+      variants:product_variants(*)
+    `,
+    )
+    .eq("is_featured", true)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(12);
+
+  // Fetch new arrivals
+  const { data: newArrivals } = await supabase
+    .from("products")
+    .select(
+      `
+      *,
+      category:categories(name, slug),
+      variants:product_variants(*)
+    `,
+    )
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(8);
+
+  // Fetch categories for quick navigation
+  const { data: categories } = await supabase
+    .from("categories")
+    .select("*")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .limit(8);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -89,34 +100,91 @@ export default async function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
       />
 
-      {/* Brand hero — H1 for SEO, left-aligned per F-pattern/left-bias research */}
-      <section className="bg-linear-to-br from-slate-900 via-slate-800 to-indigo-900 text-white py-14 md:py-20">
-        <div className="container mx-auto px-6">
-          <div className="max-w-2xl">
-            <h1 className="text-4xl md:text-6xl font-extrabold mb-4 tracking-tight leading-tight">
-              Techraj Digital Shop
+      {/* Brand hero — H1 for SEO */}
+      <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 text-white py-12 md:py-16">
+        <div className="container mx-auto px-4 text-center">
+          <h1 className="text-3xl md:text-5xl font-extrabold mb-3 tracking-tight">
+            Techraj Digital Shop
+          </h1>
+          <p className="text-slate-300 text-base md:text-lg max-w-2xl mx-auto mb-6">
+            Nepal&apos;s trusted marketplace for PUBG UC, Freefire Diamonds,
+            Netflix, Steam Gift Cards &amp; 100+ instant digital products
+          </p>
+          <div className="flex justify-center gap-3 flex-wrap">
+            <Link
+              href="/products"
+              className="px-7 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition-colors text-sm"
+            >
+              Shop Now
+            </Link>
+            <Link
+              href="#featured"
+              className="px-7 py-2.5 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-lg transition-colors border border-white/20 text-sm"
+            >
+              Featured Products
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Original Minimal Hero Section (kept for reference) */}
+      {/* <section className="relative bg-gradient-to-br from-slate-900 to-indigo-900 text-white py-16">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto text-center">
+            <h1 className="text-4xl md:text-5xl font-bold mb-4">
+              Instant Digital Products
+              <span className="block text-3xl md:text-4xl text-indigo-300 mt-2">
+                Top-ups, Gift Cards & More
+              </span>
             </h1>
-            <p className="text-slate-300 text-base md:text-lg max-w-xl mb-8">
-              Nepal&apos;s trusted marketplace for PUBG UC, Freefire Diamonds,
-              Netflix, Steam Gift Cards &amp; 100+ instant digital products
+            <p className="text-lg text-slate-300 mb-8 max-w-2xl mx-auto">
+              Get instant delivery on PUBG UC, Freefire Diamonds, Netflix, Gift Cards, and 100+ digital products
             </p>
-            <div className="flex gap-3 flex-wrap">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
                 href="/products"
-                className="px-8 py-3.5 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold rounded-xl transition-colors shadow-lg shadow-amber-500/30"
+                className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
               >
-                Shop Now
+                Browse All Products <ArrowRight className="w-5 h-5" />
               </Link>
               <Link
                 href="#featured"
-                className="px-8 py-3.5 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl transition-colors border border-white/20"
+                className="px-8 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg font-semibold transition-colors border border-white/20"
               >
-                Featured Products
+                View Featured
               </Link>
             </div>
           </div>
         </div>
-      </section>
+      </section> */}
+
+      {/* Quick Categories Navigation */}
+      {/* {categories && categories.length > 0 && (
+        <section className="py-8 bg-slate-50 border-b">
+          <div className="container mx-auto px-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-slate-800">Shop by Category</h2>
+              <Link
+                href="/categories"
+                className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+              >
+                View All
+              </Link>
+            </div>
+            <div className="flex space-x-2 overflow-x-auto pb-2">
+              {categories.map((category) => (
+                <Link
+                  key={category.id}
+                  href={`/products?category=${category.slug}`}
+                  className="flex-shrink-0 px-4 py-2 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:shadow-sm transition-all"
+                >
+                  <span className="font-medium text-slate-700">{category.name}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )} */}
 
       {/* Featured Products */}
       <section id="featured" className="py-12 bg-white scroll-mt-20">

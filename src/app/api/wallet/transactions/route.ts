@@ -13,11 +13,24 @@ export async function GET(request: Request) {
 
     const admin = createAdminClient()
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
-    const offset = (page - 1) * limit
-    const type = searchParams.get('type')
-    const transactionType = searchParams.get('transactionType')
+
+    const rawPage = parseInt(searchParams.get('page') || '1');
+    const rawLimit = parseInt(searchParams.get('limit') || '20');
+    const page = (!Number.isFinite(rawPage) || rawPage < 1) ? 1 : Math.min(rawPage, 1000);
+    const limit = (!Number.isFinite(rawLimit) || rawLimit < 1) ? 20 : Math.min(rawLimit, 100);
+    const offset = (page - 1) * limit;
+
+    const ALLOWED_TYPES = new Set(['credit', 'debit']);
+    const ALLOWED_TX_TYPES = new Set(['topup', 'purchase', 'admin_adjustment', 'refund']);
+    const type = searchParams.get('type');
+    const transactionType = searchParams.get('transactionType');
+
+    if (type && !ALLOWED_TYPES.has(type)) {
+      return NextResponse.json({ error: 'Invalid type parameter' }, { status: 400 });
+    }
+    if (transactionType && !ALLOWED_TX_TYPES.has(transactionType)) {
+      return NextResponse.json({ error: 'Invalid transactionType parameter' }, { status: 400 });
+    }
 
     let query = admin
       .from('wallet_transactions')

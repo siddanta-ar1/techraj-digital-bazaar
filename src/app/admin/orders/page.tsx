@@ -41,29 +41,25 @@ export default async function AdminOrdersPage() {
     .limit(50);
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-                <div className="p-2 bg-indigo-100 rounded-lg">
-                  <ShoppingBag className="h-8 w-8 text-indigo-600" />
-                </div>
-                Order Management
-              </h1>
-              <p className="text-slate-500 mt-2">
-                Manage and process customer orders
-              </p>
-            </div>
-
-            <OrdersHeader orders={orders || []} />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-3">
+              <div className="p-2 bg-indigo-100 rounded-lg shrink-0">
+                <ShoppingBag className="h-6 w-6 md:h-8 md:w-8 text-indigo-600" />
+              </div>
+              Order Management
+            </h1>
+            <p className="text-slate-500 mt-1 text-sm">
+              Manage and process customer orders
+            </p>
           </div>
+          <OrdersHeader orders={orders || []} />
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
           {[
             {
               label: "Total Orders",
@@ -119,7 +115,7 @@ export default async function AdminOrdersPage() {
             return (
               <div
                 key={index}
-                className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-md transition-shadow group"
+                className={`bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-md transition-shadow group ${index === 4 ? "col-span-full lg:col-span-1" : ""}`}
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -143,7 +139,6 @@ export default async function AdminOrdersPage() {
 
         {/* Orders Table */}
         <AdminOrdersClient initialOrders={orders || []} />
-      </div>
     </div>
   );
 }

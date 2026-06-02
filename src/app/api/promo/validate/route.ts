@@ -1,6 +1,7 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import { calculatePromoDiscount } from "@/lib/promoUtils";
 
 export async function POST(request: Request) {
   // Rate limit: 15 validations per minute per IP — prevents enumeration attacks
@@ -117,23 +118,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // 6. CALCULATE DISCOUNT
-    let calculatedDiscount = 0;
-    if (promo.discount_type === "percentage") {
-      calculatedDiscount = (totalAmount * promo.discount_value) / 100;
-      // Apply max discount limit if set
-      if (promo.max_discount_amount) {
-        calculatedDiscount = Math.min(
-          calculatedDiscount,
-          promo.max_discount_amount,
-        );
-      }
-    } else {
-      calculatedDiscount = promo.discount_value;
-    }
-
-    // Ensure discount doesn't exceed total amount
-    calculatedDiscount = Math.min(calculatedDiscount, totalAmount);
+    // 6. CALCULATE DISCOUNT — shared utility keeps this in sync with orders/create
+    const calculatedDiscount = calculatePromoDiscount(totalAmount, promo);
 
     return NextResponse.json({
       success: true,

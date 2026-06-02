@@ -2,12 +2,81 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { sendOrderEmail } from "@/lib/resend";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import { calculatePromoDiscount } from "@/lib/promoUtils";
 
 const ALLOWED_PAYMENT_METHODS = new Set(["wallet", "esewa", "khalti", "bank_transfer"]);
 const MAX_ITEMS_PER_ORDER = 20;
 const MAX_QTY_PER_ITEM = 99;
 
+// ---------------------------------------------------------------------------
+// Rollback helper — undoes every committed side effect in reverse order.
+// Safe to call at any stage: operations on rows that don't exist yet are
+// no-ops (DELETE / UPDATE with 0 matches returns successfully).
+// ---------------------------------------------------------------------------
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+interface RollbackCtx {
+  admin: AdminClient;
+  userId: string;
+  orderId: string;
+  serverFinalAmount: number;
+  paymentMethod: string;
+  isFullDiscount: boolean;
+  usedProductCodeId?: string | null;
+  promoId: string | null;
+}
+
+async function rollbackOrderSideEffects(
+  ctx: RollbackCtx,
+  deleteOrder = false,
+): Promise<void> {
+  // Wrapped in a top-level try/catch so that a network-level throw from any
+  // Supabase call can never escape to the outer catch in POST, which would
+  // trigger a second decrement_promo_usage on an already-rolled-back promo.
+  try {
+    if (deleteOrder) {
+      const { error } = await ctx.admin.from("orders").delete().eq("id", ctx.orderId);
+      if (error) console.error("[rollback] order delete failed — MANUAL RECOVERY NEEDED orderId:", ctx.orderId, error.message);
+    }
+    if (ctx.paymentMethod === "wallet" && !ctx.isFullDiscount) {
+      const { error: rbW } = await ctx.admin.rpc("increment_wallet", {
+        p_user_id: ctx.userId,
+        p_amount: ctx.serverFinalAmount,
+      });
+      if (rbW) console.error("[rollback] increment_wallet failed — MANUAL RECOVERY NEEDED orderId:", ctx.orderId, rbW.message);
+      // Safe even when the wallet_transactions insert never succeeded — DELETE on 0 rows is a no-op.
+      const { error: rbT } = await ctx.admin
+        .from("wallet_transactions")
+        .delete()
+        .eq("reference_id", ctx.orderId)
+        .eq("transaction_type", "purchase");
+      if (rbT) console.error("[rollback] wallet_transactions delete failed — MANUAL RECOVERY NEEDED orderId:", ctx.orderId, rbT.message);
+    }
+    if (ctx.usedProductCodeId) {
+      const { error } = await ctx.admin
+        .from("product_codes")
+        .update({ is_used: false, order_id: null, used_at: null })
+        .eq("id", ctx.usedProductCodeId);
+      if (error) console.error("[rollback] gift card unmark failed:", error.message);
+    }
+    // Safe at any stage — returns 0 rows if code claiming hasn't run yet.
+    // used_at: null keeps codes fully clean for inventory queries filtering on used_at IS NULL.
+    const { error: rbC } = await ctx.admin
+      .from("product_codes")
+      .update({ is_used: false, order_id: null, used_at: null })
+      .eq("order_id", ctx.orderId);
+    if (rbC) console.error("[rollback] product_codes unmark failed:", rbC.message);
+    if (ctx.promoId) {
+      const { error } = await ctx.admin.rpc("decrement_promo_usage", { promo_id: ctx.promoId });
+      if (error) console.error("[rollback] decrement_promo_usage failed:", error.message);
+    }
+  } catch (err: any) {
+    console.error("[rollback] unexpected throw in rollbackOrderSideEffects — orderId:", ctx.orderId, err?.message);
+  }
+}
+
 export async function POST(request: Request) {
+  // Rate limit: 5 orders per minute per IP — prevents spam/double-submit
   const ip = getClientIp(request);
   const rl = checkRateLimit(`order:${ip}`, 5, 60_000);
   if (!rl.allowed) {
@@ -17,8 +86,8 @@ export async function POST(request: Request) {
     );
   }
 
-  // P16: Declare admin and promoId outside the try block so the outer catch
-  // can access them to decrement promo usage on any unexpected throw.
+  // Declared before try so the outer catch can access them for promo rollback (P16).
+  // createAdminClient() is a synchronous constructor with no I/O — safe to call here.
   const admin = createAdminClient();
   let promoId: string | null = null;
 
@@ -57,12 +126,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid payment method" }, { status: 400 });
     }
 
+    // Validate per-item quantity
     for (const item of items) {
       if (item.quantity > MAX_QTY_PER_ITEM) {
         return NextResponse.json({ error: `Quantity cannot exceed ${MAX_QTY_PER_ITEM} per item` }, { status: 400 });
       }
     }
 
+    // Sanitize promoCode — strip to 50 chars, uppercase, alphanumeric + dash/underscore only
     const sanitizedPromoCode = typeof promoCode === "string"
       ? promoCode.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0, 50) || null
       : null;
@@ -101,6 +172,7 @@ export async function POST(request: Request) {
       (combinationResult.data ?? []).map((c: any) => [c.id, c]),
     );
 
+    // Resolve server-authoritative unit price for each item
     type ResolvedItem = {
       variantId: string;
       combinationId: string | null;
@@ -139,14 +211,23 @@ export async function POST(request: Request) {
             { status: 400 },
           );
         }
+        // Verify the combination belongs to the same product as the variant.
+        // Without this, a user could pass a cheap combination from a different product.
         if (combination.product_id !== variant.product_id) {
           return NextResponse.json(
             { error: "Invalid product configuration" },
             { status: 400 },
           );
         }
+        if (!combination.is_active) {
+          return NextResponse.json(
+            { error: "One or more products are unavailable" },
+            { status: 400 },
+          );
+        }
       }
 
+      // Validate optionSelections: must be a plain object, capped at 2 KB
       let safeOptionSelections: Record<string, string | string[]> | null = null;
       if (item.optionSelections != null) {
         if (
@@ -162,6 +243,7 @@ export async function POST(request: Request) {
         safeOptionSelections = item.optionSelections as Record<string, string | string[]>;
       }
 
+      // combination price takes precedence; falls back to variant base price
       const unitPrice = combination?.calculated_price ?? variant.price;
 
       resolvedItems.push({
@@ -175,6 +257,7 @@ export async function POST(request: Request) {
       });
     }
 
+    // Compute server-side total
     const serverTotalAmount = resolvedItems.reduce(
       (sum, i) => sum + i.unitPrice * i.quantity,
       0,
@@ -211,18 +294,12 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Promo code usage limit reached" }, { status: 400 });
       }
 
-      if (promo.discount_type === "percentage") {
-        serverDiscountAmount = (serverTotalAmount * promo.discount_value) / 100;
-        if (promo.max_discount_amount) {
-          serverDiscountAmount = Math.min(serverDiscountAmount, promo.max_discount_amount);
-        }
-      } else {
-        serverDiscountAmount = promo.discount_value;
-      }
-      serverDiscountAmount = Math.min(serverDiscountAmount, serverTotalAmount);
+      // Recompute discount server-side — shared utility keeps in sync with /api/promo/validate
+      serverDiscountAmount = calculatePromoDiscount(serverTotalAmount, promo);
 
       promoId = promo.id;
 
+      // Increment usage before order creation to reduce race conditions
       const { error: incrementError } = await admin.rpc("increment_promo_usage", {
         promo_id: promoId,
       });
@@ -237,8 +314,6 @@ export async function POST(request: Request) {
     // P14: Never override the user's paymentMethod to "wallet" for fully-discounted orders.
     // Storing the wrong payment_method corrupts the audit trail and breaks refund routing
     // for esewa/khalti orders where the 100% promo means nothing was actually charged.
-    // Keep paymentMethod as-is for the stored record; use isFullDiscount + isInstantPayment
-    // to drive processing logic only.
     const isFullDiscount = serverFinalAmount === 0;
     const isInstantPayment = isFullDiscount || paymentMethod === "wallet";
 
@@ -246,9 +321,21 @@ export async function POST(request: Request) {
     const orderNumber = `TR-${crypto.randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`;
     const orderId = crypto.randomUUID();
 
+    // Shared rollback context — passed to rollbackOrderSideEffects at every error site
+    const rbCtx: RollbackCtx = {
+      admin,
+      userId: user.id,
+      orderId,
+      serverFinalAmount,
+      paymentMethod,
+      isFullDiscount,
+      usedProductCodeId: paymentMeta?.usedProductCodeId,
+      promoId,
+    };
+
     // 7. HANDLE INVENTORY CODE USAGE (gift card applied as payment)
     if (paymentMeta?.usedProductCodeId) {
-      const { error: markUsedError } = await admin
+      const { data: markedRows, error: markUsedError } = await admin
         .from("product_codes")
         .update({
           is_used: true,
@@ -256,9 +343,12 @@ export async function POST(request: Request) {
           used_at: new Date().toISOString(),
         })
         .eq("id", paymentMeta.usedProductCodeId)
-        .eq("is_used", false);
+        .eq("is_used", false)
+        .select("id");
 
-      if (markUsedError) {
+      // 0 rows matched means the code was already claimed by a concurrent request.
+      if (markUsedError || !markedRows || markedRows.length === 0) {
+        if (markUsedError) console.error("[gift card] mark-used error:", markUsedError.message);
         if (promoId) {
           const { error: rbPromo } = await admin.rpc("decrement_promo_usage", { promo_id: promoId });
           if (rbPromo) console.error("[rollback] decrement_promo_usage failed:", rbPromo.message);
@@ -292,7 +382,7 @@ export async function POST(request: Request) {
         );
       }
 
-      // P4: Check the error — a silent failure leaves the wallet debited with no ledger record.
+      // P4: Check the error — a silent failure leaves the wallet debited with no ledger record
       const { error: txnInsertError } = await admin.from("wallet_transactions").insert({
         user_id: user.id,
         amount: serverFinalAmount,
@@ -306,22 +396,7 @@ export async function POST(request: Request) {
 
       if (txnInsertError) {
         console.error("[wallet_transactions] debit insert failed:", txnInsertError.message, "orderId:", orderId);
-        const { error: rbWallet } = await admin.rpc("increment_wallet", {
-          p_user_id: user.id,
-          p_amount: serverFinalAmount,
-        });
-        if (rbWallet) console.error("[rollback] increment_wallet failed — MANUAL RECOVERY NEEDED orderId:", orderId, rbWallet.message);
-        if (paymentMeta?.usedProductCodeId) {
-          const { error: rbGift } = await admin
-            .from("product_codes")
-            .update({ is_used: false, order_id: null, used_at: null })
-            .eq("id", paymentMeta.usedProductCodeId);
-          if (rbGift) console.error("[rollback] gift card unmark failed:", rbGift.message);
-        }
-        if (promoId) {
-          const { error: rbPromo } = await admin.rpc("decrement_promo_usage", { promo_id: promoId });
-          if (rbPromo) console.error("[rollback] decrement_promo_usage failed:", rbPromo.message);
-        }
+        await rollbackOrderSideEffects(rbCtx);
         return NextResponse.json({ error: "Failed to record payment transaction" }, { status: 500 });
       }
     }
@@ -403,6 +478,7 @@ export async function POST(request: Request) {
     const orderStatus = isInstantPayment && allDelivered ? "completed" : "pending";
 
     // 10. CREATE ORDER
+    // P14: store paymentMethod (user's original choice), not an "effective" override
     const { data: createdOrder, error: orderError } = await admin
       .from("orders")
       .insert([
@@ -430,39 +506,10 @@ export async function POST(request: Request) {
 
     if (orderError) {
       console.error("[order] insert failed:", orderError.message, "orderId:", orderId);
-      if (paymentMethod === "wallet" && !isFullDiscount) {
-        const { error: rbWallet } = await admin.rpc("increment_wallet", {
-          p_user_id: user.id,
-          p_amount: serverFinalAmount,
-        });
-        if (rbWallet) console.error("[rollback] increment_wallet failed — MANUAL RECOVERY NEEDED orderId:", orderId, rbWallet.message);
-        // P4: delete the debit record so the ledger stays in sync with the restored balance
-        const { error: rbTxn } = await admin
-          .from("wallet_transactions")
-          .delete()
-          .eq("reference_id", orderId)
-          .eq("transaction_type", "purchase");
-        if (rbTxn) console.error("[rollback] wallet_transactions delete failed — MANUAL RECOVERY NEEDED orderId:", orderId, rbTxn.message);
-      }
-      if (paymentMeta?.usedProductCodeId) {
-        const { error: rbGift } = await admin
-          .from("product_codes")
-          .update({ is_used: false, order_id: null, used_at: null })
-          .eq("id", paymentMeta.usedProductCodeId);
-        if (rbGift) console.error("[rollback] gift card unmark failed:", rbGift.message);
-      }
-      // P12: include used_at: null so rolled-back codes are fully clean and remain
-      // visible to inventory queries that filter on used_at IS NULL
-      const { error: rbCodes } = await admin
-        .from("product_codes")
-        .update({ is_used: false, order_id: null, used_at: null })
-        .eq("order_id", orderId);
-      if (rbCodes) console.error("[rollback] product_codes unmark failed:", rbCodes.message);
-      if (promoId) {
-        const { error: rbPromo } = await admin.rpc("decrement_promo_usage", { promo_id: promoId });
-        if (rbPromo) console.error("[rollback] decrement_promo_usage failed:", rbPromo.message);
-      }
-      throw new Error("Failed to create order");
+      await rollbackOrderSideEffects(rbCtx);
+      // Return directly — do NOT throw. Throwing would re-enter the outer catch which
+      // would attempt a second decrement_promo_usage on an already-rolled-back promo.
+      return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
     }
 
     // 11. INSERT ORDER ITEMS
@@ -474,42 +521,7 @@ export async function POST(request: Request) {
 
     if (itemsError) {
       console.error("[order_items] insert failed:", itemsError.message, "orderId:", orderId);
-      // Rollback order row
-      const { error: rbOrder } = await admin.from("orders").delete().eq("id", orderId);
-      if (rbOrder) console.error("[rollback] order delete failed — MANUAL RECOVERY NEEDED orderId:", orderId, rbOrder.message);
-      // Rollback wallet
-      if (paymentMethod === "wallet" && !isFullDiscount) {
-        const { error: rbWallet } = await admin.rpc("increment_wallet", {
-          p_user_id: user.id,
-          p_amount: serverFinalAmount,
-        });
-        if (rbWallet) console.error("[rollback] increment_wallet failed — MANUAL RECOVERY NEEDED orderId:", orderId, rbWallet.message);
-        const { error: rbTxn } = await admin
-          .from("wallet_transactions")
-          .delete()
-          .eq("reference_id", orderId)
-          .eq("transaction_type", "purchase");
-        if (rbTxn) console.error("[rollback] wallet_transactions delete failed — MANUAL RECOVERY NEEDED orderId:", orderId, rbTxn.message);
-      }
-      // Rollback gift card
-      if (paymentMeta?.usedProductCodeId) {
-        const { error: rbGift } = await admin
-          .from("product_codes")
-          .update({ is_used: false, order_id: null, used_at: null })
-          .eq("id", paymentMeta.usedProductCodeId);
-        if (rbGift) console.error("[rollback] gift card unmark failed:", rbGift.message);
-      }
-      // Rollback claimed codes
-      const { error: rbCodes } = await admin
-        .from("product_codes")
-        .update({ is_used: false, order_id: null, used_at: null })
-        .eq("order_id", orderId);
-      if (rbCodes) console.error("[rollback] product_codes unmark failed:", rbCodes.message);
-      // Rollback promo
-      if (promoId) {
-        const { error: rbPromo } = await admin.rpc("decrement_promo_usage", { promo_id: promoId });
-        if (rbPromo) console.error("[rollback] decrement_promo_usage failed:", rbPromo.message);
-      }
+      await rollbackOrderSideEffects(rbCtx, true /* deleteOrder */);
       return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
     }
 
@@ -531,9 +543,10 @@ export async function POST(request: Request) {
     });
   } catch (error: any) {
     console.error("Order creation error:", error);
-    // P16: Any unexpected throw after increment_promo_usage must decrement usage.
-    // Known failure paths (gift card error, wallet error, order insert, order_items insert)
-    // all call decrement in their own blocks. This catch is the safety net for anything else.
+    // P16: Safety net for unexpected throws that bypassed all explicit error paths.
+    // All known failure paths (gift card, wallet, txn insert, order insert, order_items insert)
+    // return directly and handle their own rollbacks — they never reach here.
+    // This catch exists for truly unexpected exceptions (e.g. RPC throws synchronously).
     if (promoId) {
       const { error: rbPromo } = await admin.rpc("decrement_promo_usage", { promo_id: promoId });
       if (rbPromo) console.error("[rollback] outer-catch decrement_promo_usage failed:", rbPromo.message);

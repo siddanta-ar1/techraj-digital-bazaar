@@ -29,7 +29,7 @@ interface Order {
   total_amount: number;
   final_amount: number;
   status: "pending" | "processing" | "completed" | "cancelled" | "refunded";
-  payment_method: "wallet" | "esewa" | "bank_transfer";
+  payment_method: "wallet" | "esewa" | "khalti" | "bank_transfer";
   payment_status: "pending" | "paid" | "failed";
   delivery_type: "auto" | "manual";
   created_at: string;

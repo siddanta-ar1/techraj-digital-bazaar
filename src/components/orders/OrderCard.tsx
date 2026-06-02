@@ -24,7 +24,7 @@ interface Order {
   total_amount: number
   final_amount: number
   status: 'pending' | 'processing' | 'completed' | 'cancelled' | 'refunded'
-  payment_method: 'wallet' | 'esewa' | 'bank_transfer'
+  payment_method: 'wallet' | 'esewa' | 'khalti' | 'bank_transfer'
   payment_status: 'pending' | 'paid' | 'failed'
   delivery_type: 'auto' | 'manual'
   created_at: string
@@ -42,6 +42,7 @@ const STATUS_CONFIG = {
 const PAYMENT_LABEL: Record<string, string> = {
   wallet: 'Wallet',
   esewa: 'eSewa',
+  khalti: 'Khalti',
   bank_transfer: 'Bank Transfer',
 }
 

@@ -16,6 +16,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { StatCard } from "@/components/dashboard/StatCard";
 
 interface WalletTransaction {
   id: string;
@@ -94,52 +95,37 @@ export default function WalletClient({
     <>
       {/* ── Stat cards ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
-        {/* Balance */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex items-center gap-4">
-          <div className="p-3 bg-indigo-100 rounded-xl shrink-0">
-            <Wallet className="w-6 h-6 text-indigo-600" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm text-slate-500 font-medium">Current Balance</p>
-            <p className="text-2xl font-bold text-slate-900 mt-0.5 truncate">
-              Rs. {initialBalance.toFixed(2)}
-            </p>
+        <StatCard
+          label="Current Balance"
+          value={`Rs. ${initialBalance.toFixed(2)}`}
+          icon={Wallet}
+          iconBg="bg-indigo-100"
+          iconColor="text-indigo-600"
+          action={
             <Link
               href="/dashboard/wallet/topup"
               className="inline-flex items-center gap-1 text-indigo-600 text-xs font-semibold mt-1 hover:text-indigo-700"
             >
               <PlusCircle className="w-3.5 h-3.5" /> Add Funds
             </Link>
-          </div>
-        </div>
-
-        {/* Total Credits */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex items-center gap-4">
-          <div className="p-3 bg-emerald-100 rounded-xl shrink-0">
-            <TrendingUp className="w-6 h-6 text-emerald-600" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm text-slate-500 font-medium">Total Credits</p>
-            <p className="text-2xl font-bold text-slate-900 mt-0.5 truncate">
-              Rs. {totalCredit.toFixed(2)}
-            </p>
-            <p className="text-xs text-slate-400 mt-1">All-time top-ups</p>
-          </div>
-        </div>
-
-        {/* Total Spent */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex items-center gap-4">
-          <div className="p-3 bg-rose-100 rounded-xl shrink-0">
-            <ShoppingBag className="w-6 h-6 text-rose-600" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm text-slate-500 font-medium">Total Spent</p>
-            <p className="text-2xl font-bold text-slate-900 mt-0.5 truncate">
-              Rs. {totalDebit.toFixed(2)}
-            </p>
-            <p className="text-xs text-slate-400 mt-1">All-time purchases</p>
-          </div>
-        </div>
+          }
+        />
+        <StatCard
+          label="Total Credits"
+          value={`Rs. ${totalCredit.toFixed(2)}`}
+          icon={TrendingUp}
+          iconBg="bg-emerald-100"
+          iconColor="text-emerald-600"
+          sub="All-time top-ups"
+        />
+        <StatCard
+          label="Total Spent"
+          value={`Rs. ${totalDebit.toFixed(2)}`}
+          icon={ShoppingBag}
+          iconBg="bg-rose-100"
+          iconColor="text-rose-600"
+          sub="All-time purchases"
+        />
       </div>
 
       {/* ── Pending alert ──────────────────────────────────────────── */}

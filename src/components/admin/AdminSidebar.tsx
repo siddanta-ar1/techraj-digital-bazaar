@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -17,7 +17,7 @@ import {
   Tag,
   X,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/providers/AuthProvider";
 import { useRouter } from "next/navigation";
 
 const navigation = [
@@ -36,10 +36,11 @@ const navigation = [
 export function AdminSidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [supabase] = useState(() => createClient());
+  const { signOut } = useAuth();
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    onClose?.();
+    await signOut();
     router.push("/login");
   };
 

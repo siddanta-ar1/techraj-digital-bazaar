@@ -33,7 +33,7 @@ interface DeliveryDetails {
 export default function CheckoutClient() {
   const router = useRouter();
   const { items, totalPrice, clearCart } = useCart();
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, refreshBalance } = useAuth();
 
   // FIX: Load admin phone from Env Variables
   // Fallback provided just in case env var is missing during dev
@@ -350,7 +350,7 @@ ${itemsList}
           productName: item.productName,
           variantName: item.variantName,
         })),
-        paymentMethod: currentFinalTotal === 0 ? "wallet" : paymentMethod,
+        paymentMethod: paymentMethod,
         promoCode: isPromoApplied ? promoCode : null,
         finalAmount: currentFinalTotal,
         deliveryDetails: {
@@ -387,6 +387,11 @@ ${itemsList}
         currentDiscount,
       );
       clearCart();
+      // Immediately pull the updated balance so the avatar dropdown reflects the
+      // deduction before the user even sees the success page.
+      // Fire-and-forget: .catch() suppresses unhandled-rejection warnings on network errors;
+      // the Realtime channel in AuthProvider will correct the balance if this fetch fails.
+      refreshBalance().catch(() => {});
 
       // Navigate directly — WhatsApp is already open in a new tab
       router.push(`/order-success?order=${result.orderNumber}`);

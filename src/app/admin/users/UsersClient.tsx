@@ -40,23 +40,26 @@ export function UsersClient({ initialUsers, currentUserId }: { initialUsers: Use
 
     showConfirm(action, message, async () => {
       setLoading(userId);
-      const res = await fetch("/api/admin/users", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: userId, role: newRole }),
-      });
-      const json = await res.json();
-      setLoading(null);
+      try {
+        const res = await fetch("/api/admin/users", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: userId, role: newRole }),
+        });
+        const json = await res.json();
 
-      if (!res.ok) {
-        showError("Update Failed", json.error || "Failed to update role");
-      } else {
-        setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
-        showSuccess(
-          "Role Updated",
-          `User has been successfully ${newRole === "admin" ? "promoted" : "demoted"}.`,
-        );
-        router.refresh();
+        if (!res.ok) {
+          showError("Update Failed", json.error || "Failed to update role");
+        } else {
+          setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
+          showSuccess(
+            "Role Updated",
+            `User has been successfully ${newRole === "admin" ? "promoted" : "demoted"}.`,
+          );
+          router.refresh();
+        }
+      } finally {
+        setLoading(null);
       }
     });
   };

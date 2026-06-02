@@ -49,16 +49,16 @@ export default async function AdminDashboard() {
     0;
 
   return (
-    <div className="space-y-8">
+    <div className="max-w-7xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-black text-slate-900">Admin Dashboard</h1>
-        <p className="text-slate-500">
+        <h1 className="text-2xl md:text-3xl font-black text-slate-900">Admin Dashboard</h1>
+        <p className="text-slate-500 text-sm">
           Overview of store performance and activity.
         </p>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
         <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 p-6 rounded-2xl border border-emerald-200 shadow-sm hover:shadow-lg transition-all">
           <div className="flex items-center justify-between mb-4">
             <div className="p-3 bg-emerald-500 rounded-xl text-white shadow-md">
@@ -138,7 +138,7 @@ export default async function AdminDashboard() {
       </div>
 
       {/* Recent Activity Section */}
-      <div className="grid lg:grid-cols-3 gap-8">
+      <div className="grid lg:grid-cols-3 gap-4 md:gap-6">
         {/* Recent Orders Table */}
         <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-slate-50 to-slate-100">

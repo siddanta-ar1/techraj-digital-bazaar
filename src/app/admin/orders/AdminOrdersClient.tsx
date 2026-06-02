@@ -38,7 +38,7 @@ interface Order {
   total_amount: number;
   final_amount: number;
   status: "pending" | "processing" | "completed" | "cancelled" | "refunded";
-  payment_method: "wallet" | "esewa" | "bank_transfer";
+  payment_method: "wallet" | "esewa" | "khalti" | "bank_transfer";
   payment_status: "pending" | "paid" | "failed";
   delivery_type: "auto" | "manual";
   created_at: string;
@@ -137,45 +137,44 @@ export default function AdminOrdersClient({
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
       {/* Header & Filters */}
-      <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100">
-        <div className="flex flex-col lg:flex-row gap-4 justify-between items-center">
-          <div className="relative w-full lg:w-96">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input
-              className="w-full pl-11 pr-4 py-2.5 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 placeholder:text-slate-400 bg-white transition-shadow"
-              placeholder="Search by Order ID, Name, or Email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+      <div className="p-4 md:p-6 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100 space-y-3">
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <input
+            className="w-full pl-11 pr-4 py-2.5 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 placeholder:text-slate-400 bg-white transition-shadow text-sm"
+            placeholder="Search by Order ID, Name, or Email..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <select
+              className="w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-xl outline-none text-slate-700 bg-white focus:ring-2 focus:ring-indigo-500 cursor-pointer appearance-none text-sm"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="processing">Processing</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
           </div>
-          <div className="flex gap-3 w-full lg:w-auto">
-            <div className="relative flex-1 lg:flex-none">
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <select
-                className="w-full lg:w-48 pl-10 pr-4 py-2.5 border border-slate-300 rounded-xl outline-none text-slate-700 bg-white focus:ring-2 focus:ring-indigo-500 cursor-pointer appearance-none"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="processing">Processing</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-            <div className="relative flex-1 lg:flex-none">
-              <ListFilter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <select
-                className="w-full lg:w-48 pl-10 pr-4 py-2.5 border border-slate-300 rounded-xl outline-none text-slate-700 bg-white focus:ring-2 focus:ring-indigo-500 cursor-pointer appearance-none"
-                value={paymentFilter}
-                onChange={(e) => setPaymentFilter(e.target.value)}
-              >
-                <option value="all">All Payments</option>
-                <option value="wallet">Wallet</option>
-                <option value="esewa">eSewa</option>
-                <option value="bank_transfer">Bank Transfer</option>
-              </select>
-            </div>
+          <div className="relative flex-1">
+            <ListFilter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <select
+              className="w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-xl outline-none text-slate-700 bg-white focus:ring-2 focus:ring-indigo-500 cursor-pointer appearance-none text-sm"
+              value={paymentFilter}
+              onChange={(e) => setPaymentFilter(e.target.value)}
+            >
+              <option value="all">All Payments</option>
+              <option value="wallet">Wallet</option>
+              <option value="esewa">eSewa</option>
+              <option value="khalti">Khalti</option>
+              <option value="bank_transfer">Bank Transfer</option>
+            </select>
           </div>
         </div>
       </div>
@@ -380,35 +379,30 @@ export default function AdminOrdersClient({
       </div>
 
       {/* Pagination */}
-      <div className="p-6 border-t border-slate-200 flex items-center justify-between bg-slate-50/50">
-        <p className="text-sm text-slate-600">
-          Showing{" "}
-          <span className="font-bold text-slate-900">{orders.length}</span> of{" "}
-          <span className="font-bold text-slate-900">{totalCount}</span> orders
+      <div className="p-4 md:p-6 border-t border-slate-200 flex items-center justify-between gap-4 bg-slate-50/50">
+        <p className="text-xs md:text-sm text-slate-600">
+          <span className="font-bold text-slate-900">{orders.length}</span>
+          <span className="text-slate-400"> / </span>
+          <span className="font-bold text-slate-900">{totalCount}</span>
+          <span className="hidden sm:inline"> orders</span>
         </p>
         <div className="flex gap-2">
           <button
             disabled={currentPage === 1 || loading}
-            onClick={() => {
-              setCurrentPage((prev) => prev - 1);
-              fetchOrders(currentPage - 1);
-            }}
+            onClick={() => { setCurrentPage((prev) => prev - 1); fetchOrders(currentPage - 1); }}
             className="p-2 border border-slate-300 rounded-lg hover:bg-white hover:text-indigo-600 disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors bg-white text-slate-600 shadow-sm"
           >
-            <ChevronLeft className="h-5 w-5" />
+            <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
           </button>
-          <span className="flex items-center px-4 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 shadow-sm">
-            Page {currentPage} of {totalPages || 1}
+          <span className="flex items-center px-3 md:px-4 bg-white border border-slate-300 rounded-lg text-xs md:text-sm font-medium text-slate-700 shadow-sm whitespace-nowrap">
+            {currentPage} / {totalPages || 1}
           </span>
           <button
             disabled={currentPage === totalPages || loading}
-            onClick={() => {
-              setCurrentPage((prev) => prev + 1);
-              fetchOrders(currentPage + 1);
-            }}
+            onClick={() => { setCurrentPage((prev) => prev + 1); fetchOrders(currentPage + 1); }}
             className="p-2 border border-slate-300 rounded-lg hover:bg-white hover:text-indigo-600 disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors bg-white text-slate-600 shadow-sm"
           >
-            <ChevronRight className="h-5 w-5" />
+            <ChevronRight className="h-4 w-4 md:h-5 md:w-5" />
           </button>
         </div>
       </div>
