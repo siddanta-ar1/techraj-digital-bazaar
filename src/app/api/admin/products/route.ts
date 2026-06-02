@@ -6,8 +6,8 @@ import { revalidatePath } from "next/cache";
 // GET ?slug=...&excludeId=... — slug uniqueness check
 export async function GET(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const { searchParams } = new URL(request.url);
     const slug = searchParams.get("slug");
@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     if (!slug)
       return NextResponse.json({ error: "Missing slug" }, { status: 400 });
 
-    const admin = createAdminClient();
+    const { admin } = ctx;
     let query = admin.from("products").select("id").eq("slug", slug);
     if (excludeId) query = query.neq("id", excludeId);
     const { data } = await query;
@@ -29,11 +29,11 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const body = await request.json();
-    const admin = createAdminClient();
+    const { admin } = ctx;
 
     const { data, error } = await admin
       .from("products")
@@ -60,8 +60,8 @@ const ALLOWED_PRODUCT_UPDATES = new Set<string>([
 
 export async function PATCH(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const { id, ...rawUpdates } = await request.json();
     if (!id)
@@ -74,7 +74,7 @@ export async function PATCH(request: Request) {
     if (Object.keys(updates).length === 0)
       return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
 
-    const admin = createAdminClient();
+    const { admin } = ctx;
     const { data, error } = await admin
       .from("products")
       .update({ ...updates, updated_at: new Date().toISOString() })
@@ -95,15 +95,15 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     if (!id)
       return NextResponse.json({ error: "Missing product id" }, { status: 400 });
 
-    const admin = createAdminClient();
+    const { admin } = ctx;
     const { error } = await admin.from("products").delete().eq("id", id);
 
     if (error) throw error;

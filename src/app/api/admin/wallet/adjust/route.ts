@@ -5,13 +5,13 @@ import { NextResponse } from "next/server";
 // GET /api/admin/wallet/adjust?search=... — search users
 export async function GET(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search")?.trim() || "";
 
-    const admin = createAdminClient();
+    const { admin } = ctx;
 
     let query = admin
       .from("users")
@@ -37,8 +37,8 @@ export async function GET(request: Request) {
 // POST /api/admin/wallet/adjust — credit or debit a user's wallet
 export async function POST(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const { userId, type, amount, note } = await request.json();
 
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     // Cap note to prevent column overflow
     const sanitisedNote = typeof note === "string" ? note.trim().slice(0, 500) : "";
 
-    const admin = createAdminClient();
+    const { admin } = ctx;
 
     // Fetch user info for the response message (not for balance — RPCs handle that atomically)
     const { data: userRow, error: fetchError } = await admin

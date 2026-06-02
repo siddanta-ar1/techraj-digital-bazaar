@@ -6,6 +6,8 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import TopupForm from './TopupForm'
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: 'Add Funds - Tronline Bazar',
   description: 'Top up your wallet balance',

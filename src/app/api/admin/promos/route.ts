@@ -4,10 +4,9 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
-
-    const admin = createAdminClient();
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
+    const { admin } = ctx;
     const { data, error } = await admin
       .from("promo_codes")
       .select("*")
@@ -22,11 +21,11 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const body = await request.json();
-    const admin = createAdminClient();
+    const { admin } = ctx;
 
     const { data, error } = await admin
       .from("promo_codes")
@@ -45,14 +44,14 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const { id, ...updates } = await request.json();
     if (!id)
       return NextResponse.json({ error: "Missing promo id" }, { status: 400 });
 
-    const admin = createAdminClient();
+    const { admin } = ctx;
     const { data, error } = await admin
       .from("promo_codes")
       .update(updates)
@@ -69,15 +68,15 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     if (!id)
       return NextResponse.json({ error: "Missing promo id" }, { status: 400 });
 
-    const admin = createAdminClient();
+    const { admin } = ctx;
     const { error } = await admin.from("promo_codes").delete().eq("id", id);
 
     if (error) throw error;

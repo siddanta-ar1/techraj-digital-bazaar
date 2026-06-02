@@ -3,6 +3,8 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import WalletClient from "./WalletClient";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Wallet – Techraj Digital",
   description: "Manage your wallet balance and transaction history",

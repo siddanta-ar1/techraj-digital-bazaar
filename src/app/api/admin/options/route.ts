@@ -5,15 +5,15 @@ import { NextResponse } from "next/server";
 // GET ?groupId=... — fetch a single option group with its options
 export async function GET(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const { searchParams } = new URL(request.url);
     const groupId = searchParams.get("groupId");
     if (!groupId)
       return NextResponse.json({ error: "Missing groupId" }, { status: 400 });
 
-    const admin = createAdminClient();
+    const { admin } = ctx;
     const { data, error } = await admin
       .from("option_groups")
       .select("*, options:options(*)")
@@ -30,11 +30,11 @@ export async function GET(request: Request) {
 // POST — create option group + upsert its options
 export async function POST(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const { groupData, options } = await request.json();
-    const admin = createAdminClient();
+    const { admin } = ctx;
 
     const { data: group, error: groupError } = await admin
       .from("option_groups")
@@ -63,15 +63,15 @@ export async function POST(request: Request) {
 // DELETE ?groupId=... — delete option group and all its options
 export async function DELETE(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const { searchParams } = new URL(request.url);
     const groupId = searchParams.get("groupId");
     if (!groupId)
       return NextResponse.json({ error: "Missing groupId" }, { status: 400 });
 
-    const admin = createAdminClient();
+    const { admin } = ctx;
     const { error } = await admin.from("option_groups").delete().eq("id", groupId);
     if (error) throw error;
     return NextResponse.json({ success: true });
@@ -83,14 +83,14 @@ export async function DELETE(request: Request) {
 // PATCH — update option group + sync options (upsert existing, insert new, delete removed)
 export async function PATCH(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const { groupId, groupData, options, deletedOptionIds } = await request.json();
     if (!groupId)
       return NextResponse.json({ error: "Missing groupId" }, { status: 400 });
 
-    const admin = createAdminClient();
+    const { admin } = ctx;
 
     // Update group
     const { error: groupError } = await admin

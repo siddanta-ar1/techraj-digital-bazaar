@@ -5,10 +5,9 @@ import { NextResponse } from "next/server";
 // GET — fetch all settings as key→value map
 export async function GET() {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
-
-    const admin = createAdminClient();
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
+    const { admin } = ctx;
     const { data, error } = await admin.from("site_settings").select("*");
     if (error) throw error;
 
@@ -23,8 +22,8 @@ export async function GET() {
 // PATCH — upsert a single setting by key
 export async function PATCH(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const { key, value } = await request.json();
     if (!key || typeof key !== "string")
@@ -40,7 +39,7 @@ export async function PATCH(request: Request) {
     if (serialised.length > 65536)
       return NextResponse.json({ error: "Settings value too large" }, { status: 400 });
 
-    const admin = createAdminClient();
+    const { admin } = ctx;
     const { error } = await admin.from("site_settings").upsert({
       key,
       value,

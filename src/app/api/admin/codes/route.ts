@@ -5,8 +5,8 @@ import { NextResponse } from "next/server";
 // GET ?variantId=... — fetch unused codes for a variant
 export async function GET(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const { searchParams } = new URL(request.url);
     const variantId = searchParams.get("variantId");
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     if (!variantId || !UUID_RE.test(variantId))
       return NextResponse.json({ error: "Missing or invalid variantId" }, { status: 400 });
 
-    const admin = createAdminClient();
+    const { admin } = ctx;
     const { data, error } = await admin
       .from("product_codes")
       .select("*")
@@ -32,8 +32,8 @@ export async function GET(request: Request) {
 // POST — bulk insert codes (with duplicate check)
 export async function POST(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const { codes } = await request.json();
     if (!Array.isArray(codes) || codes.length === 0)
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const admin = createAdminClient();
+    const { admin } = ctx;
 
     // Check for duplicates
     const { data: existing } = await admin
@@ -76,14 +76,14 @@ export async function POST(request: Request) {
 //        ?variantId=... — delete all unused codes for a variant
 export async function DELETE(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     const variantId = searchParams.get("variantId");
 
-    const admin = createAdminClient();
+    const { admin } = ctx;
 
     if (id) {
       const { error } = await admin.from("product_codes").delete().eq("id", id);

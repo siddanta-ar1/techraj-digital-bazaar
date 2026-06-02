@@ -5,8 +5,8 @@ import { sendTopupApprovedEmail } from "@/lib/resend";
 
 export async function GET(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     const status = searchParams.get("status");
     const offset = (page - 1) * limit;
 
-    const admin = createAdminClient();
+    const { admin } = ctx;
     let query = admin
       .from("topup_requests")
       .select(
@@ -47,15 +47,15 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const { requestId, action, adminNotes } = await request.json();
 
     if (!["approve", "reject"].includes(action))
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
 
-    const admin = createAdminClient();
+    const { admin } = ctx;
 
     const { data: topupRequest, error: fetchError } = await admin
       .from("topup_requests")

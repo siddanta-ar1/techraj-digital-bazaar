@@ -3,6 +3,8 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import TransactionsClient from "./TransactionsClient";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Wallet Transactions | TechRaj Digital",
   description: "View your wallet transaction history",

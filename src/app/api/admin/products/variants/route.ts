@@ -25,8 +25,8 @@ function validateVariantFields(fields: Record<string, unknown>): string | null {
 
 export async function POST(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const body = await request.json();
 
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     if (validationError)
       return NextResponse.json({ error: validationError }, { status: 400 });
 
-    const admin = createAdminClient();
+    const { admin } = ctx;
     const { data, error } = await admin
       .from("product_variants")
       .insert([body])
@@ -50,8 +50,8 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const { id, ...rawUpdates } = await request.json();
     if (!id)
@@ -68,7 +68,7 @@ export async function PATCH(request: Request) {
     if (validationError)
       return NextResponse.json({ error: validationError }, { status: 400 });
 
-    const admin = createAdminClient();
+    const { admin } = ctx;
     const { data, error } = await admin
       .from("product_variants")
       .update(updates)
@@ -85,15 +85,15 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     if (!id)
       return NextResponse.json({ error: "Missing variant id" }, { status: 400 });
 
-    const admin = createAdminClient();
+    const { admin } = ctx;
     const { error } = await admin.from("product_variants").delete().eq("id", id);
 
     if (error) throw error;

@@ -12,9 +12,9 @@ const ALLOWED_USER_UPDATES = new Set<string>([
 
 export async function PATCH(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
-    const { user: adminUser } = authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
+    const { user: adminUser, admin } = ctx;
 
     const { id, ...rawUpdates } = await request.json();
     if (!id)
@@ -31,7 +31,6 @@ export async function PATCH(request: Request) {
         { status: 400 },
       );
 
-    const admin = createAdminClient();
 
     // Prevent self-demotion — an admin who demotes themselves loses all admin access
     if (

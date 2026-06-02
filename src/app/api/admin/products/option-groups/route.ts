@@ -5,15 +5,15 @@ import { NextResponse } from "next/server";
 // GET ?productId=... — fetch assigned groups + available global groups
 export async function GET(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const { searchParams } = new URL(request.url);
     const productId = searchParams.get("productId");
     if (!productId)
       return NextResponse.json({ error: "Missing productId" }, { status: 400 });
 
-    const admin = createAdminClient();
+    const { admin } = ctx;
 
     const [{ data: assigned }, { data: allGroups }] = await Promise.all([
       admin
@@ -41,11 +41,11 @@ export async function GET(request: Request) {
 // POST — link an option group to a product
 export async function POST(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const body = await request.json();
-    const admin = createAdminClient();
+    const { admin } = ctx;
 
     const { error } = await admin.from("product_option_groups").insert([body]);
     if (error) throw error;
@@ -58,14 +58,14 @@ export async function POST(request: Request) {
 // PATCH — update a product_option_group row (e.g. toggle is_required)
 export async function PATCH(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const { id, ...updates } = await request.json();
     if (!id)
       return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-    const admin = createAdminClient();
+    const { admin } = ctx;
     const { error } = await admin
       .from("product_option_groups")
       .update(updates)
@@ -81,15 +81,15 @@ export async function PATCH(request: Request) {
 // DELETE ?id=... — unlink option group from product
 export async function DELETE(request: Request) {
   try {
-    const authResult = await requireAdmin();
-    if (authResult instanceof NextResponse) return authResult;
+    const ctx = await requireAdmin();
+    if (ctx instanceof NextResponse) return ctx;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     if (!id)
       return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-    const admin = createAdminClient();
+    const { admin } = ctx;
     const { error } = await admin.from("product_option_groups").delete().eq("id", id);
 
     if (error) throw error;
