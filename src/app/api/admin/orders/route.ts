@@ -17,9 +17,8 @@ export async function GET(request: Request) {
     if (user.app_metadata?.role !== "admin")
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    // Parameters
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "10");
+    const page   = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
+    const limit  = Math.min(Math.max(1, parseInt(searchParams.get("limit") || "10", 10) || 10), 200);
     const status = searchParams.get("status");
     const payment = searchParams.get("payment");
     const search = searchParams.get("search");

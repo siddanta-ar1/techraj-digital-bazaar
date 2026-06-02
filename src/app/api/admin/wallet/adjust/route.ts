@@ -52,8 +52,8 @@ export async function POST(request: Request) {
     if (!["credit", "debit"].includes(type)) {
       return NextResponse.json({ error: "type must be credit or debit" }, { status: 400 });
     }
-    if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0) {
-      return NextResponse.json({ error: "Amount must be a positive number" }, { status: 400 });
+    if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0 || amount > 1_000_000) {
+      return NextResponse.json({ error: "Amount must be a positive number up to Rs. 1,000,000" }, { status: 400 });
     }
     // Cap note to prevent column overflow
     const sanitisedNote = typeof note === "string" ? note.trim().slice(0, 500) : "";
