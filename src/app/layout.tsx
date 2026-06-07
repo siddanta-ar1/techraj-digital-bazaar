@@ -80,6 +80,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://bayreevaezoccjcjxtex.supabase.co" />
+        <link rel="dns-prefetch" href="https://bayreevaezoccjcjxtex.supabase.co" />
+      </head>
       <body
         suppressHydrationWarning
         className={`${inter.variable} ${spaceGrotesk.variable} font-sans min-h-screen bg-slate-50 text-slate-900`}

@@ -61,15 +61,14 @@ export function Header() {
                 )}
               </div>
             ) : (
-              <div className="flex gap-4">
-                <a href="#" className="hover:text-white transition-colors">
-                  Support
-                </a>
-                <div className="w-px h-4 bg-slate-700"></div>
-                <a href="#" className="hover:text-white transition-colors">
-                  Faq
-                </a>
-              </div>
+              <a
+                href="https://wa.me/9779846908072"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-white transition-colors"
+              >
+                Support
+              </a>
             )}
           </div>
         </div>

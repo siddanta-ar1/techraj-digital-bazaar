@@ -60,7 +60,6 @@ export default async function HomePage() {
   const [
     { data: featuredProducts },
     { data: newArrivals },
-    { data: categories },
   ] = await Promise.all([
     supabase
       .from("products")
@@ -78,12 +77,6 @@ export default async function HomePage() {
       )
       .eq("is_active", true)
       .order("created_at", { ascending: false })
-      .limit(8),
-    supabase
-      .from("categories")
-      .select("id, name, slug, sort_order")
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true })
       .limit(8),
   ]);
 

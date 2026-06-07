@@ -148,7 +148,7 @@ export default async function ProductPage({
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           <div className="lg:col-span-7 space-y-6">
-            <ProductMedia src={product.featured_image} alt={product.name} />
+            <ProductMedia key={product.id} src={product.featured_image} alt={product.name} />
 
             <section className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
               <h2 className="text-xl font-bold mb-4 text-slate-900 flex items-center gap-2">
