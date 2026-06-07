@@ -1,6 +1,7 @@
 // src/app/api/wallet/transactions/route.ts
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { checkRateLimit } from '@/lib/rateLimit'
 
 export async function GET(request: Request) {
   try {
@@ -9,6 +10,12 @@ export async function GET(request: Request) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // 60 requests/minute per user is generous for UI pagination; prevents DB hammering
+    const rl = checkRateLimit(`txn:${user.id}`, 60, 60_000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
     }
 
     const admin = createAdminClient()

@@ -67,7 +67,7 @@ export default async function ProductPage({
   // Fetch product with category and variants
   const { data: product, error } = await supabase
     .from("products")
-    .select(`*, category:categories(*), variants:product_variants(*)`)
+    .select(`*, category:categories(id, name, slug), variants:product_variants(*)`)
     .eq("slug", slug)
     .eq("is_active", true)
     .single();

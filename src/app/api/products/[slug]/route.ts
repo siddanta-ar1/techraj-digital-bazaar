@@ -12,7 +12,7 @@ export async function GET(
     const { data: product, error } = await supabase
       .from("products")
       .select(
-        `*, category:categories(*), variants:product_variants(*)`
+        `*, category:categories(id, name, slug), variants:product_variants(*)`
       )
       .eq("slug", slug)
       .eq("is_active", true)

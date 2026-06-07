@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 /**
  * Called immediately after email/password sign-up to create the public.users
@@ -15,6 +16,13 @@ export async function POST() {
 
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Rate limit keyed by user ID — prevents a valid JWT being used to spam
+    // the Auth API and DB. 5 calls/minute is far above normal sign-up flow needs.
+    const rl = checkRateLimit(`ensure-profile:${user.id}`, 5, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
 
     const admin = createAdminClient();
