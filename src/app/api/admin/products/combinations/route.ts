@@ -33,6 +33,12 @@ export async function GET(request: Request) {
   }
 }
 
+const ALLOWED_COMBINATION_INSERT = new Set([
+  "product_id", "combination", "base_price", "calculated_price",
+  "stock_type", "stock_quantity", "is_available", "is_active",
+]);
+const ALLOWED_STOCK_TYPES = new Set(["unlimited", "limited"]);
+
 // POST — bulk insert combinations
 export async function POST(request: Request) {
   try {
@@ -42,9 +48,38 @@ export async function POST(request: Request) {
     const { combinations } = await request.json();
     if (!Array.isArray(combinations) || combinations.length === 0)
       return NextResponse.json({ error: "No combinations provided" }, { status: 400 });
+    if (combinations.length > 500)
+      return NextResponse.json({ error: "Too many combinations in one request" }, { status: 400 });
+
+    const safe: Record<string, unknown>[] = [];
+    for (let idx = 0; idx < combinations.length; idx++) {
+      const raw = combinations[idx];
+      if (!raw.product_id || typeof raw.combination !== "string")
+        return NextResponse.json(
+          { error: `Item ${idx}: missing product_id or combination` },
+          { status: 400 },
+        );
+      const cp = Number(raw.calculated_price);
+      if (!Number.isFinite(cp) || cp < 0)
+        return NextResponse.json(
+          { error: `Item ${idx}: calculated_price must be a non-negative number` },
+          { status: 400 },
+        );
+      if (raw.stock_type && !ALLOWED_STOCK_TYPES.has(raw.stock_type))
+        return NextResponse.json(
+          { error: `Item ${idx}: invalid stock_type` },
+          { status: 400 },
+        );
+
+      const row: Record<string, unknown> = {};
+      for (const key of ALLOWED_COMBINATION_INSERT) {
+        if (key in raw) row[key] = raw[key];
+      }
+      safe.push(row);
+    }
 
     const { admin } = ctx;
-    const { error } = await admin.from("option_combinations").insert(combinations);
+    const { error } = await admin.from("option_combinations").insert(safe);
 
     if (error) throw error;
     return NextResponse.json({ success: true });

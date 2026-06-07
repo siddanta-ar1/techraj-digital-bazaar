@@ -46,7 +46,7 @@ export function Footer() {
                 label="TikTok"
               />
               <SocialLink
-                href="https://tronlinebazar.com"
+                href="https://techrajshop.com"
                 icon={<Globe className="w-5 h-5" />}
                 label="Website"
               />

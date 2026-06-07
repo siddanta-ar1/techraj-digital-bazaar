@@ -116,7 +116,7 @@ export async function POST(request: Request) {
     } = orderData;
 
     // Validate paymentScreenshotUrl if provided — must point to our own storage only
-    if (paymentScreenshotUrl != null) {
+    if (paymentScreenshotUrl != null && paymentScreenshotUrl !== "") {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
       const allowed =
         typeof paymentScreenshotUrl === "string" &&

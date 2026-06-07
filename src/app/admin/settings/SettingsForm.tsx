@@ -22,7 +22,7 @@ export function SettingsForm({
   initialSettings: Record<string, any>;
 }) {
   const [settings, setSettings] = useState(initialSettings);
-  const [loading, setLoading] = useState(false);
+  const [loadingKey, setLoadingKey] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"general" | "payment" | "danger">(
     "general",
   );
@@ -33,14 +33,14 @@ export function SettingsForm({
     useModal();
 
   const handleSave = async (key: string, value: any) => {
-    setLoading(true);
+    setLoadingKey(key);
     const res = await fetch("/api/admin/settings", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key, value }),
     });
 
-    setLoading(false);
+    setLoadingKey(null);
     if (!res.ok) {
       showError("Save Failed", "Could not update settings. Please try again.");
     } else {
@@ -192,7 +192,7 @@ export function SettingsForm({
                 <div className="flex justify-end pt-4 border-t border-slate-100">
                   <SaveButton
                     onClick={() => handleSave("site_info", settings.site_info)}
-                    loading={loading}
+                    loading={loadingKey === "site_info"}
                   />
                 </div>
               </div>
@@ -255,7 +255,7 @@ export function SettingsForm({
                     onClick={() =>
                       handleSave("announcement", settings.announcement)
                     }
-                    loading={loading}
+                    loading={loadingKey === "announcement"}
                   />
                 </div>
               </div>

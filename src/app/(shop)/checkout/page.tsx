@@ -7,7 +7,7 @@ import CheckoutLoadingSkeleton from "./CheckoutLoadingSkeleton";
 import CheckoutClient from "./CheckoutClient";
 
 export const metadata: Metadata = {
-  title: "Secure Checkout - Tronline Bazar",
+  title: "Secure Checkout - Techraj Digital Shop",
   description: "Complete your purchase securely",
 };
 

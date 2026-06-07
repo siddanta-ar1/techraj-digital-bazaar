@@ -1,12 +1,13 @@
 "use client";
 
-import { ShoppingCart, Star, Shield, Zap } from "lucide-react";
+import { ShoppingCart, Zap, Check } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Product } from "@/types/product";
 import { useCart } from "@/contexts/CartContext";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Modal from "@/components/ui/Modal";
+import { BLUR_PLACEHOLDER } from "@/lib/imagePlaceholder";
 
 interface ProductCardProps {
   product: Product;
@@ -14,8 +15,11 @@ interface ProductCardProps {
 
 export function ProductCard({ product }: ProductCardProps) {
   const { addItem } = useCart();
-  const [addingToCart, setAddingToCart] = useState(false);
+  const [cartState, setCartState] = useState<"idle" | "added">("idle");
+  const addedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showOutOfStockModal, setShowOutOfStockModal] = useState(false);
+
+  useEffect(() => () => { if (addedTimerRef.current) clearTimeout(addedTimerRef.current); }, []);
 
   const mainVariant = product.variants?.[0];
   const isOutOfStock =
@@ -33,29 +37,26 @@ export function ProductCard({ product }: ProductCardProps) {
         )
       : 0;
 
-  const handleAddToCart = async (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent navigation when clicking button
-    if (!mainVariant) return;
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!mainVariant || cartState === "added") return;
 
-    // Check for 0 stock
     if (isOutOfStock) {
       setShowOutOfStockModal(true);
       return;
     }
 
-    setAddingToCart(true);
-    try {
-      addItem({
-        productId: product.id,
-        productName: product.name,
-        variantId: mainVariant.id,
-        variantName: mainVariant.variant_name,
-        price: mainVariant.price,
-        imageUrl: product.featured_image,
-      });
-    } finally {
-      setAddingToCart(false);
-    }
+    addItem({
+      productId: product.id,
+      productName: product.name,
+      variantId: mainVariant.id,
+      variantName: mainVariant.variant_name,
+      price: mainVariant.price,
+      imageUrl: product.featured_image,
+    });
+    setCartState("added");
+    if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
+    addedTimerRef.current = setTimeout(() => setCartState("idle"), 1500);
   };
 
   return (
@@ -87,6 +88,8 @@ export function ProductCard({ product }: ProductCardProps) {
             alt={product.name}
             fill
             sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+            placeholder="blur"
+            blurDataURL={BLUR_PLACEHOLDER}
             className="object-cover transition-transform duration-500 ease-out group-hover:scale-105"
           />
         ) : (
@@ -135,16 +138,24 @@ export function ProductCard({ product }: ProductCardProps) {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              if (isOutOfStock) return;
               handleAddToCart(e);
             }}
-            disabled={addingToCart || !mainVariant || isOutOfStock}
-            className="bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed shrink-0 relative z-10 shadow-sm shadow-indigo-100
-                       min-w-11 min-h-11 flex items-center justify-center"
-            aria-label={isOutOfStock ? `${product.name} is out of stock` : `Add ${product.name} to cart`}
+            disabled={!mainVariant || isOutOfStock || cartState === "added"}
+            className={`text-white rounded-xl shrink-0 relative z-10 shadow-sm min-w-11 min-h-11 flex items-center justify-center transition-colors duration-200
+              ${cartState === "added"
+                ? "bg-green-600 shadow-green-100 cursor-default"
+                : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100 disabled:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              }`}
+            aria-label={
+              cartState === "added"
+                ? "Added to cart"
+                : isOutOfStock
+                ? `${product.name} is out of stock`
+                : `Add ${product.name} to cart`
+            }
           >
-            {addingToCart ? (
-              <div className="w-4 h-4 md:w-5 md:h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            {cartState === "added" ? (
+              <Check className="w-4 h-4 md:w-5 md:h-5" />
             ) : (
               <ShoppingCart className="w-4 h-4 md:w-5 md:h-5" />
             )}

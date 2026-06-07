@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { BLUR_PLACEHOLDER } from "@/lib/imagePlaceholder";
 
 interface ProductMediaProps {
   src: string | null | undefined;
@@ -27,6 +28,8 @@ export function ProductMedia({ src, alt }: ProductMediaProps) {
           alt={alt}
           fill
           priority
+          placeholder="blur"
+          blurDataURL={BLUR_PLACEHOLDER}
           className="object-cover"
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 58vw, 800px"
           onError={() => setImgSrc("/product-placeholder.png")}

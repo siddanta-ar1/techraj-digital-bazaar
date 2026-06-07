@@ -29,7 +29,12 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Missing or invalid key" }, { status: 400 });
 
     // Only allow known settings keys — prevents arbitrary DB row injection
-    const ALLOWED_SETTINGS_KEYS = new Set(["payment_methods"]);
+    const ALLOWED_SETTINGS_KEYS = new Set([
+      "payment_methods",
+      "site_info",
+      "announcement",
+      "maintenance",
+    ]);
     if (!ALLOWED_SETTINGS_KEYS.has(key))
       return NextResponse.json({ error: "Unknown settings key" }, { status: 400 });
 

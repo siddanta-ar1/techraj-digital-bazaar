@@ -104,6 +104,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
             src={getImageUrl(allImages[activeImageIndex])}
             alt={product.name}
             fill
+            sizes="(max-width: 768px) 100vw, 50vw"
             className="object-contain p-4 transition-transform duration-500 hover:scale-105"
             priority
           />
@@ -146,7 +147,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
                     : "border-transparent opacity-70 hover:opacity-100"
                 }`}
               >
-                <Image src={image} alt="" fill className="object-cover" />
+                <Image src={image} alt="" fill sizes="64px" className="object-cover" />
               </button>
             ))}
           </div>

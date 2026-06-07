@@ -22,7 +22,7 @@ export default function CartItem({ item }: CartItemProps) {
             src={item.imageUrl || "/placeholder-product.jpg"}
             alt={item.productName}
             fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // Add this line
+            sizes="96px"
             className="object-cover"
           />
         </div>

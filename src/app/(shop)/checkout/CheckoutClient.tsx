@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/lib/providers/AuthProvider";
 import {
@@ -358,7 +359,7 @@ ${itemsList}
           contactPhone: deliveryDetails.contactPhone,
           notes: deliveryDetails.additionalNotes,
         },
-        paymentScreenshotUrl: screenshotUrl,
+        paymentScreenshotUrl: screenshotUrl || null,
         paymentMeta: {
           transactionId: transactionId,
           amountPaid: manualAmountPaid,
@@ -674,25 +675,31 @@ ${itemsList}
                     {/* DYNAMIC QR DISPLAY */}
                     {paymentMethod === "esewa" && paymentSettings?.esewa?.qr_image_url ? (
                       <div className="mx-auto w-48 h-48 bg-slate-50 rounded-xl border border-slate-200 p-2 mb-4">
-                        <img
+                        <Image
                           src={paymentSettings.esewa.qr_image_url}
                           alt="Esewa QR"
+                          width={176}
+                          height={176}
                           className="w-full h-full object-contain rounded-lg"
                         />
                       </div>
                     ) : paymentMethod === "khalti" && paymentSettings?.khalti?.qr_image_url ? (
                       <div className="mx-auto w-48 h-48 bg-slate-50 rounded-xl border border-slate-200 p-2 mb-4">
-                        <img
+                        <Image
                           src={paymentSettings.khalti.qr_image_url}
                           alt="Khalti QR"
+                          width={176}
+                          height={176}
                           className="w-full h-full object-contain rounded-lg"
                         />
                       </div>
                     ) : paymentMethod === "bank_transfer" && paymentSettings?.bank_transfer?.qr_image_url ? (
                       <div className="mx-auto w-48 h-48 bg-slate-50 rounded-xl border border-slate-200 p-2 mb-4">
-                        <img
+                        <Image
                           src={paymentSettings.bank_transfer.qr_image_url}
                           alt="Bank QR"
+                          width={176}
+                          height={176}
                           className="w-full h-full object-contain rounded-lg"
                         />
                       </div>

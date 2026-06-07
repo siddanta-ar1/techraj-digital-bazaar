@@ -27,7 +27,16 @@ export async function POST(request: Request) {
     const ctx = await requireAdmin();
     if (ctx instanceof NextResponse) return ctx;
 
-    const body = await request.json();
+    const raw = await request.json();
+
+    // Apply same allowlist as PATCH — prevents arbitrary column writes on create
+    const body: Record<string, unknown> = { product_id: raw.product_id };
+    for (const key of ALLOWED_VARIANT_UPDATES) {
+      if (key in raw) body[key] = raw[key];
+    }
+
+    if (!body.product_id || !body.variant_name || body.price == null)
+      return NextResponse.json({ error: "product_id, variant_name, and price are required" }, { status: 400 });
 
     const validationError = validateVariantFields(body);
     if (validationError)

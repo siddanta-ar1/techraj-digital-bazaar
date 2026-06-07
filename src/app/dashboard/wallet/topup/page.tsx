@@ -9,7 +9,7 @@ import TopupForm from './TopupForm'
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: 'Add Funds - Tronline Bazar',
+  title: 'Add Funds - Techraj Digital Shop',
   description: 'Top up your wallet balance',
 }
 

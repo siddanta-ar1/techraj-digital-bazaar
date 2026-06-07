@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import {
   ShoppingCart,
   User,
@@ -91,9 +92,11 @@ export function MainNav() {
                 >
                   <div className="w-8 h-8 md:w-9 md:h-9 bg-indigo-100 rounded-full overflow-hidden flex items-center justify-center text-indigo-700 font-bold border-2 border-indigo-50">
                     {user.avatar_url ? (
-                      <img
+                      <Image
                         src={user.avatar_url}
                         alt={user.full_name || user.email}
+                        width={36}
+                        height={36}
                         className="w-full h-full object-cover"
                         referrerPolicy="no-referrer"
                       />

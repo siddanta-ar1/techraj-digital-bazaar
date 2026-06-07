@@ -12,23 +12,22 @@ export const metadata = {
 export default async function AdminWalletPage() {
   const admin = createAdminClient();
 
-  const { data: requests } = await admin
-    .from("topup_requests")
-    .select(
-      `
-      *,
-      user:users(full_name, email)
-    `,
-    )
-    .order("created_at", { ascending: false })
-    .limit(50);
+  const [{ data: requests }, { data: pendingRows }] = await Promise.all([
+    admin
+      .from("topup_requests")
+      .select(`*, user:users(full_name, email)`)
+      .order("created_at", { ascending: false })
+      .limit(50),
+    // Separate unlimited query so stats reflect all pending requests, not just the first 50
+    admin
+      .from("topup_requests")
+      .select("amount")
+      .eq("status", "pending"),
+  ]);
 
-  const pendingCount =
-    requests?.filter((r: any) => r.status === "pending").length || 0;
+  const pendingCount = pendingRows?.length || 0;
   const pendingAmount =
-    requests
-      ?.filter((r: any) => r.status === "pending")
-      .reduce((sum: number, r: any) => sum + Number(r.amount), 0) || 0;
+    pendingRows?.reduce((sum: number, r: any) => sum + Number(r.amount), 0) || 0;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">

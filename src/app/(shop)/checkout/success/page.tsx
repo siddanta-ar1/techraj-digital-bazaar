@@ -12,7 +12,7 @@ import {
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Order Confirmed - Tronline Bazar",
+  title: "Order Confirmed - Techraj Digital Shop",
   description: "Your order has been successfully placed",
 };
 
@@ -112,7 +112,7 @@ export default async function CheckoutSuccessPage({
               <div className="space-y-4">
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-emerald-200 transition-colors">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center shrink-0">
                       <MessageSquare className="h-5 w-5 text-emerald-600" />
                     </div>
                     <div>
@@ -136,7 +136,7 @@ export default async function CheckoutSuccessPage({
 
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-blue-200 transition-colors">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
                       <Package className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>

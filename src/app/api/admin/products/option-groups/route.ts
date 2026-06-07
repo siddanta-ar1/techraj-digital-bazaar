@@ -37,13 +37,24 @@ export async function GET(request: Request) {
   }
 }
 
+const ALLOWED_POG_INSERT = new Set(["product_id", "group_id", "sort_order", "is_required"]);
+const ALLOWED_POG_UPDATE = new Set(["sort_order", "is_required"]);
+
 // POST — link an option group to a product
 export async function POST(request: Request) {
   try {
     const ctx = await requireAdmin();
     if (ctx instanceof NextResponse) return ctx;
 
-    const body = await request.json();
+    const raw = await request.json();
+    if (!raw.product_id || !raw.group_id)
+      return NextResponse.json({ error: "product_id and group_id are required" }, { status: 400 });
+
+    const body: Record<string, unknown> = {};
+    for (const key of ALLOWED_POG_INSERT) {
+      if (key in raw) body[key] = raw[key];
+    }
+
     const { admin } = ctx;
 
     const { error } = await admin.from("product_option_groups").insert([body]);
@@ -60,9 +71,16 @@ export async function PATCH(request: Request) {
     const ctx = await requireAdmin();
     if (ctx instanceof NextResponse) return ctx;
 
-    const { id, ...updates } = await request.json();
+    const { id, ...raw } = await request.json();
     if (!id)
       return NextResponse.json({ error: "Missing id" }, { status: 400 });
+
+    const updates: Record<string, unknown> = {};
+    for (const key of ALLOWED_POG_UPDATE) {
+      if (key in raw) updates[key] = raw[key];
+    }
+    if (Object.keys(updates).length === 0)
+      return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
 
     const { admin } = ctx;
     const { error } = await admin

@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import CartClient from "./CartClient";
 
 export const metadata: Metadata = {
-  title: "Shopping Cart - Tronline Bazar",
+  title: "Shopping Cart - Techraj Digital Shop",
   description: "Review and manage your shopping cart",
 };
 

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   Menu,
@@ -102,9 +103,11 @@ export function MobileHeader() {
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 bg-indigo-600 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-lg shadow-md shadow-indigo-200">
                     {user.avatar_url ? (
-                      <img
+                      <Image
                         src={user.avatar_url}
                         alt={user.full_name || user.email}
+                        width={48}
+                        height={48}
                         className="w-full h-full object-cover"
                         referrerPolicy="no-referrer"
                       />

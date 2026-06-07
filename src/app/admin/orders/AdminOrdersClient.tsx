@@ -1,7 +1,7 @@
 // src/app/admin/orders/AdminOrdersClient.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search,
@@ -15,6 +15,8 @@ import {
   ChevronRight,
   ListFilter,
 } from "lucide-react";
+import Modal from "@/components/ui/Modal";
+import { useModal } from "@/hooks/useModal";
 
 interface OrderItem {
   id: string;
@@ -53,9 +55,12 @@ export default function AdminOrdersClient({
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const { modalState, closeModal, showConfirm } = useModal();
+
   // State
   const [orders, setOrders] = useState(initialOrders);
   const [loading, setLoading] = useState(false);
+  const isFirstRender = useRef(true);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
@@ -92,8 +97,12 @@ export default function AdminOrdersClient({
     }
   };
 
-  // Trigger fetch on filter change
+  // Trigger fetch on filter change — skip first render since SSR already provides page 1
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     const delayDebounce = setTimeout(() => {
       setCurrentPage(1);
       fetchOrders(1);
@@ -101,7 +110,7 @@ export default function AdminOrdersClient({
     return () => clearTimeout(delayDebounce);
   }, [searchTerm, statusFilter, paymentFilter]);
 
-  const handleStatusUpdate = async (orderId: string, newStatus: string) => {
+  const performStatusUpdate = async (orderId: string, newStatus: string) => {
     setUpdatingId(orderId);
     try {
       const res = await fetch("/api/admin/orders", {
@@ -125,6 +134,20 @@ export default function AdminOrdersClient({
     }
   };
 
+  const handleStatusUpdate = (orderId: string, newStatus: string) => {
+    if (newStatus === "cancelled") {
+      showConfirm(
+        "Cancel Order",
+        "This will mark the order as cancelled and send a cancellation email to the customer.",
+        () => performStatusUpdate(orderId, newStatus),
+        "Yes, cancel order",
+        "Keep order",
+      );
+      return;
+    }
+    performStatusUpdate(orderId, newStatus);
+  };
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = () => setActiveMenuId(null);
@@ -135,6 +158,7 @@ export default function AdminOrdersClient({
   }, [activeMenuId]);
 
   return (
+    <>
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
       {/* Header & Filters */}
       <div className="p-4 md:p-6 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100 space-y-3">
@@ -407,6 +431,18 @@ export default function AdminOrdersClient({
         </div>
       </div>
     </div>
+    <Modal
+      isOpen={modalState.isOpen}
+      onClose={closeModal}
+      type={modalState.type}
+      title={modalState.title}
+      message={modalState.message}
+      confirmText={modalState.confirmText}
+      cancelText={modalState.cancelText}
+      onConfirm={modalState.onConfirm}
+      showConfirmButton={modalState.showConfirmButton}
+    />
+    </>
   );
 }
 

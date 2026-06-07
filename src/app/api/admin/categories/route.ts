@@ -1,12 +1,28 @@
 import { requireAdmin } from "@/lib/adminAuth";
 import { NextResponse } from "next/server";
 
+const ALLOWED_CATEGORY_FIELDS = new Set([
+  "name", "slug", "description", "image_url", "is_active", "sort_order",
+]);
+
+function pickCategoryFields(raw: Record<string, unknown>): Record<string, unknown> {
+  const safe: Record<string, unknown> = {};
+  for (const key of ALLOWED_CATEGORY_FIELDS) {
+    if (key in raw) safe[key] = raw[key];
+  }
+  return safe;
+}
+
 export async function POST(request: Request) {
   try {
     const ctx = await requireAdmin();
     if (ctx instanceof NextResponse) return ctx;
 
-    const body = await request.json();
+    const raw = await request.json();
+    const body = pickCategoryFields(raw);
+    if (!body.name || !body.slug)
+      return NextResponse.json({ error: "name and slug are required" }, { status: 400 });
+
     const { admin } = ctx;
 
     const { data, error } = await admin
@@ -29,9 +45,13 @@ export async function PATCH(request: Request) {
     const ctx = await requireAdmin();
     if (ctx instanceof NextResponse) return ctx;
 
-    const { id, ...updates } = await request.json();
+    const { id, ...raw } = await request.json();
     if (!id)
       return NextResponse.json({ error: "Missing category id" }, { status: 400 });
+
+    const updates = pickCategoryFields(raw);
+    if (Object.keys(updates).length === 0)
+      return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
 
     const { admin } = ctx;
     const { data, error } = await admin

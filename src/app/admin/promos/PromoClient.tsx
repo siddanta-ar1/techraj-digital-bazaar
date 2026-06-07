@@ -42,6 +42,7 @@ interface Props {
 export default function PromoClient({ initialData }: Props) {
   const [promos, setPromos] = useState<PromoCode[]>(initialData);
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   // Separate flag for the background mount refresh — avoids blanking initialData with a spinner
   const [silentRefreshing, setSilentRefreshing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -177,6 +178,7 @@ export default function PromoClient({ initialData }: Props) {
       is_active: true,
     };
 
+    setSubmitting(true);
     try {
       const res = await fetch("/api/admin/promos", {
         method: editingPromo ? "PATCH" : "POST",
@@ -197,6 +199,8 @@ export default function PromoClient({ initialData }: Props) {
       fetchPromos();
     } catch (error: any) {
       showError("Error Saving Promo", error.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -648,9 +652,10 @@ export default function PromoClient({ initialData }: Props) {
                 </button>
                 <button
                   type="submit"
-                  className="px-8 py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg flex items-center gap-2"
+                  disabled={submitting}
+                  className="px-8 py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <Save className="w-5 h-5" />
+                  {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                   {editingPromo ? "Update Promo Code" : "Create Promo Code"}
                 </button>
               </div>

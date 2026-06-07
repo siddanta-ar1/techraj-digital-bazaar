@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { PurchaseSection } from "@/components/products/PurchaseSection";
 import { ProductMedia } from "@/components/products/ProductMedia";
+import { RelatedProductsSection } from "@/components/products/RelatedProductsSection";
 
 export const revalidate = 60;
 
@@ -74,23 +75,37 @@ export default async function ProductPage({
 
   if (error || !product) notFound();
 
-  // Fetch PPOM data if enabled — both queries run in parallel
+  // Fetch PPOM data (if enabled) + related products — all in parallel
   let optionGroups: any[] = [];
   let combinations: any[] = [];
+  let relatedProducts: any[] = [];
+
+  const relatedQuery = product.category?.id
+    ? supabase
+        .from("products")
+        .select("*, category:categories(name, slug), variants:product_variants(*)")
+        .eq("category_id", product.category.id)
+        .eq("is_active", true)
+        .neq("id", product.id)
+        .order("created_at", { ascending: false })
+        .limit(4)
+    : null;
 
   if (product.ppom_enabled) {
-    const [{ data: pogData }, { data: comboData }] = await Promise.all([
-      supabase
-        .from("product_option_groups")
-        .select(`*, option_group:option_groups(*, options:options(*))`)
-        .eq("product_id", product.id)
-        .order("sort_order"),
-      supabase
-        .from("option_combinations")
-        .select("*")
-        .eq("product_id", product.id)
-        .eq("is_active", true),
-    ]);
+    const [{ data: pogData }, { data: comboData }, relatedResult] =
+      await Promise.all([
+        supabase
+          .from("product_option_groups")
+          .select(`*, option_group:option_groups(*, options:options(*))`)
+          .eq("product_id", product.id)
+          .order("sort_order"),
+        supabase
+          .from("option_combinations")
+          .select("*")
+          .eq("product_id", product.id)
+          .eq("is_active", true),
+        relatedQuery ?? Promise.resolve({ data: [] }),
+      ]);
 
     optionGroups = (pogData || []).map((pog: any) => ({
       ...pog,
@@ -105,6 +120,10 @@ export default async function ProductPage({
     }));
 
     combinations = comboData || [];
+    relatedProducts = (relatedResult as any).data || [];
+  } else if (relatedQuery) {
+    const { data } = await relatedQuery;
+    relatedProducts = data || [];
   }
 
   const sortedVariants =
@@ -202,6 +221,16 @@ export default async function ProductPage({
             </div>
           </div>
         </div>
+
+        {relatedProducts.length > 0 && (
+          <section className="mt-16 pt-12 border-t border-slate-200">
+            <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+              <span className="w-1.5 h-6 bg-indigo-600 rounded-full"></span>
+              More from this category
+            </h2>
+            <RelatedProductsSection products={relatedProducts} />
+          </section>
+        )}
       </div>
     </div>
   );

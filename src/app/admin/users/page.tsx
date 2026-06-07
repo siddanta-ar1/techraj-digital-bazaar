@@ -20,7 +20,10 @@ export default async function AdminUsersPage() {
     { data: users },
   ] = await Promise.all([
     authClient.auth.getUser(),
-    supabase.from("users").select("*").order("created_at", { ascending: false }),
+    supabase
+      .from("users")
+      .select("id, email, full_name, avatar_url, role, wallet_balance, created_at, email_verified, phone")
+      .order("created_at", { ascending: false }),
   ]);
 
   return (

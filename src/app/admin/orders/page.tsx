@@ -99,7 +99,8 @@ export default async function AdminOrdersPage() {
               label: "Revenue",
               value: `Rs. ${
                 orders
-                  ?.reduce((sum: number, o: any) => sum + o.final_amount, 0)
+                  ?.filter((o: any) => o.status === "completed")
+                  .reduce((sum: number, o: any) => sum + o.final_amount, 0)
                   .toLocaleString(undefined, {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 0,
