@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ groups: groups || [], combinations: combos || [] });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Operation failed" }, { status: 500 });
   }
 }
 
@@ -49,9 +49,12 @@ export async function POST(request: Request) {
     if (error) throw error;
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Operation failed" }, { status: 500 });
   }
 }
+
+// Allowlist for PATCH — prevents arbitrary column writes via user-controlled `field` string
+const ALLOWED_COMBINATION_FIELDS = new Set(["calculated_price", "is_active", "sort_order"]);
 
 // PATCH — update a single combination field
 export async function PATCH(request: Request) {
@@ -63,6 +66,16 @@ export async function PATCH(request: Request) {
     if (!id || !field)
       return NextResponse.json({ error: "Missing id or field" }, { status: 400 });
 
+    if (!ALLOWED_COMBINATION_FIELDS.has(field))
+      return NextResponse.json({ error: "Invalid field" }, { status: 400 });
+
+    // Type-check value based on field
+    if (field === "calculated_price") {
+      const price = Number(value);
+      if (!Number.isFinite(price) || price <= 0)
+        return NextResponse.json({ error: "Invalid price" }, { status: 400 });
+    }
+
     const { admin } = ctx;
     const { error } = await admin
       .from("option_combinations")
@@ -72,7 +85,8 @@ export async function PATCH(request: Request) {
     if (error) throw error;
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/combinations] PATCH error:", error.message);
+    return NextResponse.json({ error: "Failed to update combination" }, { status: 500 });
   }
 }
 
@@ -93,6 +107,6 @@ export async function DELETE(request: Request) {
     if (error) throw error;
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Operation failed" }, { status: 500 });
   }
 }

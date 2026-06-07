@@ -1,6 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+// Per-edge-node maintenance cache — avoids a DB round-trip on every request.
+// TTL of 30 s means maintenance mode propagates to all nodes within ~30 s of toggle.
+let _mc: { active: boolean; ts: number } | null = null;
+
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -25,15 +29,9 @@ export async function middleware(request: NextRequest) {
     },
   );
 
-  // getUser() validates the JWT with Supabase's server — never use getSession() here.
-  // This call also refreshes the token when it's near expiry.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   const { pathname } = request.nextUrl;
 
-  const isAdminPage    = pathname.startsWith("/admin");
+  const isAdminPage     = pathname.startsWith("/admin");
   const isAdminApiRoute = pathname.startsWith("/api/admin");
   const isAuthApiRoute  = pathname.startsWith("/api/auth");
   const isMaintenancePage = pathname === "/maintenance";
@@ -62,13 +60,40 @@ export async function middleware(request: NextRequest) {
     return res;
   };
 
-  // Maintenance mode — cookie set by /api/admin/maintenance.
-  // Admin pages, admin API routes, and auth routes always bypass the gate so
-  // the admin can still log in and manage the site during maintenance.
-  // Non-admin API calls return 503 JSON so clients get a structured error
-  // instead of an HTML redirect — previously these were let through entirely.
-  const isUnderMaintenance =
-    request.cookies.get("__maintenance")?.value === "1";
+  // ── Maintenance check (module-level cache, O(1) on cache hit) ────────────
+  const now = Date.now();
+  let isUnderMaintenance = false;
+  if (_mc && now - _mc.ts < 30_000) {
+    isUnderMaintenance = _mc.active;
+  } else {
+    const { data } = await supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "maintenance")
+      .maybeSingle();
+    isUnderMaintenance = data?.value?.active === true;
+    _mc = { active: isUnderMaintenance, ts: now };
+  }
+
+  // ── Fast path ─────────────────────────────────────────────────────────────
+  // getUser() is a Supabase Auth network call (~100 ms). Skip it entirely for
+  // public routes when maintenance is off — the vast majority of all requests.
+  // Auth state for these pages is managed client-side by AuthProvider.
+  const needsAuthCheck =
+    isUnderMaintenance ||
+    isAdminPage ||
+    isAdminApiRoute ||
+    isProtectedPage ||
+    isAuthPage;
+
+  if (!needsAuthCheck) {
+    return supabaseResponse;
+  }
+
+  // ── Auth check (only when necessary) ─────────────────────────────────────
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const role = user?.app_metadata?.role as string | undefined;
 
   if (
@@ -91,10 +116,16 @@ export async function middleware(request: NextRequest) {
 
   if (!user) {
     if (isAdminPage || isProtectedPage) return redirect("/login");
+    if (isAdminApiRoute) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     return supabaseResponse;
   }
 
   if (isAdminPage && role !== "admin") return redirect("/dashboard");
+  if (isAdminApiRoute && role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   if (isAuthPage) return redirect("/dashboard");
 

@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { notFound, redirect } from "next/navigation";
 import OrderDetailsClient from "./OrderDetailsClient";
 import { createClient, createAdminClient } from "@/lib/supabase/server";

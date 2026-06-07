@@ -63,8 +63,9 @@ export default function CheckoutClient() {
   const [discount, setDiscount] = useState(0);
   const [isPromoApplied, setIsPromoApplied] = useState(false);
   const [promoMessage, setPromoMessage] = useState("");
-  // New state to track the specific ID of the inventory code used (for backend marking)
-  const [usedCodeId, setUsedCodeId] = useState<string | null>(null);
+  // Track whether the applied code is a gift card (inventory code) so orders/create knows
+  // to look it up by code string. We no longer pass an internal UUID — the code itself is the secret.
+  const [isInventoryCode, setIsInventoryCode] = useState(false);
 
   // Dynamic Payment Settings State
   const [paymentSettings, setPaymentSettings] = useState<any>(null);
@@ -193,7 +194,7 @@ export default function CheckoutClient() {
     setPromoMessage("");
     setDiscount(0);
     setIsPromoApplied(false);
-    setUsedCodeId(null);
+    setIsInventoryCode(false);
 
     try {
       const codeToTest = promoCode.trim();
@@ -219,14 +220,11 @@ export default function CheckoutClient() {
         return;
       }
 
-      const { type, discount: promoDiscount, message, codeId } = result;
+      const { type, discount: promoDiscount, message } = result;
       setDiscount(promoDiscount);
       setIsPromoApplied(true);
       setPromoMessage(message);
-
-      if (type === "inventory" && codeId) {
-        setUsedCodeId(codeId);
-      }
+      setIsInventoryCode(type === "inventory");
     } catch (err) {
       console.error("Promo validation error:", err);
       setPromoMessage("Error applying code. Please try again.");
@@ -240,7 +238,7 @@ export default function CheckoutClient() {
     setDiscount(0);
     setIsPromoApplied(false);
     setPromoMessage("");
-    setUsedCodeId(null);
+    setIsInventoryCode(false);
   };
 
   const finalTotal = Math.max(0, totalPrice - discount);
@@ -362,7 +360,9 @@ ${itemsList}
         paymentMeta: {
           transactionId: transactionId,
           amountPaid: manualAmountPaid,
-          usedProductCodeId: usedCodeId,
+          // Send the code string, not an internal UUID, so the server can look it up
+          // atomically. The code itself is already known to the client (they typed it).
+          usedCode: isInventoryCode ? promoCode.trim().toUpperCase() : null,
         },
       };
 

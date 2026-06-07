@@ -1,3 +1,5 @@
+export const revalidate = 60;
+
 import { Wrench, Clock, Mail, Phone } from "lucide-react";
 
 export const metadata = {

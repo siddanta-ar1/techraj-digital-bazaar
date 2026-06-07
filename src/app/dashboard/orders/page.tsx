@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import OrdersClient from "./OrdersClient";
 import { StatCard } from "@/components/dashboard/StatCard";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "My Orders – Techraj Digital",
   description: "View your order history and track deliveries",

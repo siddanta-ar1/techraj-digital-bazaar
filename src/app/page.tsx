@@ -52,46 +52,40 @@ const organizationJsonLd = {
   ],
 };
 
+export const revalidate = 60;
+
 export default async function HomePage() {
-  // 1. Initialize the Supabase client for this request
   const supabase = createAdminClient();
 
-  // Fetch featured products
-  const { data: featuredProducts } = await supabase
-    .from("products")
-    .select(
-      `
-      *,
-      category:categories(name, slug),
-      variants:product_variants(*)
-    `,
-    )
-    .eq("is_featured", true)
-    .eq("is_active", true)
-    .order("created_at", { ascending: false })
-    .limit(12);
-
-  // Fetch new arrivals
-  const { data: newArrivals } = await supabase
-    .from("products")
-    .select(
-      `
-      *,
-      category:categories(name, slug),
-      variants:product_variants(*)
-    `,
-    )
-    .eq("is_active", true)
-    .order("created_at", { ascending: false })
-    .limit(8);
-
-  // Fetch categories for quick navigation
-  const { data: categories } = await supabase
-    .from("categories")
-    .select("*")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true })
-    .limit(8);
+  const [
+    { data: featuredProducts },
+    { data: newArrivals },
+    { data: categories },
+  ] = await Promise.all([
+    supabase
+      .from("products")
+      .select(
+        `*, category:categories(name, slug), variants:product_variants(*)`,
+      )
+      .eq("is_featured", true)
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(12),
+    supabase
+      .from("products")
+      .select(
+        `*, category:categories(name, slug), variants:product_variants(*)`,
+      )
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(8),
+    supabase
+      .from("categories")
+      .select("id, name, slug, sort_order")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .limit(8),
+  ]);
 
   return (
     <div className="flex flex-col min-h-screen">

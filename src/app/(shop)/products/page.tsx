@@ -25,36 +25,23 @@ export default async function ProductsPage({
   const { category, search } = await searchParams;
   const supabase = createAdminClient();
 
-  // 1. Fetch Categories for the sidebar
-  const { data: categories } = await supabase
-    .from("categories")
-    .select("*")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true });
-
-  // 2. Build the Product Query
-  let query = supabase
+  let productQuery = supabase
     .from("products")
-    .select(
-      `
-        *,
-        category:categories(name, slug),
-        variants:product_variants(*)
-      `,
-    )
-    .eq("is_active", true);
+    .select(`*, category:categories(name, slug), variants:product_variants(*)`)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
 
-  if (category) {
-    query = query.eq("category_id", category);
-  }
+  if (category) productQuery = productQuery.eq("category_id", category);
+  if (search?.trim()) productQuery = productQuery.ilike("name", `%${search.trim()}%`);
 
-  if (search?.trim()) {
-    query = query.ilike("name", `%${search.trim()}%`);
-  }
-
-  const { data: products } = await query.order("created_at", {
-    ascending: false,
-  });
+  const [{ data: categories }, { data: products }] = await Promise.all([
+    supabase
+      .from("categories")
+      .select("*")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }),
+    productQuery,
+  ]);
 
   const searchTrimmed = search?.trim();
 

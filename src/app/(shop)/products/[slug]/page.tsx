@@ -4,6 +4,17 @@ import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { PurchaseSection } from "@/components/products/PurchaseSection";
 import { ProductMedia } from "@/components/products/ProductMedia";
 
+export const revalidate = 60;
+
+export async function generateStaticParams() {
+  const supabase = createAdminClient();
+  const { data: products } = await supabase
+    .from("products")
+    .select("slug")
+    .eq("is_active", true);
+  return (products ?? []).map((p) => ({ slug: p.slug }));
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -63,42 +74,35 @@ export default async function ProductPage({
 
   if (error || !product) notFound();
 
-  // Fetch PPOM data if enabled
+  // Fetch PPOM data if enabled — both queries run in parallel
   let optionGroups: any[] = [];
   let combinations: any[] = [];
 
   if (product.ppom_enabled) {
-    // Fetch option groups assigned to this product
-    const { data: pogData } = await supabase
-      .from("product_option_groups")
-      .select(`
-        *,
-        option_group:option_groups(
-          *,
-          options:options(*)
-        )
-      `)
-      .eq("product_id", product.id)
-      .order("sort_order");
+    const [{ data: pogData }, { data: comboData }] = await Promise.all([
+      supabase
+        .from("product_option_groups")
+        .select(`*, option_group:option_groups(*, options:options(*))`)
+        .eq("product_id", product.id)
+        .order("sort_order"),
+      supabase
+        .from("option_combinations")
+        .select("*")
+        .eq("product_id", product.id)
+        .eq("is_active", true),
+    ]);
 
     optionGroups = (pogData || []).map((pog: any) => ({
       ...pog,
       option_group: pog.option_group
         ? {
-          ...pog.option_group,
-          options: pog.option_group.options
-            ?.filter((o: any) => o.is_active)
-            .sort((a: any, b: any) => a.sort_order - b.sort_order),
-        }
+            ...pog.option_group,
+            options: pog.option_group.options
+              ?.filter((o: any) => o.is_active)
+              .sort((a: any, b: any) => a.sort_order - b.sort_order),
+          }
         : null,
     }));
-
-    // Fetch combinations
-    const { data: comboData } = await supabase
-      .from("option_combinations")
-      .select("*")
-      .eq("product_id", product.id)
-      .eq("is_active", true);
 
     combinations = comboData || [];
   }

@@ -1,6 +1,7 @@
 // File: src/app/layout.tsx
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { InboxBanner } from "@/components/layout/InboxBanner";
 import { MainNav } from "@/components/layout/MainNav";
@@ -83,8 +84,10 @@ export default function RootLayout({
         suppressHydrationWarning
         className={`${inter.variable} ${spaceGrotesk.variable} font-sans min-h-screen bg-slate-50 text-slate-900`}
       >
-        {/* Strip browser-extension attributes (e.g. bis_skin_checked) before React hydrates */}
-        <script dangerouslySetInnerHTML={{__html: `(function(){var o=new MutationObserver(function(m){m.forEach(function(r){if(r.attributeName&&r.attributeName.startsWith('bis_'))r.target.removeAttribute(r.attributeName)})});o.observe(document.documentElement,{attributes:true,subtree:true,attributeFilter:['bis_skin_checked','bis_register']});document.querySelectorAll('[bis_skin_checked],[bis_register]').forEach(function(el){el.removeAttribute('bis_skin_checked');el.removeAttribute('bis_register')})})()`}} />
+        {/* Strip browser-extension attributes before React hydrates — uses next/script
+            beforeInteractive so it runs in the HTML before React initialises (React 19
+            does not execute plain <script> tags inside components on the client). */}
+        <Script id="ext-attr-cleanup" strategy="beforeInteractive">{`(function(){var o=new MutationObserver(function(m){m.forEach(function(r){if(r.attributeName&&r.attributeName.startsWith('bis_'))r.target.removeAttribute(r.attributeName)})});o.observe(document.documentElement,{attributes:true,subtree:true,attributeFilter:['bis_skin_checked','bis_register']});document.querySelectorAll('[bis_skin_checked],[bis_register]').forEach(function(el){el.removeAttribute('bis_skin_checked');el.removeAttribute('bis_register')})})()`}</Script>
         {/* Wrap the entire app content in the Providers component */}
         <Providers>
           <div className="flex min-h-screen flex-col">

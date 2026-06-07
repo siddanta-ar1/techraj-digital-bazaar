@@ -68,12 +68,13 @@ export async function POST(request: Request) {
       // Cap discount at total amount (cannot go below 0)
       const calculatedDiscount = Math.min(discountValue, totalAmount);
 
+      // Never expose internal UUIDs — the code string is already known by the client
+      // and is sufficient to redeem the gift card server-side in orders/create.
       return NextResponse.json({
         success: true,
         type: "inventory",
         discount: calculatedDiscount,
         message: "Gift Card Applied Successfully!",
-        codeId: inventoryCode.id,
       });
     }
 

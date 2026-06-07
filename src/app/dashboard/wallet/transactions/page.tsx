@@ -18,7 +18,7 @@ export default async function TransactionsPage() {
   const admin = createAdminClient();
   const { data: transactions } = await admin
     .from("wallet_transactions")
-    .select("*")
+    .select("id, amount, type, transaction_type, description, balance_after, status, created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(50); // Get last 50 transactions

@@ -75,12 +75,32 @@ export function checkRateLimit(
   };
 }
 
-/** Extract the real client IP from Next.js request headers. */
+/**
+ * Extract the real client IP from Next.js request headers.
+ *
+ * Priority order:
+ * 1. x-real-ip  — set by Vercel Edge / nginx and cannot be overridden by clients
+ * 2. Rightmost value of x-forwarded-for — the closest trusted proxy appends to
+ *    the right, so taking the last segment defends against a client spoofing the
+ *    first segment ("leftmost attacker" pattern).
+ *
+ * Never trust the leftmost x-forwarded-for value unconditionally — it is fully
+ * attacker-controllable if the request reaches the app without passing through
+ * a proxy that strips/replaces the header.
+ */
 export function getClientIp(request: Request): string {
   const headers = request.headers;
-  return (
-    headers.get("x-forwarded-for")?.split(",")[0].trim() ??
-    headers.get("x-real-ip") ??
-    "unknown"
-  );
+
+  // Preferred: x-real-ip is injected by Vercel/nginx, not forwardable by clients
+  const realIp = headers.get("x-real-ip");
+  if (realIp) return realIp.trim();
+
+  // Fallback: rightmost segment of x-forwarded-for (added by the closest trusted proxy)
+  const forwarded = headers.get("x-forwarded-for");
+  if (forwarded) {
+    const parts = forwarded.split(",").map((s) => s.trim()).filter(Boolean);
+    if (parts.length > 0) return parts[parts.length - 1];
+  }
+
+  return "unknown";
 }

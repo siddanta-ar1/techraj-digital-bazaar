@@ -19,7 +19,13 @@ export async function POST() {
 
     const admin = createAdminClient();
 
-    // Upsert — safe to call multiple times (idempotent)
+    // INSERT only — never overwrite an existing profile.
+    // ignoreDuplicates:true means a second call is a no-op (profile already exists).
+    // wallet_balance and role are intentionally excluded so a re-invocation cannot
+    // reset a user's balance to 0 or reset an admin's role to 'user'.
+    // wallet_balance:0 and role:'user' are set here for NEW profiles only.
+    // ignoreDuplicates:true → ON CONFLICT DO NOTHING, so existing profiles are
+    // never touched — wallet balance and role cannot be reset by re-invocation.
     const { error } = await admin.from("users").upsert(
       {
         id: user.id,
@@ -31,7 +37,7 @@ export async function POST() {
         wallet_balance: 0,
         role: "user",
       },
-      { onConflict: "id", ignoreDuplicates: false },
+      { onConflict: "id", ignoreDuplicates: true },
     );
 
     if (error) {

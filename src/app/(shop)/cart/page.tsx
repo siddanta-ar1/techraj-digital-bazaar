@@ -1,4 +1,6 @@
 import { Metadata } from "next";
+
+export const revalidate = false;
 import { Suspense } from "react";
 import CartClient from "./CartClient";
 

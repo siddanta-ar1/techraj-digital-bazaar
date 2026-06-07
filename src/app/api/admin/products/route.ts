@@ -2,6 +2,13 @@ import { requireAdmin } from "@/lib/adminAuth";
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 
+const ALLOWED_PRODUCT_FIELDS = new Set<string>([
+  "name", "slug", "description", "category_id", "featured_image",
+  "gallery_images", "is_featured", "is_active", "has_variants",
+  "requires_manual_delivery", "delivery_instructions",
+  "ppom_enabled", "min_price", "max_price",
+]);
+
 // GET ?slug=...&excludeId=... — slug uniqueness check
 export async function GET(request: Request) {
   try {
@@ -22,7 +29,8 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ exists: (data?.length ?? 0) > 0 });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/products] GET error:", error.message);
+    return NextResponse.json({ error: "Operation failed" }, { status: 500 });
   }
 }
 
@@ -31,9 +39,19 @@ export async function POST(request: Request) {
     const ctx = await requireAdmin();
     if (ctx instanceof NextResponse) return ctx;
 
-    const body = await request.json();
-    const { admin } = ctx;
+    const rawBody = await request.json();
 
+    // Allowlist — prevents mass-assignment of internal columns (id, created_at, etc.)
+    const body: Record<string, unknown> = {};
+    for (const key of Object.keys(rawBody)) {
+      if (ALLOWED_PRODUCT_FIELDS.has(key)) body[key] = rawBody[key];
+    }
+
+    if (!body.name || !body.slug) {
+      return NextResponse.json({ error: "name and slug are required" }, { status: 400 });
+    }
+
+    const { admin } = ctx;
     const { data, error } = await admin
       .from("products")
       .insert([body])
@@ -46,16 +64,12 @@ export async function POST(request: Request) {
     if (data?.slug) revalidatePath(`/products/${data.slug}`);
     return NextResponse.json({ product: data });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/products] POST error:", error.message);
+    if (error.code === "23505")
+      return NextResponse.json({ error: "A product with this slug already exists." }, { status: 409 });
+    return NextResponse.json({ error: "Failed to create product" }, { status: 500 });
   }
 }
-
-const ALLOWED_PRODUCT_UPDATES = new Set<string>([
-  "name", "slug", "description", "category_id", "featured_image",
-  "gallery_images", "is_featured", "is_active", "has_variants",
-  "requires_manual_delivery", "delivery_instructions",
-  "ppom_enabled", "min_price", "max_price",
-]);
 
 export async function PATCH(request: Request) {
   try {
@@ -68,7 +82,7 @@ export async function PATCH(request: Request) {
 
     const updates: Record<string, unknown> = {};
     for (const key of Object.keys(rawUpdates)) {
-      if (ALLOWED_PRODUCT_UPDATES.has(key)) updates[key] = rawUpdates[key];
+      if (ALLOWED_PRODUCT_FIELDS.has(key)) updates[key] = rawUpdates[key];
     }
     if (Object.keys(updates).length === 0)
       return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
@@ -110,6 +124,7 @@ export async function DELETE(request: Request) {
     revalidatePath("/products");
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/products] DELETE error:", error.message);
+    return NextResponse.json({ error: "Failed to delete product" }, { status: 500 });
   }
 }

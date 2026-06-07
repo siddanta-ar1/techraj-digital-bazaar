@@ -1,4 +1,6 @@
 import { Metadata } from "next";
+
+export const revalidate = false;
 import { LockKeyhole } from "lucide-react";
 import { Suspense } from "react";
 import CheckoutLoadingSkeleton from "./CheckoutLoadingSkeleton";

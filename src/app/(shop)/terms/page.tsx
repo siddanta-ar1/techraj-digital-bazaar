@@ -1,5 +1,7 @@
 import { Metadata } from "next";
 
+export const revalidate = false;
+
 export const metadata: Metadata = {
   title: "Terms of Service - TechRaj Digital",
 };

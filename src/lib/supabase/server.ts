@@ -1,9 +1,12 @@
 import { createServerClient } from '@supabase/ssr'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+import { cache } from 'react'
 import { env } from '@/lib/env'
 
-export async function createClient() {
+// cache() deduplicates calls within a single request — cookies() is only read once
+// even when multiple Server Components or API handlers call createClient().
+export const createClient = cache(async () => {
   const cookieStore = await cookies()
 
   return createServerClient(
@@ -27,7 +30,7 @@ export async function createClient() {
       },
     }
   )
-}
+})
 
 // Uses ESM import (not require) so it works on Edge Runtime and strict ESM builds.
 // The service role key bypasses RLS — only use server-side, never expose to the client.

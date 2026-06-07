@@ -59,10 +59,17 @@ export async function POST(request: Request) {
     const ctx = await requireAdmin();
     if (ctx instanceof NextResponse) return ctx;
 
-    const { requestId, action, adminNotes } = await request.json();
+    const { requestId, action, adminNotes: rawNotes } = await request.json();
+
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!requestId || !UUID_RE.test(requestId))
+      return NextResponse.json({ error: "Invalid requestId" }, { status: 400 });
 
     if (!["approve", "reject"].includes(action))
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+
+    // Cap admin notes to prevent storage abuse
+    const adminNotes = typeof rawNotes === "string" ? rawNotes.slice(0, 1000) : undefined;
 
     const { admin } = ctx;
 

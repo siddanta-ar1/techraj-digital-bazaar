@@ -115,6 +115,17 @@ export async function POST(request: Request) {
       promoCode,
     } = orderData;
 
+    // Validate paymentScreenshotUrl if provided — must point to our own storage only
+    if (paymentScreenshotUrl != null) {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+      const allowed =
+        typeof paymentScreenshotUrl === "string" &&
+        paymentScreenshotUrl.startsWith(`${supabaseUrl}/storage/`);
+      if (!allowed) {
+        return NextResponse.json({ error: "Invalid screenshot URL" }, { status: 400 });
+      }
+    }
+
     if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: "Order must contain items" }, { status: 400 });
     }
@@ -150,7 +161,7 @@ export async function POST(request: Request) {
       variantIds.length > 0
         ? admin
             .from("product_variants")
-            .select("id, price, is_active, product_id")
+            .select("id, price, is_active, product_id, variant_name, product:products(name)")
             .in("id", variantIds)
         : Promise.resolve({ data: [] as any[], error: null }),
       combinationIds.length > 0
@@ -246,13 +257,14 @@ export async function POST(request: Request) {
       // combination price takes precedence; falls back to variant base price
       const unitPrice = combination?.calculated_price ?? variant.price;
 
+      // Use authoritative names from DB — never trust client-supplied strings (stored XSS risk)
       resolvedItems.push({
         variantId: item.variantId,
         combinationId: item.combinationId || null,
         quantity: item.quantity,
         unitPrice,
-        productName: typeof item.productName === "string" ? item.productName.slice(0, 200) : "Product",
-        variantName: typeof item.variantName === "string" ? item.variantName.slice(0, 200) : "Standard",
+        productName: (variant as any).product?.name || "Product",
+        variantName: (variant as any).variant_name || "Standard",
         optionSelections: safeOptionSelections,
       });
     }
@@ -321,6 +333,15 @@ export async function POST(request: Request) {
     const orderNumber = `TR-${crypto.randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`;
     const orderId = crypto.randomUUID();
 
+    // Sanitize the gift card code string if provided (strip to safe chars, uppercase)
+    const usedCodeStr =
+      typeof paymentMeta?.usedCode === "string"
+        ? paymentMeta.usedCode.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0, 50) || null
+        : null;
+
+    // Resolved UUID — populated below after the DB lookup
+    let usedProductCodeId: string | null = null;
+
     // Shared rollback context — passed to rollbackOrderSideEffects at every error site
     const rbCtx: RollbackCtx = {
       admin,
@@ -329,12 +350,13 @@ export async function POST(request: Request) {
       serverFinalAmount,
       paymentMethod,
       isFullDiscount,
-      usedProductCodeId: paymentMeta?.usedProductCodeId,
+      usedProductCodeId: null, // updated below after mark-used succeeds
       promoId,
     };
 
     // 7. HANDLE INVENTORY CODE USAGE (gift card applied as payment)
-    if (paymentMeta?.usedProductCodeId) {
+    // Lookup is by code STRING — never by a client-supplied UUID (prevents gift card IDOR).
+    if (usedCodeStr) {
       const { data: markedRows, error: markUsedError } = await admin
         .from("product_codes")
         .update({
@@ -342,7 +364,7 @@ export async function POST(request: Request) {
           order_id: orderId,
           used_at: new Date().toISOString(),
         })
-        .eq("id", paymentMeta.usedProductCodeId)
+        .eq("code", usedCodeStr)
         .eq("is_used", false)
         .select("id");
 
@@ -355,6 +377,9 @@ export async function POST(request: Request) {
         }
         return NextResponse.json({ error: "Gift card has already been used" }, { status: 400 });
       }
+
+      usedProductCodeId = markedRows[0].id;
+      rbCtx.usedProductCodeId = usedProductCodeId;
     }
 
     // 8. WALLET PAYMENT DEDUCTION
