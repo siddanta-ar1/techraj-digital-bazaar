@@ -32,7 +32,7 @@ interface DeliveryDetails {
 
 export default function CheckoutClient() {
   const router = useRouter();
-  const { items, totalPrice, clearCart } = useCart();
+  const { items, totalPrice, clearCart, isCartReady } = useCart();
   const { user, isLoading: authLoading, refreshBalance } = useAuth();
 
   // FIX: Load admin phone from Env Variables
@@ -153,10 +153,12 @@ export default function CheckoutClient() {
     setUploadedScreenshotUrl("");
   }, [paymentScreenshot]);
 
-  // Check empty cart
+  // Check empty cart — wait for cart to hydrate from localStorage before redirecting.
+  // Without the isCartReady guard, items=[]/length=0 fires a false redirect on every mount.
   useEffect(() => {
+    if (!isCartReady) return;
     if (items.length === 0) router.push("/cart");
-  }, [items, router]);
+  }, [items, isCartReady, router]);
 
   // Validate Form
   const validateForm = () => {
@@ -410,7 +412,7 @@ ${itemsList}
     }
   };
 
-  if (authLoading || !user || items.length === 0) {
+  if (authLoading || !user || !isCartReady || items.length === 0) {
     return (
       <div className="flex items-center justify-center py-24">
         <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />

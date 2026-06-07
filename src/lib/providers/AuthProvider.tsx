@@ -127,8 +127,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       syncingRef.current = true;
       pendingAuthUserRef.current = null;
 
-      // Optimistically show the user as logged in using JWT data
+      // Optimistically show the user as logged in using JWT data and unblock the
+      // UI immediately — is_synced:false keeps the wallet showing "..." until the
+      // DB round-trip finishes. setIsLoading(false) here instead of after the DB
+      // fetch means new tabs and checkout don't spin for 200-400ms unnecessarily.
       setUser(buildUserFromAuth(authUser));
+      setIsLoading(false);
 
       try {
         const { data, error } = await fetchUserProfile(authUser.id);
@@ -257,12 +261,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           case "USER_UPDATED":
             if (session?.user) {
               await syncProfile(session.user);
-              if (mounted) {
-                setIsLoading(false);
-                // Set up the balance channel after the initial sync so the
-                // starting value is accurate and future DB changes push automatically.
-                setupWalletChannel(session.user.id);
-              }
+              // isLoading is already set to false inside syncProfile as soon as
+              // the optimistic user is available — no need to set it again here.
+              if (mounted) setupWalletChannel(session.user.id);
             } else {
               setUser(null);
               teardownWalletChannel();
