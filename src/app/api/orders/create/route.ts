@@ -126,6 +126,25 @@ export async function POST(request: Request) {
       }
     }
 
+    // Sanitize deliveryDetails — allowlist known keys, cap size, enforce string values.
+    // Without this an attacker can store arbitrary keys/values in the JSONB column which
+    // would be a stored injection risk in any future server-side template that renders it.
+    const ALLOWED_DELIVERY_KEYS = new Set(["contactEmail", "contactPhone", "notes"]);
+    const safeDeliveryDetails: Record<string, string> = {};
+    if (deliveryDetails != null) {
+      if (typeof deliveryDetails !== "object" || Array.isArray(deliveryDetails)) {
+        return NextResponse.json({ error: "Invalid delivery details" }, { status: 400 });
+      }
+      if (JSON.stringify(deliveryDetails).length > 2048) {
+        return NextResponse.json({ error: "Delivery details too large" }, { status: 400 });
+      }
+      for (const [k, v] of Object.entries(deliveryDetails)) {
+        if (ALLOWED_DELIVERY_KEYS.has(k) && typeof v === "string") {
+          safeDeliveryDetails[k] = v.slice(0, 500);
+        }
+      }
+    }
+
     if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: "Order must contain items" }, { status: 400 });
     }
@@ -520,7 +539,7 @@ export async function POST(request: Request) {
           payment_status: isInstantPayment ? "paid" : "pending",
           payment_screenshot_url: paymentScreenshotUrl,
           delivery_details: {
-            ...deliveryDetails,
+            ...safeDeliveryDetails,
             transaction_id: paymentMeta?.transactionId,
             amount_paid: paymentMeta?.amountPaid,
           },

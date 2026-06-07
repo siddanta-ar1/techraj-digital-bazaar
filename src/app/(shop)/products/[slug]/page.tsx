@@ -139,7 +139,15 @@ export default async function ProductPage({
     <div className="min-h-screen bg-[#f8fafc]">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+        dangerouslySetInnerHTML={{
+          // JSON.stringify does not escape </script>, so a DB value containing it would
+          // break out of the script tag and inject arbitrary JS. Unicode-escape the three
+          // characters that can form an HTML tag boundary to make the output safe.
+          __html: JSON.stringify(productJsonLd)
+            .replace(/</g, "\\u003c")
+            .replace(/>/g, "\\u003e")
+            .replace(/\//g, "\\u002f"),
+        }}
       />
       <div className="max-w-7xl mx-auto p-4 lg:p-8">
         <div className="mb-8">
