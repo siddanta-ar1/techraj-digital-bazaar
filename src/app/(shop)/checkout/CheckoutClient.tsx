@@ -55,6 +55,9 @@ export default function CheckoutClient() {
   const [checkoutMode, setCheckoutMode] = useState<"idle" | "submitting" | "promo">("idle");
   // Synchronous ref guard — prevents double-submit before React state updates
   const isSubmittingRef = useRef(false);
+  // Prevents the empty-cart redirect from firing after a successful order clears the cart.
+  // Without this, clearCart() triggers the redirect effect and races with router.push("/order-success").
+  const checkoutCompleteRef = useRef(false);
   // Cache uploaded screenshot URL so retries don't re-upload
   const [uploadedScreenshotUrl, setUploadedScreenshotUrl] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -156,8 +159,11 @@ export default function CheckoutClient() {
 
   // Check empty cart — wait for cart to hydrate from localStorage before redirecting.
   // Without the isCartReady guard, items=[]/length=0 fires a false redirect on every mount.
+  // Without the checkoutCompleteRef guard, clearCart() after a successful order races with
+  // router.push("/order-success") and can redirect to /cart instead.
   useEffect(() => {
     if (!isCartReady) return;
+    if (checkoutCompleteRef.current) return;
     if (items.length === 0) router.push("/cart");
   }, [items, isCartReady, router]);
 
@@ -389,6 +395,9 @@ ${itemsList}
         currentFinalTotal,
         currentDiscount,
       );
+      // Arm the guard BEFORE clearCart so the redirect effect sees it immediately
+      // when items becomes [] and does not race with router.push below.
+      checkoutCompleteRef.current = true;
       clearCart();
       // Immediately pull the updated balance so the avatar dropdown reflects the
       // deduction before the user even sees the success page.
