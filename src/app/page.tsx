@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/server";
 
 import { ProductGrid } from "@/components/products/ProductGrid";
+import { GoogleReviews } from "@/components/home/GoogleReviews";
 import Link from "next/link";
 import { ArrowRight, Zap, Shield, Headphones } from "lucide-react";
 import type { Metadata } from "next";
@@ -93,7 +94,7 @@ export default async function HomePage() {
       />
 
       {/* Brand hero — H1 for SEO */}
-      <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 text-white py-12 md:py-16">
+      <section className="bg-linear-to-br from-slate-900 via-slate-800 to-indigo-900 text-white py-12 md:py-16">
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-3xl md:text-5xl font-extrabold mb-3 tracking-tight">
             Techraj Digital Shop
@@ -239,6 +240,8 @@ export default async function HomePage() {
           )}
         </div>
       </section>
+
+      <GoogleReviews />
 
       {/* Benefits Section */}
       <section className="py-12 bg-white border-t border-slate-100">

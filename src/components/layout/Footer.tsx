@@ -129,14 +129,14 @@ export function Footer() {
 
           {/* Support & Legal */}
           <div>
-            <h4 className="text-white font-bold text-lg mb-6">Legal</h4>
+            <h4 className="text-white font-bold text-lg mb-6">Legal & Support</h4>
             <ul className="space-y-3 text-sm">
               <li>
                 <Link
                   href="/terms"
                   className="text-slate-400 hover:text-indigo-400 hover:translate-x-1 inline-block transition-all"
                 >
-                  Terms of Service
+                  Terms &amp; Conditions
                 </Link>
               </li>
               <li>
@@ -149,10 +149,26 @@ export function Footer() {
               </li>
               <li>
                 <Link
+                  href="/refund-policy"
+                  className="text-slate-400 hover:text-indigo-400 hover:translate-x-1 inline-block transition-all"
+                >
+                  Refund Policy
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/faq"
+                  className="text-slate-400 hover:text-indigo-400 hover:translate-x-1 inline-block transition-all"
+                >
+                  FAQ
+                </Link>
+              </li>
+              <li>
+                <Link
                   href="/refund"
                   className="text-slate-400 hover:text-indigo-400 hover:translate-x-1 inline-block transition-all"
                 >
-                  Refund Policy / Request
+                  Request a Refund
                 </Link>
               </li>
             </ul>
