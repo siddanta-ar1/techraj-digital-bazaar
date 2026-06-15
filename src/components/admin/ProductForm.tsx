@@ -148,6 +148,13 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Guard against Enter-key form submission while an image is still uploading.
+    // The submit button is disabled={uploading} but that doesn't block keyboard submit.
+    if (uploading) {
+      showWarning("Upload In Progress", "Please wait for the image upload to complete before saving.");
+      return;
+    }
+
     if (!validateForm()) {
       showWarning(
         "Please Fix Errors",

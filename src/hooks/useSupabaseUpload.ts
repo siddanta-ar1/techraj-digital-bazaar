@@ -30,28 +30,43 @@ export function useSupabaseUpload({ bucket, onSuccess, onError }: UseSupabaseUpl
 
     const uploadRef = useRef<tus.Upload | null>(null);
 
-    // FIX #1: Store callbacks in refs to avoid stale closures
-    // and prevent useCallback from re-creating on every render
+    // Generation counter — incremented at the start of each upload() call.
+    // Every callback checks its captured generation against the current value;
+    // if they differ, a newer upload has superseded this one and the callback is dropped.
+    const uploadGenRef = useRef(0);
+
+    // Store callbacks in refs so TUS callbacks always see the latest versions
+    // without needing to be in useCallback deps (which would cause churn).
     const onSuccessRef = useRef(onSuccess);
     const onErrorRef = useRef(onError);
     onSuccessRef.current = onSuccess;
     onErrorRef.current = onError;
 
-    // FIX #2: Get supabase via ref — createClient() is a singleton,
-    // but calling it inside useCallback deps caused infinite loop
+    // Supabase client via ref — createClient() is a singleton but calling it
+    // inside useCallback deps caused an infinite loop.
     const supabaseRef = useRef(createClient());
 
     const upload = useCallback(
         async (file: File, path: string) => {
-            // Reset state immediately
+            // Abort and terminate any in-flight upload before starting a new one.
+            // Without this, the old TUS upload keeps running in the background and
+            // its onSuccess fires last, overwriting formData with the wrong URL.
+            if (uploadRef.current) {
+                uploadRef.current.abort(true); // true = send DELETE to Supabase storage
+                uploadRef.current = null;
+            }
+
+            // Capture this upload's generation. All async callbacks close over this
+            // value and bail out if a newer upload has started by the time they fire.
+            const gen = ++uploadGenRef.current;
+
             setState({ progress: 0, isUploading: true, error: null });
 
             const supabase = supabaseRef.current;
 
             try {
-                // FIX #3: Use getUser() for token — faster than getSession()
-                // getSession() reads from storage which can be slow on first call.
-                // Instead, get session from auth state which is already cached.
+                // getSession() is sufficient here — we only need the JWT to pass to
+                // TUS headers; we're not making a server-side identity check.
                 const {
                     data: { session },
                 } = await supabase.auth.getSession();
@@ -59,6 +74,10 @@ export function useSupabaseUpload({ bucket, onSuccess, onError }: UseSupabaseUpl
                 if (!session?.access_token) {
                     throw new Error("Not authenticated. Please log in again.");
                 }
+
+                // Guard the gap between the await and TUS start. If the user selected
+                // a second file while getSession() was in-flight, bail out here.
+                if (gen !== uploadGenRef.current) return;
 
                 return new Promise<string>((resolve, reject) => {
                     const tusUpload = new tus.Upload(file, {
@@ -74,25 +93,26 @@ export function useSupabaseUpload({ bucket, onSuccess, onError }: UseSupabaseUpl
                             bucketName: bucket,
                             objectName: path,
                             contentType: file.type,
-                            cacheControl: "3600", // FIX #4: Must be string in TUS metadata
+                            cacheControl: "3600", // Must be a string in TUS metadata
                         },
-                        chunkSize: 6 * 1024 * 1024, // Must be 6MB per Supabase docs
+                        chunkSize: 6 * 1024 * 1024, // Supabase requires exactly 6MB chunks
                         onError: (err) => {
+                            if (gen !== uploadGenRef.current) return;
                             const error = err instanceof Error ? err : new Error(String(err));
                             setState({ progress: 0, isUploading: false, error: error.message });
                             onErrorRef.current?.(error);
                             reject(error);
                         },
                         onProgress: (bytesUploaded, bytesTotal) => {
+                            if (gen !== uploadGenRef.current) return;
                             const percentage = Math.round((bytesUploaded / bytesTotal) * 100);
                             setState((prev) => ({ ...prev, progress: percentage }));
                         },
                         onSuccess: () => {
-                            // Build the public URL
+                            if (gen !== uploadGenRef.current) return;
                             const {
                                 data: { publicUrl },
                             } = supabase.storage.from(bucket).getPublicUrl(path);
-
                             setState({ progress: 100, isUploading: false, error: null });
                             onSuccessRef.current?.(publicUrl);
                             resolve(publicUrl);
@@ -101,36 +121,38 @@ export function useSupabaseUpload({ bucket, onSuccess, onError }: UseSupabaseUpl
 
                     uploadRef.current = tusUpload;
 
-                    // FIX #5: Don't search for previous uploads for small files (< 6MB)
-                    // This adds unnecessary latency for typical image uploads.
-                    // Only resume for large files where resumability matters.
+                    // Skip fingerprint lookup for small files (< 6MB) — the latency
+                    // isn't worth it for files that upload in a single chunk anyway.
                     if (file.size > 6 * 1024 * 1024) {
                         tusUpload.findPreviousUploads().then((previousUploads) => {
+                            if (gen !== uploadGenRef.current) return;
                             if (previousUploads.length) {
                                 tusUpload.resumeFromPreviousUpload(previousUploads[0]);
                             }
                             tusUpload.start();
                         });
                     } else {
-                        // Small file — just start immediately, no fingerprint lookup
                         tusUpload.start();
                     }
                 });
             } catch (err: any) {
+                if (gen !== uploadGenRef.current) return;
                 const error = err instanceof Error ? err : new Error(String(err));
                 setState({ progress: 0, isUploading: false, error: error.message });
                 onErrorRef.current?.(error);
                 throw error;
             }
         },
-        [bucket], // FIX #6: Only depend on bucket — everything else is in refs
+        [bucket],
     );
 
     const abort = useCallback(() => {
         if (uploadRef.current) {
-            uploadRef.current.abort();
+            uploadRef.current.abort(true);
             uploadRef.current = null;
         }
+        // Invalidate any in-flight callbacks by advancing the generation.
+        uploadGenRef.current++;
         setState({ progress: 0, isUploading: false, error: null });
     }, []);
 
