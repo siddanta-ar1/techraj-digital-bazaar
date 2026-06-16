@@ -48,17 +48,17 @@ export function useSupabaseUpload({ bucket, onSuccess, onError }: UseSupabaseUpl
 
     const upload = useCallback(
         async (file: File, path: string) => {
-            // Abort and terminate any in-flight upload before starting a new one.
-            // Without this, the old TUS upload keeps running in the background and
-            // its onSuccess fires last, overwriting formData with the wrong URL.
+            // Increment gen BEFORE aborting the previous upload. tus-js-client can fire
+            // onError synchronously during abort() if the upload hasn't started its
+            // initial POST yet. If gen were incremented after, onError's gen check would
+            // see a matching value and incorrectly trigger the user-visible error callback.
+            const gen = ++uploadGenRef.current;
+
             if (uploadRef.current) {
-                uploadRef.current.abort(true); // true = send DELETE to Supabase storage
+                // .catch() silences unhandled rejections if the server-side DELETE fails.
+                uploadRef.current.abort(true).catch(() => {});
                 uploadRef.current = null;
             }
-
-            // Capture this upload's generation. All async callbacks close over this
-            // value and bail out if a newer upload has started by the time they fire.
-            const gen = ++uploadGenRef.current;
 
             setState({ progress: 0, isUploading: true, error: null });
 
@@ -147,12 +147,14 @@ export function useSupabaseUpload({ bucket, onSuccess, onError }: UseSupabaseUpl
     );
 
     const abort = useCallback(() => {
+        // Invalidate in-flight callbacks BEFORE calling abort(). Same reason as in
+        // upload(): tus-js-client may fire onError synchronously during abort(), and
+        // the gen check must already see the new value to correctly drop it.
+        uploadGenRef.current++;
         if (uploadRef.current) {
-            uploadRef.current.abort(true);
+            uploadRef.current.abort(true).catch(() => {});
             uploadRef.current = null;
         }
-        // Invalidate any in-flight callbacks by advancing the generation.
-        uploadGenRef.current++;
         setState({ progress: 0, isUploading: false, error: null });
     }, []);
 
