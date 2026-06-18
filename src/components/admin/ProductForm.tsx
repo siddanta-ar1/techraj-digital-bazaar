@@ -28,6 +28,13 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Synchronous guard that closes the window between handleImageUpload being
+  // called and React re-rendering with isUploading=true. On some Android
+  // browsers the file-input onChange can fire twice in rapid succession
+  // (returning from camera/gallery); without this ref both firings would
+  // start independent TUS uploads before React state has a chance to update.
+  const uploadInProgressRef = useRef(false);
+
   const { modalState, closeModal, showSuccess, showError, showWarning } =
     useModal();
 
@@ -115,11 +122,13 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
   const { upload: tusUpload, progress: uploadProgress, isUploading: uploading, abort: abortUpload } = useSupabaseUpload({
     bucket: "products",
     onSuccess: (publicUrl) => {
+      uploadInProgressRef.current = false;
       setFormData((prev) => ({ ...prev, featured_image: publicUrl }));
       showSuccess("Image Uploaded", "Product image has been uploaded successfully!");
       if (fileInputRef.current) fileInputRef.current.value = "";
     },
     onError: (error) => {
+      uploadInProgressRef.current = false;
       showError("Upload Failed", error.message || "Failed to upload image. Please try again.");
       if (fileInputRef.current) fileInputRef.current.value = "";
     },
@@ -128,12 +137,19 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
   const handleImageUpload = async (file: File) => {
     if (!file) return;
 
+    // Synchronous guard — blocks a second invocation before React has re-rendered
+    // with isUploading=true. Handles the double-onChange race on some mobile browsers.
+    if (uploadInProgressRef.current) return;
+    uploadInProgressRef.current = true;
+
     if (file.size > 5 * 1024 * 1024) {
+      uploadInProgressRef.current = false;
       showError("File Too Large", "Please select an image smaller than 5MB.");
       return;
     }
 
     if (!file.type.startsWith("image/")) {
+      uploadInProgressRef.current = false;
       showError("Invalid File Type", "Please select a valid image file.");
       return;
     }
@@ -142,6 +158,9 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
     const filePath = `product-images/${fileName}`;
 
+    // uploadInProgressRef is reset in onSuccess / onError above. We don't use
+    // try/finally here because tusUpload() resolving early (gen mismatch) is
+    // not an error — the hook already reset its own state in that case.
     await tusUpload(file, filePath);
   };
 
@@ -214,13 +233,19 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
   };
 
   const handleImageClick = () => {
-    if (uploading) return; // Don't open file dialog during active upload
+    // Check both the React state (async) and the sync ref to close the gap
+    // between calling upload() and the first re-render with isUploading=true.
+    if (uploading || uploadInProgressRef.current) return;
     fileInputRef.current?.click();
+  };
+
+  const handleAbortUpload = () => {
+    uploadInProgressRef.current = false;
+    abortUpload();
   };
 
   const removeImage = () => {
     setFormData((prev) => ({ ...prev, featured_image: "" }));
-    // Reset file input so the same file can be re-selected
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -415,7 +440,7 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
                       <span className="text-xs text-slate-500">{uploadProgress}% uploaded</span>
                       <button
                         type="button"
-                        onClick={abortUpload}
+                        onClick={handleAbortUpload}
                         className="text-xs text-red-500 hover:text-red-700 font-medium"
                       >
                         Cancel
